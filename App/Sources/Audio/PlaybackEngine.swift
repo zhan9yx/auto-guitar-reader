@@ -17,7 +17,8 @@ final class PlaybackEngine: PlaybackOutput {
         var errorDescription: String? { "无法创建音频输出格式" }
     }
 
-    private let engine = AVAudioEngine()
+    /// Created on first use (see `MicCapture.engine`).
+    private lazy var engine = AVAudioEngine()
     private var sourceNode: AVAudioSourceNode?
     private let box = SequencerBox()
     /// The engine the audio thread is (or is about to be) rendering. Main thread only.
@@ -75,6 +76,8 @@ final class PlaybackEngine: PlaybackOutput {
     }
 
     private func teardownGraph() {
+        // Never started: do not instantiate the (lazy) AVAudioEngine just to stop it.
+        guard isRunning || sourceNode != nil else { return }
         engine.stop()
         if let node = sourceNode {
             engine.disconnectNodeOutput(node)

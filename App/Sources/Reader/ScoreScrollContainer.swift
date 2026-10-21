@@ -46,6 +46,7 @@ final class DoubleTapTarget: NSObject, UIGestureRecognizerDelegate {
 /// The hosted view is measured with `sizeThatFits` for the current width (frame-based layout,
 /// no Auto Layout), and re-measured whenever the container size changes, the root view is
 /// updated, or the document reports a new content size via `ScrollDriver.requestRelayout()`.
+@MainActor
 struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
     let driver: ScrollDriver
     let content: Content

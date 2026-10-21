@@ -39,7 +39,7 @@ struct CommunityView: View {
                 Task { await viewModel.reload() }
             }
             .onChange(of: settings.serverURLString) {
-                Task { await viewModel.reload() }
+                viewModel.scheduleReload()
             }
             .refreshable {
                 await viewModel.reload()
