@@ -7,6 +7,8 @@ let args = Array(CommandLine.arguments.dropFirst())
 switch args.first {
 case "render":
     exit(RenderCommand.run(Array(args.dropFirst())))
+case "import":
+    exit(runImportCommand(Array(args.dropFirst())))
 default:
-    print("usage: agr-tool <command> [options]")
+    print("usage: agr-tool <import|render> [options]")
 }
