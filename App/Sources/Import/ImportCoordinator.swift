@@ -165,7 +165,7 @@ final class ImportCoordinator {
             if score.meta.title.trimmed.isEmpty {
                 score.meta.title = cleanTitle.isEmpty ? Self.defaultTitle(prefix: "粘贴的曲谱") : cleanTitle
             }
-            score.pages = []
+            score.removePageData()
             drafts.append(ImportDraft(score: score, sourceDescription: "粘贴的文本"))
         } catch {
             errors.append(describeError(error))
@@ -232,7 +232,7 @@ final class ImportCoordinator {
         if score.meta.title.trimmed.isEmpty {
             score.meta.title = fileName.baseFileName
         }
-        score.pages = []   // text formats carry no page images
+        score.removePageData()   // text formats carry no page images (an .agr file may still reference some)
         return ImportDraft(score: score, sourceDescription: fileName)
     }
 

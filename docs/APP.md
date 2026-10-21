@@ -37,9 +37,12 @@ open AutoGuitarReader.xcodeproj
 CI (`.github/workflows/ios.yml`): `core-linux` (swift:6.0 container), `ios` (macos-15: xcodegen, build, test, Core tests),
 `server` (pytest).
 
-> The code in this workstream was written on a machine without Xcode/iOS SDK. It has been syntax-checked
-> (`swiftc -parse`) but not compiled against the iOS SDK; expect to fix a handful of compile errors on the first
-> real build (see "Known risks" at the end).
+> The code in this workstream was written on a machine without Xcode/iOS SDK. All App files are syntax-checked
+> (`swiftc -parse`), and the pure-logic files (`Helpers`, `ScoreStore`, `ScoreSummary`, `SampleScores`, `ScoreMerger`,
+> `SettingsStore`, `CommunityViewModel`, `ImportCoordinator`, `AppModel`, the `TabLayout` / `LyricCell` / Vision-token
+> math) were additionally type-checked and smoke-tested on Linux against the real `AGRCore` module with Apple-framework
+> stubs (see "App ↔ Core reconciliation"). The SwiftUI / UIKit / Vision / PDFKit parts have not been compiled against the
+> iOS SDK; expect to fix a handful of compile errors on the first real build (see "Known risks" at the end).
 
 ## Architecture
 
@@ -149,9 +152,44 @@ the generated device id live in `SettingsStore`.
 - No Guitar Pro import (phase 2 of the product), no per-score persisted reader preferences (font / transpose reset on open).
 - Camera import handles one photo per capture; use Photos for multi-page scores.
 
+## App ↔ Core reconciliation
+
+Every `AGRCore` symbol used by the App was audited against the real Core sources (existence, `public`, argument labels,
+optionality, `throws` / `async`, `Sendable` / `Hashable` as used). No Core API changes were needed: the inits the paper
+contract left open (`LineRef(sectionIndex:lineIndex:)`, `OCRToken(text:x:y:width:height:confidence:)`,
+`OCRPage(tokens:imageFileName:pixelWidth:pixelHeight:)`, `TimelineOptions(transpose:tempo:)`, `PlaybackOptions(...)`) are
+public in Core. The only remaining reference to a not-yet-merged Core module is `SettingsStore.scrollConfig`
+(`ScrollConfig()` + `anchorRatio` / `maxSpeed` / `manualOverrideSeconds`, contract §C): the Follow/Scroll workstream must
+expose `public init()` and public mutable properties.
+
+Conventions that matter when wiring playback:
+
+- Strum pattern priority in `PerformancePlanner` is `PlaybackOptions.strumPattern` (explicit UI choice) → section
+  `strumPatternID` → default. `SettingsStore.strumPatternID` is therefore only passed as `strumPattern` when the user
+  deliberately picked a pattern; pass `nil` to play each section with its own pattern.
+- Page images are always named `page-N.jpg` (N = 0-based page index = `PageAnchor.page`) and listed in
+  `Score.pages[].fileName` in the same order; `ScoreStore` writes them next to `score.json` under exactly that name.
+- Community upload: every uploaded asset must be named in `score.pages[].fileName` and vice versa (server rejects
+  extras / missing). Without images the client strips `pages` (line anchors are kept). Server defaults: ≤ 10 assets of
+  ≤ 5 MB (`UploadLimits`); the sheet pre-checks and suggests turning images off.
+- Text-only copies (`.agr` import, community download whose images failed) use `Score.removePageData()`, which drops
+  `pages` and the line anchors that pointed into them.
+
+Behavior fixes made during reconciliation: `describeError` understands `CommunityError`; Vision observations are never
+dropped when per-word boxes are unavailable; `.agr` imports no longer keep dangling anchors; community download only
+keeps images whose stored name equals `pages[].fileName`; upload dedupes pages, reports missing / oversized images with a
+specific message and derives the MIME type from the extension; `ScoreStore.duplicate` removes the copied directory when
+saving fails; `TabStaffView` gets its width via a preference (not `onAppear`); the scroll container's hosting controller is
+added as a child view controller while on screen and the double-tap target is a non-generic `NSObject`.
+
+`project.yml`: `io.github.zhan9yx.chordpro` is an *exported* type (our own identifier namespace; `UTType(exportedAs:)`),
+the unit-test target also depends on `AGRCore` (it imports the module directly).
+
 ## Known risks (first real build)
 
-See the final report of this workstream; the least certain APIs are `UIHostingController.safeAreaRegions`,
-property observers inside `@Observable` classes, `FileRepresentation` + `ShareLink` previews, memberwise inits of
-AGRCore structs (`OCRToken`, `OCRPage`, `LineRef`, `ScrollConfig`) which the contract does not spell out, and
-`@Sendable` annotations on SwiftUI preference callbacks.
+The least certain APIs (not verifiable without the iOS SDK): `UIHostingController.safeAreaRegions` and the
+child-view-controller attachment in `ScoreScrollContainer`, `FileRepresentation` + `ShareLink` previews (`Transferable`
+`Sendable` requirements), `@Sendable` annotations on SwiftUI preference callbacks (`onPreferenceChange` mutating `@State`),
+`@Bindable` locals inside `@ViewBuilder` functions, `ToolbarItemGroup(placement: .bottomBar)` inside the iPad detail
+column, `VNRecognizedText.boundingBox(for:)` usage, `PDFPage.bounds(for:)` with rotated pages (the page rotation is
+applied manually), and the `Canvas` text drawing in `TabStaffView`.

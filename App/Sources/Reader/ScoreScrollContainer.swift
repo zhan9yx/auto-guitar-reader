@@ -4,7 +4,14 @@ import UIKit
 /// `UIScrollView` subclass that reports when its bounds *size* changes (rotation, split view, ...).
 final class ReaderScrollView: UIScrollView {
     var onBoundsSizeChange: (() -> Void)?
+    /// Called with `true` when the view enters a window and `false` when it leaves one.
+    var onMoveToWindow: ((Bool) -> Void)?
     private var lastBoundsSize: CGSize = .zero
+
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        onMoveToWindow?(window != nil)
+    }
 
     override func layoutSubviews() {
         super.layoutSubviews()
@@ -12,6 +19,24 @@ final class ReaderScrollView: UIScrollView {
             lastBoundsSize = bounds.size
             onBoundsSizeChange?()
         }
+    }
+}
+
+/// Target / delegate of the double-tap recognizer. A non-generic type, because Objective-C selectors are not
+/// supported on classes nested in the generic `ScoreScrollContainer`.
+@MainActor
+final class DoubleTapTarget: NSObject, UIGestureRecognizerDelegate {
+    var onDoubleTap: ((UITapGestureRecognizer) -> Void)?
+
+    @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+        onDoubleTap?(recognizer)
+    }
+
+    func gestureRecognizer(
+        _ gestureRecognizer: UIGestureRecognizer,
+        shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+    ) -> Bool {
+        true
     }
 }
 
@@ -51,6 +76,9 @@ struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
         scrollView.onBoundsSizeChange = { [weak coordinator = context.coordinator] in
             coordinator?.relayout()
         }
+        scrollView.onMoveToWindow = { [weak coordinator = context.coordinator] attached in
+            coordinator?.windowChanged(attached: attached)
+        }
         return scrollView
     }
 
@@ -66,10 +94,12 @@ struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
     // MARK: Coordinator
 
     @MainActor
-    final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+    final class Coordinator: NSObject, UIScrollViewDelegate {
         let driver: ScrollDriver
         weak var scrollView: ReaderScrollView?
         var hosting: UIHostingController<Content>?
+        /// Strong reference: gesture recognizers only hold their target weakly.
+        private let doubleTapTarget = DoubleTapTarget()
 
         init(driver: ScrollDriver) {
             self.driver = driver
@@ -84,9 +114,12 @@ struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
                 self?.relayout()
             }
 
-            let doubleTap = UITapGestureRecognizer(target: self, action: #selector(handleDoubleTap(_:)))
+            doubleTapTarget.onDoubleTap = { [weak self] recognizer in
+                self?.handleDoubleTap(recognizer)
+            }
+            let doubleTap = UITapGestureRecognizer(target: doubleTapTarget, action: #selector(DoubleTapTarget.handleDoubleTap(_:)))
             doubleTap.numberOfTapsRequired = 2
-            doubleTap.delegate = self
+            doubleTap.delegate = doubleTapTarget
             doubleTap.cancelsTouchesInView = false
             scrollView.addGestureRecognizer(doubleTap)
         }
@@ -96,8 +129,35 @@ struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
             if driver.scrollView === scrollView {
                 driver.scrollView = nil
             }
+            if let hosting = hosting, hosting.parent != nil {
+                hosting.willMove(toParent: nil)
+                hosting.removeFromParent()
+            }
             hosting?.view.removeFromSuperview()
             hosting = nil
+        }
+
+        /// Keeps the hosting controller in the view-controller hierarchy while the scroll view is on screen,
+        /// so SwiftUI appearance / trait / environment propagation works as for any hosted view.
+        func windowChanged(attached: Bool) {
+            guard let hosting = hosting, let scrollView = scrollView else { return }
+            if attached {
+                guard hosting.parent == nil, let parent = Self.parentViewController(of: scrollView) else { return }
+                parent.addChild(hosting)
+                hosting.didMove(toParent: parent)
+            } else if hosting.parent != nil {
+                hosting.willMove(toParent: nil)
+                hosting.removeFromParent()
+            }
+        }
+
+        private static func parentViewController(of view: UIView) -> UIViewController? {
+            var responder: UIResponder? = view.next
+            while let current = responder {
+                if let controller = current as? UIViewController { return controller }
+                responder = current.next
+            }
+            return nil
         }
 
         /// Measures the hosted SwiftUI content for the current width and updates frame / contentSize.
@@ -138,17 +198,11 @@ struct ScoreScrollContainer<Content: View>: UIViewRepresentable {
 
         // MARK: Gestures
 
-        @objc func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
+        func handleDoubleTap(_ recognizer: UITapGestureRecognizer) {
             guard recognizer.state == .ended, let scrollView = scrollView else { return }
+            // Location in a scroll view's own coordinate space = content coordinates (bounds.origin is the offset).
             let point = recognizer.location(in: scrollView)
             driver.didDoubleTap(atContentY: point.y)
-        }
-
-        func gestureRecognizer(
-            _ gestureRecognizer: UIGestureRecognizer,
-            shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
-        ) -> Bool {
-            true
         }
     }
 }

@@ -81,14 +81,19 @@ enum VisionOCR {
             let containsCJK = string.contains { isCJK($0) }
             let useWordTokens = words.count >= 2 && (chordLike || !containsCJK)
 
+            var wordTokens: [OCRToken] = []
             if useWordTokens {
                 for (range, word) in zip(words, wordStrings) {
                     if let rectangle = try? candidate.boundingBox(for: range) {
-                        tokens.append(token(text: word, box: rectangle.boundingBox, confidence: confidence))
+                        wordTokens.append(token(text: word, box: rectangle.boundingBox, confidence: confidence))
                     }
                 }
-            } else {
+            }
+            if wordTokens.isEmpty {
+                // One line token (also the fallback when Vision has no per-word boxes): never drop an observation.
                 tokens.append(token(text: string, box: observation.boundingBox, confidence: confidence))
+            } else {
+                tokens.append(contentsOf: wordTokens)
             }
         }
         return tokens

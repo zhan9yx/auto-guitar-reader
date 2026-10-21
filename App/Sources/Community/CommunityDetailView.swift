@@ -146,10 +146,16 @@ struct CommunityDetailView: View {
         var local = remote
         local.id = UUID()
         var assets: [(name: String, data: Data)] = []
+        var fetched = Set<String>()
         var assetFailed = false
-        for page in remote.pages {
+        for page in remote.pages where fetched.insert(page.fileName).inserted {
             do {
                 let data = try await client.fetchAsset(scoreID: summary.id, name: page.fileName)
+                // Must be exactly what ScoreStore will write, or `pages[].fileName` would not match the file.
+                guard try ScoreStore.sanitizedFileName(page.fileName) == page.fileName, !data.isEmpty else {
+                    assetFailed = true
+                    break
+                }
                 assets.append((name: page.fileName, data: data))
             } catch {
                 assetFailed = true
@@ -158,7 +164,7 @@ struct CommunityDetailView: View {
         }
         if assetFailed {
             // Keep the text score usable even if the original images could not be fetched.
-            local.pages = []
+            local.removePageData()
             assets = []
             notice = "原图下载失败，已仅保存文本谱。"
         }

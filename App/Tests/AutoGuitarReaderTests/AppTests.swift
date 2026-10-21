@@ -162,6 +162,44 @@ final class AppLogicTests: XCTestCase {
         XCTAssertNil(changed.score.sections[0].lines[0].anchor)
     }
 
+    func testRemovePageDataClearsPagesAndAnchors() {
+        var score = Score(
+            meta: ScoreMeta(title: "A"),
+            sections: [ScoreSection(id: "s", name: "主歌", kind: .verse, lines: [
+                Line(kind: .lyrics, segments: [ChordSegment(chord: "C", text: "你")], anchor: PageAnchor(page: 0, y: 0.1, height: 0.05))
+            ])]
+        )
+        score.pages = [PageImage(fileName: "page-0.jpg", width: 10, height: 10)]
+        score.removePageData()
+        XCTAssertTrue(score.pages.isEmpty)
+        XCTAssertNil(score.sections[0].lines[0].anchor)
+        XCTAssertEqual(score.sections[0].lines[0].segments[0].chord, "C")
+    }
+
+    func testDescribeCommunityErrors() {
+        XCTAssertTrue(describeError(CommunityError.http(status: 413, detail: "too big")).contains("too big"))
+        XCTAssertTrue(describeError(CommunityError.http(status: 500, detail: nil)).contains("500"))
+        XCTAssertTrue(describeError(CommunityError.invalidURL).contains("服务器地址"))
+    }
+
+    func testUploadMimeTypeFollowsExtension() {
+        XCTAssertEqual(UploadLimits.mimeType(forFileName: "page-0.jpg"), "image/jpeg")
+        XCTAssertEqual(UploadLimits.mimeType(forFileName: "scan.PNG"), "image/png")
+    }
+
+    func testTabLayoutWrapsMeasuresIntoRows() {
+        let block = TabBlock(measures: Array(repeating: TabMeasure(beats: 4, events: []), count: 6))
+        let layout = TabLayout(block: block, beatsPerMeasure: 4, fontSize: 16, width: 320)
+        XCTAssertGreaterThan(layout.rows.count, 1)
+        XCTAssertEqual(layout.rows.flatMap { row in row.measures.map { measure in measure.index } }, [0, 1, 2, 3, 4, 5])
+        let usable = max(320 - layout.labelWidth - 2, 16 * 4)
+        for row in layout.rows {
+            XCTAssertLessThanOrEqual(row.width, usable + 0.001)
+        }
+        let rowCount = CGFloat(layout.rows.count)
+        XCTAssertEqual(layout.totalHeight, rowCount * layout.rowHeight + (rowCount - 1) * 16 * 0.4, accuracy: 0.001)
+    }
+
     func testImagePipelineDownscalesLongSide() throws {
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
