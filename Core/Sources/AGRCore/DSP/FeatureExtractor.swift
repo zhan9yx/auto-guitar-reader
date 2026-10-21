@@ -10,14 +10,38 @@ public struct FeatureConfig: Sendable {
     public var maxMidi = 88
     /// Log compression: log(1 + gamma * x), x = band amplitude (sqrt of band power, sine amplitude = 1).
     public var gamma: Double = 100
+    /// Highest MIDI note of `FeatureFrame.bassChroma` (MIDI `minMidi...bassMaxMidi`, E2-E3 by default: below the
+    /// range of most singing voices, which starts around D3).
+    public var bassMaxMidi = 52
+
+    // MARK: Noise gate (see `FeatureExtractor`)
+
     /// Frames below this RMS are always silent (about -54 dBFS).
     public var absoluteFloor: Double = 0.002
-    /// Gate opens above `noiseFloor * gateRatio`; closes below 0.7 x that (hysteresis).
-    public var gateRatio: Double = 3
+    /// The gate opens when the RMS exceeds `noiseFloor * gateRatio` (and `absoluteFloor`).
+    public var gateRatio: Double = 2
+    /// While open, the gate only starts closing below `gateCloseRatio` x its opening threshold (level hysteresis).
+    public var gateCloseRatio: Double = 0.7
+    /// Time hysteresis: the closing condition must hold this long (seconds) before the gate closes. Opening is
+    /// immediate. This bridges the decay between strums, soft plucks and short rests without any grace in the user.
+    public var gateHoldSeconds: Double = 0.25
+    /// The gate also opens at once when the RMS of the newest hop alone exceeds this multiple of the threshold
+    /// (an onset is heard one hop after it started instead of after half of a window).
+    public var gateFastOpenRatio: Double = 2
+    /// e-folding time (seconds) of the recent-peak envelope (the loudest recent signal level).
+    public var recentPeakSeconds: Double = 1.0
+    /// A frame counts as noise (closes the gate, may raise the floor) only if its RMS is below this fraction of
+    /// the recent peak, or if the whole recent envelope is below the gate threshold anyway.
+    public var gatePeakRatio: Double = 0.35
     /// The tracked noise floor never exceeds this (a sustained loud signal must not raise the gate forever).
     public var noiseFloorCeiling: Double = 0.02
-    /// Time for the tracked floor to double while the signal stays above it.
-    public var noiseFloorDoublingSeconds: Double = 20
+    /// The floor falls instantly to any lower RMS; it rises only from frames that count as noise, and then at most
+    /// by a factor of two per this many seconds.
+    public var noiseFloorDoublingSeconds: Double = 4
+    /// Slow rise of the floor while the gate is open (noise that creeps up during long playing): factor of two per
+    /// this many seconds, never above `noiseFloorOpenCap` x the recent peak. 0 disables.
+    public var noiseFloorOpenDoublingSeconds: Double = 60
+    public var noiseFloorOpenCap: Double = 0.02
     /// Spectral peaks below this frequency are assigned to semitones by parabolic interpolation of the peak
     /// position (energy of the 3 bins around the peak) instead of by band overlap, which would smear low notes
     /// over +-2 semitones. 0 disables.
@@ -33,6 +57,30 @@ public struct FeatureConfig: Sendable {
     }
 
     public var frameRate: Double { sampleRate / Double(hopSize) }
+
+    /// Sets a numeric tunable by name (gate, bass range, ...); returns false for unknown names. Used by the
+    /// evaluation tool (`--fset key=value`) to tune without recompiling.
+    @discardableResult
+    public mutating func set(_ key: String, _ v: Double) -> Bool {
+        switch key {
+        case "gamma": gamma = v
+        case "bassMaxMidi": bassMaxMidi = Int(v)
+        case "absoluteFloor": absoluteFloor = v
+        case "gateRatio": gateRatio = v
+        case "gateCloseRatio": gateCloseRatio = v
+        case "gateHoldSeconds": gateHoldSeconds = v
+        case "gateFastOpenRatio": gateFastOpenRatio = v
+        case "recentPeakSeconds": recentPeakSeconds = v
+        case "gatePeakRatio": gatePeakRatio = v
+        case "noiseFloorCeiling": noiseFloorCeiling = v
+        case "noiseFloorDoublingSeconds": noiseFloorDoublingSeconds = v
+        case "noiseFloorOpenDoublingSeconds": noiseFloorOpenDoublingSeconds = v
+        case "noiseFloorOpenCap": noiseFloorOpenCap = v
+        case "sharpenBelowHz": sharpenBelowHz = v
+        default: return false
+        }
+        return true
+    }
 }
 
 public struct FeatureFrame: Sendable {
@@ -45,9 +93,13 @@ public struct FeatureFrame: Sendable {
     public var onset: Float
     public var rms: Float
     public var isSilent: Bool
+    /// True while the gate is *closing*: the level is below the close threshold but the hold time has not elapsed
+    /// yet (`isSilent` is still false). Such frames are most likely the noise floor or the tail of a decay, so
+    /// consumers should not take them as evidence; the features are still computed.
+    public var isQuiet: Bool
 
     public init(time: Double, semitone: [Float], chroma: [Float], bassChroma: [Float],
-                onset: Float, rms: Float, isSilent: Bool) {
+                onset: Float, rms: Float, isSilent: Bool, isQuiet: Bool = false) {
         self.time = time
         self.semitone = semitone
         self.chroma = chroma
@@ -55,6 +107,7 @@ public struct FeatureFrame: Sendable {
         self.onset = onset
         self.rms = rms
         self.isSilent = isSilent
+        self.isQuiet = isQuiet
     }
 }
 
@@ -63,9 +116,11 @@ public struct FeatureFrame: Sendable {
 /// * semitone spectrum S[m], MIDI minMidi...maxMidi: each FFT bin's power is distributed over semitone bands
 ///   (centre ± 50 cents) proportionally to overlap, so low notes (bins sparser than semitones) conserve energy;
 ///   then log(1 + gamma x) with x = sqrt(band power) in amplitude units (a full-scale sine gives x ~ 1);
-/// * chroma (folded from S, mild low-frequency emphasis, L2-normalised), bass chroma (MIDI 40...55, L2-normalised);
+/// * chroma (folded from S, mild low-frequency emphasis, L2-normalised), bass chroma (MIDI 40...`bassMaxMidi` (52),
+///   weights 1.0 falling to 0.6, L2-normalised);
 /// * onset = half-wave-rectified spectral flux of S; rms of the window;
-/// * adaptive noise gate with hysteresis (slow-rising running minimum of RMS as noise floor).
+/// * adaptive noise gate (level hysteresis + hold time; noise floor that only rises from noise-like frames and a
+///   recent-peak envelope, see `updateGate`).
 /// Not thread-safe.
 public final class FeatureExtractor {
     public let config: FeatureConfig
@@ -94,8 +149,17 @@ public final class FeatureExtractor {
     private var prevSemi: [Float]
     private var havePrev = false
     private var noiseFloor: Double
+    private var peak = 0.0
+    /// Current gate diagnostics: tracked noise floor and recent-peak envelope (RMS units).
+    public var noiseFloorEstimate: Double { noiseFloor }
+    public var recentPeak: Double { peak }
     private var silent = true
+    private var closeFrames = 0
     private let floorRise: Double
+    private let floorOpenRise: Double
+    private let peakDecay: Double
+    private let holdFrames: Int
+    private let floorMin: Double
     private var resampled: [Float] = []
 
     public init(config: FeatureConfig = .init(), inputSampleRate: Double) {
@@ -140,9 +204,10 @@ public final class FeatureExtractor {
         chromaW = (0..<(config.maxMidi - config.minMidi + 1)).map { i in
             Float(1.4 - 0.7 * Double(i) / Double(max(config.maxMidi - config.minMidi, 1)))
         }
-        bassCount = max(0, min(55, config.maxMidi) - config.minMidi + 1)
-        // Bass chroma favours the lowest notes (weight 1.0 at MIDI 40 down to 0.6 at MIDI 55).
-        bassW = (0..<max(bassCount, 0)).map { Float(1.0 - 0.4 * Double($0) / 15.0) }
+        let nBass = max(0, min(config.bassMaxMidi, config.maxMidi) - config.minMidi + 1)
+        bassCount = nBass
+        // Bass chroma favours the lowest notes (weight 1.0 at the lowest note down to ~0.6 at the highest).
+        bassW = (0..<nBass).map { Float(1.0 - 0.4 * Double($0) / Double(max(nBass, 1))) }
         low = [Float](repeating: 0, count: config.maxMidi - config.minMidi + 1)
 
         scratchIn = [Float](repeating: 0, count: n)
@@ -151,7 +216,13 @@ public final class FeatureExtractor {
         power = re
         prevSemi = [Float](repeating: 0, count: nSemi)
         noiseFloor = config.noiseFloorCeiling
-        floorRise = pow(2.0, (Double(config.hopSize) / config.sampleRate) / max(config.noiseFloorDoublingSeconds, 1e-3))
+        let hopSeconds = Double(config.hopSize) / config.sampleRate
+        floorRise = pow(2.0, hopSeconds / max(config.noiseFloorDoublingSeconds, 1e-3))
+        floorOpenRise = config.noiseFloorOpenDoublingSeconds > 0
+            ? pow(2.0, hopSeconds / config.noiseFloorOpenDoublingSeconds) : 1
+        peakDecay = exp(-hopSeconds / max(config.recentPeakSeconds, 1e-3))
+        holdFrames = max(1, Int((config.gateHoldSeconds / hopSeconds).rounded(.up)))
+        floorMin = max(1e-7, config.absoluteFloor / max(config.gateRatio, 1))
         reset()
     }
 
@@ -163,6 +234,8 @@ public final class FeatureExtractor {
         havePrev = false
         for i in 0..<nSemi { prevSemi[i] = 0 }
         noiseFloor = config.noiseFloorCeiling
+        peak = 0
+        closeFrames = 0
         silent = true
     }
 
@@ -191,20 +264,25 @@ public final class FeatureExtractor {
     private func analyse(at start: Int) -> FeatureFrame {
         let n = config.windowSize
         var sumSq = 0.0
+        var fastSq = 0.0
+        let fastFrom = n - config.hopSize
         sig.withUnsafeBufferPointer { sp in
             window.withUnsafeBufferPointer { wp in
                 scratchIn.withUnsafeMutableBufferPointer { ip in
-                    var s: Float = 0
+                    var s: Float = 0, f: Float = 0
                     for i in 0..<n {
                         let x = sp[start + i]
                         s += x * x
+                        if i >= fastFrom { f += x * x }
                         ip[i] = x * wp[i]
                     }
                     sumSq = Double(s)
+                    fastSq = Double(f)
                 }
             }
         }
         let rms = (sumSq / Double(n)).squareRoot()
+        let rmsFast = (fastSq / Double(max(config.hopSize, 1))).squareRoot()
 
         var semi = [Float](repeating: 0, count: nSemi)
         scratchIn.withUnsafeBufferPointer { ip in
@@ -233,11 +311,7 @@ public final class FeatureExtractor {
         prevSemi = semi
         havePrev = true
 
-        // Noise gate with hysteresis.
-        noiseFloor = min(noiseFloor * floorRise, rms, config.noiseFloorCeiling)
-        noiseFloor = max(noiseFloor, 1e-7)
-        let open = max(config.absoluteFloor, noiseFloor * config.gateRatio)
-        if silent { if rms > open { silent = false } } else if rms < 0.7 * open { silent = true }
+        updateGate(rms: rms, rmsFast: rmsFast)
 
         var chroma = [Float](repeating: 0, count: 12)
         var bass = [Float](repeating: 0, count: 12)
@@ -252,7 +326,46 @@ public final class FeatureExtractor {
         }
         let time = Double(frameIndex * config.hopSize) / config.sampleRate
         return FeatureFrame(time: time, semitone: semi, chroma: chroma, bassChroma: bass,
-                            onset: flux, rms: Float(rms), isSilent: silent)
+                            onset: flux, rms: Float(rms), isSilent: silent, isQuiet: !silent && closeFrames > 0)
+    }
+
+    /// Noise gate.
+    ///
+    /// * Threshold `T = max(absoluteFloor, gateRatio * noiseFloor)`. The gate **opens at once** when the window RMS
+    ///   exceeds `T` or the newest hop alone exceeds `gateFastOpenRatio * T` (onset).
+    /// * It **closes** only after the frame has counted as quiet for `gateHoldSeconds` in a row: RMS below
+    ///   `gateCloseRatio * T` and (RMS below `gatePeakRatio` x the recent peak, or the recent peak itself below `T`).
+    ///   The hold time bridges the decay between strums, soft plucks and rests; the peak condition keeps the gate
+    ///   from closing in the valley of a loud passage even if the floor estimate is off.
+    /// * The **noise floor** falls instantly to any lower RMS (it is a minimum tracker) but rises only from frames
+    ///   that count as noise while the gate is closed (at most x2 per `noiseFloorDoublingSeconds`), so music can
+    ///   never drag it up; rising room noise is followed, a stopped player's silence is learned within seconds.
+    ///   While the gate is open it creeps up very slowly (x2 per `noiseFloorOpenDoublingSeconds`) but never above
+    ///   `noiseFloorOpenCap` x the recent peak, so a long sustained passage cannot close its own gate.
+    private func updateGate(rms: Double, rmsFast: Double) {
+        peak = max(rms, peak * peakDecay)
+        let threshold = max(config.absoluteFloor, noiseFloor * config.gateRatio)
+        let noiseLike = rms < peak * config.gatePeakRatio || peak < threshold
+        if silent {
+            if rms > threshold || rmsFast > threshold * config.gateFastOpenRatio {
+                silent = false
+                closeFrames = 0
+            }
+        } else if rms < config.gateCloseRatio * threshold && noiseLike {
+            closeFrames += 1
+            if closeFrames >= holdFrames { silent = true; closeFrames = 0 }
+        } else {
+            closeFrames = 0
+        }
+        // Noise floor (uses the pre-frame threshold above, so a note's own onset cannot lift it).
+        if rms < noiseFloor {
+            noiseFloor = rms
+        } else if silent && noiseLike {
+            noiseFloor = min(noiseFloor * floorRise, rms)
+        } else if !silent && floorOpenRise > 1 {
+            noiseFloor = max(noiseFloor, min(noiseFloor * floorOpenRise, peak * config.noiseFloorOpenCap))
+        }
+        noiseFloor = min(max(noiseFloor, floorMin), config.noiseFloorCeiling)
     }
 
     /// Fills `low[m]` with the energy of spectral peaks below `sharpenBelowHz`, assigned to the semitone containing

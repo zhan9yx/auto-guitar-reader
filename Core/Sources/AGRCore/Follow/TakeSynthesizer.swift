@@ -293,7 +293,10 @@ enum TakeSynthesizer {
         var take = SyntheticTake(audio: mix, sampleRate: o.sampleRate, truth: truth, scoreEndTime: scoreEnd,
                                  lyricChars: lyricChars, timeline: timeline)
         if let k = stopEvent {
-            take.stops = [(soundEnd: eventStart[k] - o.stopMid + o.pauseRing, restart: eventStart[k], event: k)]
+            // The sound ends when the guitar has rung out and the singer has finished the last syllable.
+            var end = eventStart[k] - o.stopMid + o.pauseRing
+            if o.withVoice { for sy in syls where sy.t0 < eventStart[k] - 0.1 { end = max(end, min(sy.t1, eventStart[k])) } }
+            take.stops = [(soundEnd: end, restart: eventStart[k], event: k)]
         }
         return take
     }

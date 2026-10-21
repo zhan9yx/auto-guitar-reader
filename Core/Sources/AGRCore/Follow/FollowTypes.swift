@@ -76,7 +76,7 @@ public struct FollowerConfig: Sendable {
     public var restCosine: Double = 0.5
 
     // MARK: Observation model (fingerstyle)
-    public var kappaFinger: Double = 3.0
+    public var kappaFinger: Double = 1.5
     /// Template amplitude of harmonics 2, 3, 4 relative to the fundamental.
     public var harmonicWeights: [Float] = [0.5, 0.35, 0.25]
     /// Weight of the ringing of the previous two events' notes that the current event does not re-strike.
@@ -127,11 +127,22 @@ public struct FollowerConfig: Sendable {
 
     // MARK: Silence
     /// Silent frames within the first `silenceGraceSeconds` of a gap still advance the duration model (without
-    /// observation); beyond that the model freezes (the player stopped, the score stops).
-    public var silenceGraceSeconds: Double = 1.0
-    /// Same for fingerstyle: soft plucks decay below the noise gate between notes, and rests are common.
-    public var fingerSilenceGraceSeconds: Double = 1.5
+    /// observation); beyond that the model freezes (the player stopped, the score stops). The extractor's gate no
+    /// longer closes between strums or soft plucks (frames of a closing gate, `FeatureFrame.isQuiet`, are handled
+    /// like silent ones and are not counted here), so this only has to bridge real rests; it also bounds how far
+    /// the clock runs ahead of a player who stopped (a 1.5 s grace let fingerstyle advance four events).
+    public var silenceGraceSeconds: Double = 0.5
+    /// Same for fingerstyle (events are ~0.35 s long, so a longer grace runs far ahead of a stopped player).
+    public var fingerSilenceGraceSeconds: Double = 0.6
     public var pauseAfterSilenceSeconds: Double = 3
+    /// After a silence of at least `resumeAfterSilenceSeconds` the frozen position is no longer trusted: when sound
+    /// resumes, a fraction `resumeSpread` of the probability mass is spread uniformly over the events
+    /// `resumeBack` before to `resumeForward` after the frozen MAP event (players resume at the phrase start, mid-chord
+    /// or after the rest; the duration model has no information about where). 0 disables.
+    public var resumeAfterSilenceSeconds: Double = 1.0
+    public var resumeSpread: Double = 0.4
+    public var resumeBack: Int = 4
+    public var resumeForward: Int = 2
 
     // MARK: Tempo adaptation
     public var tempoMin: Double = 0.5
@@ -209,6 +220,10 @@ extension FollowerConfig {
         case "silenceGraceSeconds": silenceGraceSeconds = v
         case "fingerSilenceGraceSeconds": fingerSilenceGraceSeconds = v
         case "pauseAfterSilenceSeconds": pauseAfterSilenceSeconds = v
+        case "resumeAfterSilenceSeconds": resumeAfterSilenceSeconds = v
+        case "resumeSpread": resumeSpread = v
+        case "resumeBack": resumeBack = Int(v)
+        case "resumeForward": resumeForward = Int(v)
         case "tempoMin": tempoMin = v
         case "tempoMax": tempoMax = v
         case "tempoLearningRate": tempoLearningRate = v

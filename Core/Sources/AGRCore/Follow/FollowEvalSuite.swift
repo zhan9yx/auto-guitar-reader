@@ -68,15 +68,16 @@ public enum FollowEvalSuite {
 
     // MARK: table
 
-    public static let tableHeader = "config / song                         seed   exact   +-1   medLat  p90Lat  medLive detect  vMax   aMax  back jump  visible  zone  confOK confBad lowConf"
+    public static let tableHeader = "config / song                         seed   exact   +-1   medLat  p90Lat  medLive detect  vMax   aMax  back jump  visible  zone  confOK confBad lowConf  silent  exact*  +-1*"
 
     public static func row(label: String, seed: String, _ r: FollowEvalReport) -> String {
         let l = label.padding(toLength: 34, withPad: " ", startingAt: 0)
-        return String(format: "%@ %4@  %5.1f%% %5.1f%%  %5.2fs  %5.2fs  %5.2fs  %5.1f%% %5.2f %6.2f %4d %4d  %5.1f%% %5.1f%%   %4.2f   %4.2f  %5.1f%%",
+        return String(format: "%@ %4@  %5.1f%% %5.1f%%  %5.2fs  %5.2fs  %5.2fs  %5.1f%% %5.2f %6.2f %4d %4d  %5.1f%% %5.1f%%   %4.2f   %4.2f  %5.1f%%  %5.1f%% %5.1f%% %5.1f%%",
                       l as NSString, seed as NSString, r.exactAccuracy * 100, r.withinOneAccuracy * 100, r.medianLatency, r.p90Latency,
                       r.medianLatencyLive, r.detectRate * 100, r.scrollMaxSpeed, r.scrollMaxAcceleration,
                       r.scrollBackwardMoves, r.scrollJumps, r.truthVisibleFraction * 100, r.truthInReadZoneFraction * 100,
-                      r.confidenceWhenCorrect, r.confidenceWhenWrong, r.lowConfidenceFraction * 100)
+                      r.confidenceWhenCorrect, r.confidenceWhenWrong, r.lowConfidenceFraction * 100,
+                      r.silentFraction * 100, r.exactAccuracyAll * 100, r.withinOneAccuracyAll * 100)
     }
 
     public static let stopHeader = "config / song                         nStops silent  paused  pausedFrac gateFrames recoverFrames  +-1(3s)"
@@ -109,6 +110,9 @@ public enum FollowEvalSuite {
         mean.confidenceWhenCorrect = s.mean { $0.confidenceWhenCorrect }
         mean.confidenceWhenWrong = s.mean { $0.confidenceWhenWrong }
         mean.lowConfidenceFraction = s.mean { $0.lowConfidenceFraction }
+        mean.silentFraction = s.mean { $0.silentFraction }
+        mean.exactAccuracyAll = s.mean { $0.exactAccuracyAll }
+        mean.withinOneAccuracyAll = s.mean { $0.withinOneAccuracyAll }
         mean.truthVisibleFraction = s.mean { $0.truthVisibleFraction }
         mean.truthInReadZoneFraction = s.mean { $0.truthInReadZoneFraction }
         var minR = FollowEvalReport(exactAccuracy: s.min { $0.exactAccuracy }, withinOneAccuracy: s.min { $0.withinOneAccuracy },
@@ -116,6 +120,9 @@ public enum FollowEvalSuite {
         minR.p90Latency = s.max { $0.p90Latency }
         minR.medianLatencyLive = s.max { $0.medianLatencyLive }
         minR.detectRate = s.min { $0.detectRate }
+        minR.silentFraction = s.max { $0.silentFraction }
+        minR.exactAccuracyAll = s.min { $0.exactAccuracyAll }
+        minR.withinOneAccuracyAll = s.min { $0.withinOneAccuracyAll }
         minR.truthVisibleFraction = s.min { $0.truthVisibleFraction }
         minR.truthInReadZoneFraction = s.min { $0.truthInReadZoneFraction }
         return [row(label: label + " MEAN", seed: "", mean), row(label: label + " WORST", seed: "", minR)]

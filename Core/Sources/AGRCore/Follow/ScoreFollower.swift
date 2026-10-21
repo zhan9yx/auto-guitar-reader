@@ -57,6 +57,7 @@ public final class ScoreFollower {
     private var tmpVals: [Float]
     private let bassBins: Int
     private let bassWeights: [Float]
+    private let ownBass: Bool
 
     // Onset statistics
     private var onsetMean = 0.0
@@ -117,6 +118,7 @@ public final class ScoreFollower {
         tmpVals = [Float](repeating: 0, count: window)
         let nb = max(0, min(config.bassMaxMidi, featureConfig.maxMidi) - featureConfig.minMidi + 1)
         bassBins = nb
+        ownBass = config.bassMaxMidi != featureConfig.bassMaxMidi
         bassWeights = (0..<max(nb, 1)).map { Float(1.0 - 0.4 * Double($0) / Double(max(nb, 1))) }
 
         state = FollowState(eventIndex: 0, progressInEvent: 0, confidence: 0, tempoRatio: 1, isPaused: false, time: 0)
@@ -191,6 +193,14 @@ public final class ScoreFollower {
         guard n > 0 else { return state }
         state.time = frame.time
 
+        if frame.isQuiet && !frame.isSilent {
+            // The gate is closing (decay tail, noise floor): no evidence, time passes, the silence clock is not
+            // started yet (the hold time of the gate extends the grace below).
+            for i in 0..<n { obs[i] = 1 }
+            forwardStep(onsetActive: false)
+            refreshPosterior()
+            return state
+        }
         if frame.isSilent {
             silentSeconds += framePeriod
             if silentSeconds > max(0.4, (mode == .fingerstyle ? config.fingerSilenceGraceSeconds : config.silenceGraceSeconds)) { ringCount = 0; ringHead = 0 }
@@ -204,6 +214,7 @@ public final class ScoreFollower {
             }
             return state
         }
+        if config.resumeSpread > 0 && silentSeconds >= config.resumeAfterSilenceSeconds { spreadAroundMAP() }
         silentSeconds = 0
         paused = false
 
@@ -231,14 +242,45 @@ public final class ScoreFollower {
         return state
     }
 
+    /// After a long silence: mixes a smeared copy of the posterior into the posterior itself (see
+    /// `FollowerConfig.resumeSpread`): every event gets the mass of the events that lie `resumeBack` to
+    /// `resumeForward` events away from it, spread uniformly over its sub-states. Smearing the whole event
+    /// posterior instead of only the MAP keeps equivalent positions of a repeated passage alive.
+    private func spreadAroundMAP() {
+        let back = max(config.resumeBack, 0), fwd = max(config.resumeForward, 0)
+        let w = min(max(config.resumeSpread, 0), 1)
+        let width = Double(back + fwd + 1)
+        for i in 0..<n { obs[i] = 0 }                        // scratch: smeared event mass
+        for i in 0..<n where posterior[i] > 1e-4 {
+            let share = posterior[i] / width
+            for e in max(0, i - back)...min(n - 1, i + fwd) { obs[e] += share }
+        }
+        var total = 0.0
+        for i in 0..<n { total += obs[i] }
+        guard total > 0 else { return }
+        for s in 0..<totalStates { alpha[s] *= 1 - w }
+        for i in 0..<n { hold[i] *= 1 - w }
+        for e in 0..<n where obs[e] > 0 {
+            let per = w * obs[e] / total / Double(count[e])
+            for k in 0..<count[e] { alpha[start[e] + k] += per }
+        }
+        normalize()
+        ringCount = 0; ringHead = 0
+    }
+
     // MARK: - Features
 
     private func pushFeatures(_ frame: FeatureFrame) {
-        // Own bass chroma: folded from the low semitone bins (excludes the voice's lowest partials).
-        for k in 0..<12 { liveBass[k] = 0 }
-        let minMidi = featureConfig.minMidi
-        let nb = min(bassBins, frame.semitone.count)
-        for m in 0..<nb { liveBass[(minMidi + m) % 12] += frame.semitone[m] * bassWeights[m] }
+        // Bass chroma: the extractor's (MIDI 40...bassMaxMidi, below the singing voice) when it covers the range the
+        // templates use; otherwise (a non-default `FollowerConfig.bassMaxMidi`) folded here from the low semitone bins.
+        if ownBass {
+            for k in 0..<12 { liveBass[k] = 0 }
+            let minMidi = featureConfig.minMidi
+            let nb = min(bassBins, frame.semitone.count)
+            for m in 0..<nb { liveBass[(minMidi + m) % 12] += frame.semitone[m] * bassWeights[m] }
+        } else {
+            for k in 0..<12 { liveBass[k] = frame.bassChroma[k] }
+        }
 
         let base = ringHead * 24
         for k in 0..<12 { ring[base + k] = frame.chroma[k]; ring[base + 12 + k] = liveBass[k] }

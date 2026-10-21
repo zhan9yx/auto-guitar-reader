@@ -20,7 +20,7 @@ enum FollowTest {
 
     /// A synthetic frame whose chroma/bass/semitone are derived from the notes of `event` (noise-free) plus optional
     /// extra pitch classes (voice) with weight.
-    static func frame(time: Double, notes: [Int], voicePCs: [Int] = [], voiceWeight: Float = 0, onset: Float = 0, silent: Bool = false) -> FeatureFrame {
+    static func frame(time: Double, notes: [Int], voicePCs: [Int] = [], voiceWeight: Float = 0, onset: Float = 0, silent: Bool = false, quiet: Bool = false) -> FeatureFrame {
         var semi = [Float](repeating: 0, count: fc.maxMidi - fc.minMidi + 1)
         for n in notes {
             for (h, w) in [(0, 1.0), (12, 0.5), (19, 0.35), (24, 0.25)] as [(Int, Float)] {
@@ -39,12 +39,14 @@ enum FollowTest {
         var chroma = [Float](repeating: 0, count: 12), bass = chroma
         for (i, v) in semi.enumerated() {
             chroma[(fc.minMidi + i) % 12] += v
-            if fc.minMidi + i <= 55 { bass[(fc.minMidi + i) % 12] += v }
+            if fc.minMidi + i <= fc.bassMaxMidi {
+                bass[(fc.minMidi + i) % 12] += v * Float(1.0 - 0.4 * Double(i) / Double(fc.bassMaxMidi - fc.minMidi + 1))
+            }
         }
         FeatureExtractor.l2Normalize(&chroma); FeatureExtractor.l2Normalize(&bass)
         if silent { chroma = [Float](repeating: 0, count: 12); bass = chroma }
         return FeatureFrame(time: time, semitone: silent ? [Float](repeating: 0, count: semi.count) : semi,
-                            chroma: chroma, bassChroma: bass, onset: onset, rms: silent ? 0 : 0.1, isSilent: silent)
+                            chroma: chroma, bassChroma: bass, onset: onset, rms: silent ? 0 : 0.1, isSilent: silent, isQuiet: quiet)
     }
 
     /// Plays the events in order at `speed` (1 = notated tempo): returns (time, true event) per frame fed.

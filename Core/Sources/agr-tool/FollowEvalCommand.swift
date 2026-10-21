@@ -8,22 +8,28 @@ import Foundation
 ///   agr-tool follow-eval --score song.cho [--mode ...]                    (synthesised takes of that score)
 ///   agr-tool follow-eval --score song.agr.json --audio take.wav --truth truth.csv [--mode ...]
 ///   agr-tool follow-eval --suite                                           (the standard acceptance matrix)
+///   agr-tool follow-eval --stress [--filter text]   (gate stress: full stop in a verse, quiet playing, room)
+///   --stop-mid S       insert S seconds of complete stop in the middle of a verse (reports pause / restart metrics)
+///   --level DB         gain of the take after normalisation (-12 = quiet player)
 ///   --save-take DIR    write take-<song>-<seed>.wav and truth CSV of synthesised takes into DIR
 enum FollowEvalCommand {
     static func run(_ args: [String]) -> Int32 {
         var demo = false, suite = false, stress = false
         var stopMid = 0.0, level = 0.0
+        var filter: String?
         var scorePath: String?, audioPath: String?, truthPath: String?, saveDir: String?
         var mode: FollowMode = .strumSing
         var snr: Double?
         var drift = 0.15
         var trace = false
+        var traceStep = 0.25
         var voice = false, lyrics = false, pauses = false, room = false, cpu = false
         var seeds = 5
         var gateRatio: Double?
         var songIndex: Int?
         var firstSeed: UInt64 = 1
         var overrides: [(String, Double)] = []
+        var featureOverrides: [(String, Double)] = []
         var i = 0
         func value() -> String? { i += 1; return i < args.count ? args[i] : nil }
         while i < args.count {
@@ -31,6 +37,7 @@ enum FollowEvalCommand {
             case "--demo": demo = true
             case "--suite": suite = true
             case "--stress": stress = true
+            case "--filter": filter = value()
             case "--stop-mid": stopMid = value().flatMap(Double.init) ?? 5
             case "--level": level = value().flatMap(Double.init) ?? 0
             case "--score": scorePath = value()
@@ -52,6 +59,12 @@ enum FollowEvalCommand {
             case "--room": room = true
             case "--cpu": cpu = true
             case "--trace": trace = true
+            case "--trace-step": traceStep = value().flatMap(Double.init) ?? traceStep
+            case "--fset":
+                guard let kv = value(), let eq = kv.firstIndex(of: "="), let d = Double(kv[kv.index(after: eq)...]) else {
+                    return fail("--fset expects key=value")
+                }
+                featureOverrides.append((String(kv[..<eq]), d))
             case "--set":
                 guard let kv = value(), let eq = kv.firstIndex(of: "="), let d = Double(kv[kv.index(after: eq)...]) else {
                     return fail("--set expects key=value")
@@ -63,9 +76,12 @@ enum FollowEvalCommand {
         }
         var follower = FollowerConfig()
         for (k, v) in overrides where !follower.set(k, v) { return fail("unknown tunable \(k)") }
+        var feature = FeatureConfig()
+        for (k, v) in featureOverrides where !feature.set(k, v) { return fail("unknown feature tunable \(k)") }
+        if let g = gateRatio { feature.gateRatio = g }
 
-        if suite { return runSuite(seeds: seeds, firstSeed: firstSeed, follower: follower) }
-        if stress { return runStress(seeds: seeds, firstSeed: firstSeed, follower: follower, gateRatio: gateRatio) }
+        if suite { return runSuite(seeds: seeds, firstSeed: firstSeed, follower: follower, feature: feature) }
+        if stress { return runStress(seeds: seeds, firstSeed: firstSeed, follower: follower, feature: feature, filter: filter) }
 
         // Songs.
         var songs: [FollowEvalSongs.Song] = []
@@ -94,6 +110,7 @@ enum FollowEvalCommand {
                 guard !truth.isEmpty else { return fail("empty truth file") }
                 var o = FollowEvalOptions()
                 o.followerConfig = follower
+                o.featureConfig = feature
                 o.lyrics = lyrics ? LyricsSimulation() : nil
                 o.measureCPU = true
                 let tl = Timeline.build(from: s.score)
@@ -112,7 +129,7 @@ enum FollowEvalCommand {
         cfg.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
         cfg.follower = follower
         cfg.measureCPU = cpu
-        if let g = gateRatio { cfg.featureConfig.gateRatio = g }
+        cfg.featureConfig = feature
         cfg.name = describe(mode: mode, snr: cfg.snrDB, voice: voice, lyrics: lyrics)
 
         if let d = saveDir {
@@ -133,16 +150,17 @@ enum FollowEvalCommand {
             let take = FollowEvaluator.synthesizeTake(score: s.score, mode: mode, options: cfg.takeOptions(seed: seed))
             var o = FollowEvalOptions()
             o.followerConfig = follower
+            o.featureConfig = feature
             o.lyrics = lyrics ? LyricsSimulation(seed: seed &+ 100) : nil
             o.lyricChars = take.lyricChars
             let tr = FollowEvaluator.trace(timeline: take.timeline, mode: mode, audio: take.audio, sampleRate: take.sampleRate,
                                            groundTruth: take.truth, options: o)
             var last = -1.0
-            for r in tr where r.time - last >= 0.25 {
+            for r in tr where r.time - last >= traceStep {
                 last = r.time
                 let mark = r.truth == r.estimated ? " " : (abs(r.truth - r.estimated) <= 1 ? "~" : "X")
                 let top = r.top.map { String(format: "%d:%.2f(%.2f)", $0.event, $0.mass, $0.fit) }.joined(separator: " ")
-                print(String(format: "%7.2f truth %3d est %3d %@ conf %.2f tempo %.2f %@ fit %.2f best %.2f@%d | %@", r.time, r.truth, r.estimated, mark as NSString, r.confidence, r.tempo, (r.silent ? "silent" : "") as NSString, r.dbg.fit, r.dbg.best, r.dbg.bestEvent, top as NSString))
+                print(String(format: "%7.2f truth %3d est %3d %@ conf %.2f tempo %.2f %@%@ rms %.4f floor %.4f fit %.2f best %.2f@%d | %@", r.time, r.truth, r.estimated, mark as NSString, r.confidence, r.tempo, (r.silent ? "silent " : "       ") as NSString, (r.paused ? "PAUSED" : "      ") as NSString, r.rms, r.floor, r.dbg.fit, r.dbg.best, r.dbg.bestEvent, top as NSString))
             }
             return 0
         }
@@ -164,12 +182,13 @@ enum FollowEvalCommand {
         "\(mode.rawValue) snr=\(snr.map { String(format: "%.0f", $0) } ?? "-")dB voice=\(voice) lyrics=\(lyrics)"
     }
 
-    static func runSuite(seeds: Int, firstSeed: UInt64, follower: FollowerConfig) -> Int32 {
+    static func runSuite(seeds: Int, firstSeed: UInt64, follower: FollowerConfig, feature: FeatureConfig = .init()) -> Int32 {
         func make(_ name: String, _ mode: FollowMode, snr: Double, voice: Bool, lyrics: Bool = false, pauses: Bool = false, room: Bool = false) -> FollowEvalConfiguration {
             var c = FollowEvalConfiguration(name: name, mode: mode)
             c.snrDB = snr; c.voice = voice; c.lyrics = lyrics; c.pauses = pauses; c.room = room
             c.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
             c.follower = follower
+            c.featureConfig = feature
             return c
         }
         let configs = [
@@ -196,16 +215,16 @@ enum FollowEvalCommand {
     }
 
     /// Gate stress scenarios: a full stop in the middle of a verse, quiet playing (-12 dB), both.
-    static func runStress(seeds: Int, firstSeed: UInt64, follower: FollowerConfig, gateRatio: Double?) -> Int32 {
+    static func runStress(seeds: Int, firstSeed: UInt64, follower: FollowerConfig, feature: FeatureConfig = .init(), filter: String? = nil) -> Int32 {
         func make(_ name: String, _ mode: FollowMode, snr: Double, voice: Bool, stop: Double = 0, level: Double = 0, room: Bool = false) -> FollowEvalConfiguration {
             var c = FollowEvalConfiguration(name: name, mode: mode)
             c.snrDB = snr; c.voice = voice; c.room = room; c.stopMid = stop; c.levelDB = level
             c.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
             c.follower = follower
-            if let g = gateRatio { c.featureConfig.gateRatio = g }
+            c.featureConfig = feature
             return c
         }
-        let configs = [
+        let all = [
             make("strum voice SNR15 stop5", .strumSing, snr: 15, voice: true, stop: 5),
             make("strum no-voice SNR15 stop5", .strumSing, snr: 15, voice: false, stop: 5),
             make("strum voice SNR15 stop5 room", .strumSing, snr: 15, voice: true, stop: 5, room: true),
@@ -215,6 +234,7 @@ enum FollowEvalCommand {
             make("finger SNR20 -12dB stop5", .fingerstyle, snr: 20, voice: false, stop: 5, level: -12),
             make("finger SNR20 -12dB room", .fingerstyle, snr: 20, voice: false, level: -12, room: true),
         ]
+        let configs = filter.map { f in all.filter { $0.name.contains(f) } } ?? all
         print(FollowEvalSuite.tableHeader)
         var stopLines: [String] = []
         for c in configs {

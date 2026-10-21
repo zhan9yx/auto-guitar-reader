@@ -33,6 +33,12 @@ public struct FollowEvalReport: Codable, Sendable {
     public var confidenceWhenCorrect: Double = 0
     public var confidenceWhenWrong: Double = 0
     public var lowConfidenceFraction: Double = 0
+    /// Same accuracies over *all* frames of the scored region (frames the extractor flagged silent included; the
+    /// follower holds its state there) and the fraction of those frames that were flagged silent. Unlike
+    /// `exactAccuracy` / `withinOneAccuracy` these do not depend on how aggressive the noise gate is.
+    public var exactAccuracyAll: Double = 0
+    public var withinOneAccuracyAll: Double = 0
+    public var silentFraction: Double = 0
     public var lyricsEvidenceCount: Int = 0
     public var durationSeconds: Double = 0
 
@@ -48,7 +54,7 @@ public struct FollowEvalReport: Codable, Sendable {
     public var stopPausedFraction: Double = 0
     /// Frames from the first analysis window containing the restart until the gate reopens.
     public var restartGateFrames: Double = 0
-    /// Frames from the restart (event start) until the follower reports that event exactly (capped at 5 s).
+    /// Frames from the restart (event start) until the follower reports the true event for 3 frames in a row (capped at 5 s).
     public var restartRecoveryFrames: Double = 0
     /// +-1 accuracy over the 3 s after the restart.
     public var restartWindowAccuracy: Double = 0
@@ -134,17 +140,17 @@ public enum FollowEvaluator {
     /// Per-frame trace for debugging: (time, ground-truth event, estimated event, confidence, tempo ratio, silent).
     public static func trace(timeline: Timeline, mode: FollowMode, audio: [Float], sampleRate: Double,
                              groundTruth: [(time: Double, eventIndex: Int)], options: FollowEvalOptions)
-        -> [(time: Double, truth: Int, estimated: Int, confidence: Double, tempo: Double, silent: Bool, top: [(event: Int, mass: Double, fit: Double)], dbg: (fit: Double, best: Double, bestEvent: Int))] {
+        -> [(time: Double, truth: Int, estimated: Int, confidence: Double, tempo: Double, silent: Bool, top: [(event: Int, mass: Double, fit: Double)], dbg: (fit: Double, best: Double, bestEvent: Int), rms: Float, floor: Double, paused: Bool)] {
         var o = options
         o.driveScroll = false
         o.keepTop = true
         let run = process(timeline: timeline, mode: mode, audio: audio, sampleRate: sampleRate, truth: groundTruth, options: o)
-        var out: [(time: Double, truth: Int, estimated: Int, confidence: Double, tempo: Double, silent: Bool, top: [(event: Int, mass: Double, fit: Double)], dbg: (fit: Double, best: Double, bestEvent: Int))] = []
+        var out: [(time: Double, truth: Int, estimated: Int, confidence: Double, tempo: Double, silent: Bool, top: [(event: Int, mass: Double, fit: Double)], dbg: (fit: Double, best: Double, bestEvent: Int), rms: Float, floor: Double, paused: Bool)] = []
         var k = 0
         for r in run.frames {
             while k + 1 < groundTruth.count && groundTruth[k + 1].time <= r.time { k += 1 }
             let t = (groundTruth.first.map { r.time >= $0.time } ?? false) ? groundTruth[k].eventIndex : -1
-            out.append((r.time, t, r.state.eventIndex, r.state.confidence, r.state.tempoRatio, r.silent, r.top, r.dbg))
+            out.append((r.time, t, r.state.eventIndex, r.state.confidence, r.state.tempoRatio, r.silent, r.top, r.dbg, r.rms, r.floor, r.state.isPaused))
         }
         return out
     }
@@ -158,6 +164,8 @@ public enum FollowEvaluator {
         var top: [(event: Int, mass: Double, fit: Double)] = []
         var dbg: (fit: Double, best: Double, bestEvent: Int) = (0, 0, 0)
         var truthEvent = -1
+        var rms: Float = 0
+        var floor = 0.0
     }
 
     struct RunResult {
@@ -232,6 +240,8 @@ public enum FollowEvaluator {
                     st = follower.process(f)
                 }
                 var rec = FrameRecord(time: f.time, silent: f.isSilent, state: st)
+                rec.rms = f.rms
+                rec.floor = extractor.noiseFloorEstimate
                 if o.keepTop {
                     rec.top = follower.topEvents(8)
                     while keepK + 1 < (truth ?? []).count && (truth ?? [])[keepK + 1].time <= f.time { keepK += 1 }
@@ -242,7 +252,7 @@ public enum FollowEvaluator {
         }
 
         var report = score(records: records, timeline: timeline, truth: truth ?? [], halfWindow: halfWindow, options: o)
-        scoreStops(records: records, halfWindow: halfWindow, options: o, into: &report)
+        scoreStops(records: records, truth: truth ?? [], halfWindow: halfWindow, options: o, into: &report)
         report.lyricsEvidenceCount = lyricsCount
         report.durationSeconds = Double(audio.count) / sampleRate
         if cpuFrames > 0 { report.followerMicrosPerFrame = Double(cpuNanos) / 1000 / Double(cpuFrames) }
@@ -272,9 +282,14 @@ public enum FollowEvaluator {
         var exact = 0, near = 0, total = 0
         var confOK = 0.0, confBad = 0.0, nBad = 0, nLow = 0
         var k = 0
-        for r in records where !r.silent && r.time >= firstT && r.time < endT {
+        var allN = 0, allExact = 0, allNear = 0, allSilent = 0
+        for r in records where r.time >= firstT && r.time < endT {
             while k + 1 < truth.count && truth[k + 1].time <= r.time { k += 1 }
             let t = truth[k].eventIndex
+            allN += 1
+            if r.state.eventIndex == t { allExact += 1 }
+            if abs(r.state.eventIndex - t) <= 1 { allNear += 1 }
+            if r.silent { allSilent += 1; continue }
             total += 1
             if r.state.eventIndex == t { exact += 1 }
             if abs(r.state.eventIndex - t) <= 1 { near += 1; confOK += r.state.confidence } else { nBad += 1; confBad += r.state.confidence }
@@ -312,6 +327,9 @@ public enum FollowEvaluator {
         var rep = FollowEvalReport(exactAccuracy: total > 0 ? Double(exact) / Double(total) : 0,
                                    withinOneAccuracy: total > 0 ? Double(near) / Double(total) : 0,
                                    medianLatency: pct(0.5), frames: total)
+        rep.exactAccuracyAll = allN > 0 ? Double(allExact) / Double(allN) : 0
+        rep.withinOneAccuracyAll = allN > 0 ? Double(allNear) / Double(allN) : 0
+        rep.silentFraction = allN > 0 ? Double(allSilent) / Double(allN) : 0
         rep.p90Latency = pct(0.9)
         rep.medianLatencyLive = pct(0.5) + halfWindow
         rep.p90LatencyLive = pct(0.9) + halfWindow
@@ -323,9 +341,14 @@ public enum FollowEvaluator {
     }
 
     /// Metrics of the full stops: how fast silence / pause is reported and how fast the follower recovers.
-    static func scoreStops(records: [FrameRecord], halfWindow: Double, options o: FollowEvalOptions, into rep: inout FollowEvalReport) {
+    static func scoreStops(records: [FrameRecord], truth: [(time: Double, eventIndex: Int)], halfWindow: Double, options o: FollowEvalOptions, into rep: inout FollowEvalReport) {
         guard !o.stops.isEmpty, records.count > 2 else { return }
         let hop = Double(o.featureConfig.hopSize) / o.featureConfig.sampleRate
+        func truthEvent(_ t: Double) -> Int {
+            var e = -1
+            for x in truth { if x.time <= t { e = x.eventIndex } else { break } }
+            return e
+        }
         var silentLat = 0.0, pausedLat = 0.0, pausedFrac = 0.0, gate = 0.0, recov = 0.0, win = 0.0
         for st in o.stops {
             // Silence: first frame after the last non-silent frame before the restart.
@@ -343,14 +366,19 @@ public enum FollowEvaluator {
             if let r = records.first(where: { $0.time >= st.restart - halfWindow - 0.05 && !$0.silent && $0.time + halfWindow >= st.restart - hop }) {
                 gate += max(0, (r.time + halfWindow - st.restart) / hop)
             } else { gate += 5 / hop }
-            // Recovery to the exact event.
-            if let r = records.first(where: { $0.time >= st.restart && !$0.silent && $0.state.eventIndex == st.event }), r.time - st.restart < 5 {
-                recov += max(0, (r.time - st.restart) / hop)
-            } else { recov += 5 / hop }
+            // Recovery: first frame at/after the restart from which the MAP event equals the true one for 3 frames.
+            var found: Double?
+            var run = 0
+            for r in records where r.time >= st.restart && r.time < st.restart + 5 {
+                if !r.silent && r.state.eventIndex == truthEvent(r.time) {
+                    run += 1
+                    if run == 3 { found = r.time - 2 * hop; break }
+                } else { run = 0 }
+            }
+            recov += found.map { max(0, ($0 - st.restart) / hop) } ?? 5 / hop
             let after = records.filter { !$0.silent && $0.time >= st.restart && $0.time < st.restart + 3 }
             if !after.isEmpty {
-                // Truth: the stop event from the restart on (the next event follows within 3 s; +-1 tolerance covers it).
-                win += Double(after.filter { abs($0.state.eventIndex - st.event) <= 1 }.count) / Double(after.count)
+                win += Double(after.filter { abs($0.state.eventIndex - truthEvent($0.time)) <= 1 }.count) / Double(after.count)
             }
         }
         let n = Double(o.stops.count)

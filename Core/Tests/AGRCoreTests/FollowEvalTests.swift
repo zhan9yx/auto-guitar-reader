@@ -35,6 +35,63 @@ final class FollowEvalTests: XCTestCase {
         XCTAssertNotEqual(a.truth.map(\.time), c.truth.map(\.time))
     }
 
+    func testStopMidInsertsASilentPauseAndLevelScalesTheTake() {
+        let s = shortSong()
+        var o = TakeOptions()
+        o.seed = 3; o.snrDB = 40; o.stopMid = 5
+        let take = FollowEvaluator.synthesizeTake(score: s, mode: .strumSing, options: o)
+        XCTAssertEqual(take.stops.count, 1)
+        let st = take.stops[0]
+        XCTAssertEqual(st.event, 4)                       // middle of the 8-event verse
+        XCTAssertEqual(take.truth[4].time, st.restart, accuracy: 1e-9)
+        XCTAssertGreaterThan(take.truth[4].time - take.truth[3].time, 5)
+        XCTAssertGreaterThan(st.restart - st.soundEnd, 4)
+        // The pause is (nearly) silent: RMS of the middle of the stop is far below the playing level.
+        func rms(_ a: Double, _ b: Double) -> Double {
+            let x = take.audio[Int(a * take.sampleRate)..<Int(b * take.sampleRate)]
+            return (x.reduce(0.0) { $0 + Double($1) * Double($1) } / Double(x.count)).squareRoot()
+        }
+        XCTAssertLessThan(rms(st.soundEnd + 0.5, st.restart - 0.5), 0.05 * rms(1, 4))
+        var q = o
+        q.stopMid = 0; q.outputGainDB = -12
+        var n = o
+        n.stopMid = 0
+        let quiet = FollowEvaluator.synthesizeTake(score: s, mode: .strumSing, options: q)
+        let normal = FollowEvaluator.synthesizeTake(score: s, mode: .strumSing, options: n)
+        XCTAssertTrue(quiet.stops.isEmpty)
+        let peakQ = quiet.audio.map { abs($0) }.max()!, peakN = normal.audio.map { abs($0) }.max()!
+        XCTAssertEqual(Double(peakQ / peakN), pow(10, -12.0 / 20), accuracy: 0.01)
+    }
+
+    func testStopAndRestartMetricsOnASynthesizedTake() {
+        let s = shortSong()
+        var o = TakeOptions()
+        o.seed = 5; o.snrDB = 20; o.stopMid = 5
+        let take = FollowEvaluator.synthesizeTake(score: s, mode: .strumSing, options: o)
+        var eo = FollowEvalOptions()
+        eo.stops = take.stops
+        eo.scoreEndTime = take.scoreEndTime
+        let r = FollowEvaluator.evaluate(timeline: take.timeline, mode: .strumSing, audio: take.audio, sampleRate: take.sampleRate,
+                                         groundTruth: take.truth, options: eo)
+        XCTAssertEqual(r.stopCount, 1)
+        XCTAssertLessThan(r.stopSilentLatency, 0.6)
+        XCTAssertGreaterThan(r.stopPausedLatency, 2.4)   // 3 s of silence; the gate may close a little before the nominal end of the sound
+        XCTAssertLessThan(r.stopPausedLatency, 4)
+        XCTAssertGreaterThan(r.stopPausedFraction, 0.9)
+        XCTAssertLessThan(r.restartGateFrames, 4)
+        XCTAssertLessThan(r.restartRecoveryFrames, 25)
+        XCTAssertGreaterThan(r.withinOneAccuracyAll, 0.9)
+    }
+
+    func testSplitMix64IsDeterministic() {
+        var a = SplitMix64(seed: 42), b = SplitMix64(seed: 42), c = SplitMix64(seed: 43)
+        let xs = (0..<5).map { _ in a.next() }
+        XCTAssertEqual(xs, (0..<5).map { _ in b.next() })
+        XCTAssertNotEqual(xs[0], c.next())
+        var d = SplitMix64(seed: 1)
+        for _ in 0..<1000 { let u = d.uniform(); XCTAssertTrue(u >= 0 && u <= 1) }
+    }
+
     func testDriftChangesTheTimingWithinBounds() {
         let s = shortSong()
         let tl = Timeline.build(from: s)
