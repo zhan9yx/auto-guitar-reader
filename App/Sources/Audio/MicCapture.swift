@@ -47,7 +47,9 @@ final class MicCapture {
         var errorDescription: String? { "找不到可用的麦克风输入" }
     }
 
-    private let engine = AVAudioEngine()
+    /// Created on first use: the reader creates a controller per `ScoreReaderView` initialization, most of which are
+    /// discarded by SwiftUI, so no audio engine is allocated until following actually starts.
+    private lazy var engine = AVAudioEngine()
     private let sink = MicSink()
     private var configObserver: NSObjectProtocol?
     private(set) var isRunning = false

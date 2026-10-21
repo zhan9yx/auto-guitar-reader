@@ -319,6 +319,20 @@ added as a child view controller while on screen and the double-tap target is a 
 `project.yml`: `io.github.zhan9yx.chordpro` is an *exported* type (our own identifier namespace; `UTType(exportedAs:)`),
 the unit-test target also depends on `AGRCore` (it imports the module directly).
 
+### Review pass (fresh-eyes compile / runtime review, still without an iOS SDK)
+
+Every App file was re-read against the iOS 17 SDK / Xcode 16 (Swift 5 mode). No definite compile error was found; the
+following hardening changes were made:
+
+- `project.yml`: the unit-test target sets `TEST_HOST` / `BUNDLE_LOADER` explicitly (instead of relying on XcodeGen to infer
+  them from the app dependency); Info.plist gains `NSLocalNetworkUsageDescription` (device -> LAN community server) and an
+  explicit `UIRequiresFullScreen = false`.
+- `MicCapture` / `PlaybackEngine` create their `AVAudioEngine` lazily: `ScoreReaderView.init` builds a `ReaderConductor` for
+  every initialization (SwiftUI discards most of them), which previously allocated two engines each time.
+- `ScoreScrollContainer` is `@MainActor` (its coordinator and `ScrollDriver` are), independent of the SDK's isolation
+  annotations on `UIViewRepresentable`.
+- Community: a change of the server URL in 设置 reloads through the 300 ms debounce instead of one request per keystroke.
+
 ## Known risks (first real build)
 
 Playback / follow integration (workstream F): `AVAudioSourceNode` render block and `UnsafeMutableAudioBufferListPointer`

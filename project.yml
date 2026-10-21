@@ -58,6 +58,7 @@ targets:
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: true
         UIApplicationSupportsIndirectInputEvents: true
+        UIRequiresFullScreen: false
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -73,6 +74,7 @@ targets:
         LSSupportsOpeningDocumentsInPlace: true
         NSMicrophoneUsageDescription: 用于识别你的弹奏/演唱进度以自动翻页
         NSSpeechRecognitionUsageDescription: 用于识别你演唱的歌词，帮助判断当前唱到哪一句并自动翻页
+        NSLocalNetworkUsageDescription: 用于连接局域网内的社区服务器
         NSCameraUsageDescription: 用于拍摄纸质吉他谱并识别为可播放的电子谱
         NSPhotoLibraryUsageDescription: 用于从相册选择吉他谱图片并识别
         NSAppTransportSecurity:
@@ -156,6 +158,8 @@ targets:
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zhan9yx.autoguitarreader.tests
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/AutoGuitarReader.app/AutoGuitarReader
+        BUNDLE_LOADER: $(TEST_HOST)
         GENERATE_INFOPLIST_FILE: YES
         SWIFT_VERSION: "5.0"
         TARGETED_DEVICE_FAMILY: "1,2"
