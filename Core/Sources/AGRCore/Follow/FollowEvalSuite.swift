@@ -61,14 +61,15 @@ public enum FollowEvalSuite {
 
     // MARK: table
 
-    public static let tableHeader = "config / song                         seed   exact   +-1   medLat  p90Lat  medLive detect  vMax   aMax  back jump  visible  zone"
+    public static let tableHeader = "config / song                         seed   exact   +-1   medLat  p90Lat  medLive detect  vMax   aMax  back jump  visible  zone  confOK confBad lowConf"
 
     public static func row(label: String, seed: String, _ r: FollowEvalReport) -> String {
         let l = label.padding(toLength: 34, withPad: " ", startingAt: 0)
-        return String(format: "%@ %4@  %5.1f%% %5.1f%%  %5.2fs  %5.2fs  %5.2fs  %5.1f%% %5.2f %6.2f %4d %4d  %5.1f%% %5.1f%%",
+        return String(format: "%@ %4@  %5.1f%% %5.1f%%  %5.2fs  %5.2fs  %5.2fs  %5.1f%% %5.2f %6.2f %4d %4d  %5.1f%% %5.1f%%   %4.2f   %4.2f  %5.1f%%",
                       l as NSString, seed as NSString, r.exactAccuracy * 100, r.withinOneAccuracy * 100, r.medianLatency, r.p90Latency,
                       r.medianLatencyLive, r.detectRate * 100, r.scrollMaxSpeed, r.scrollMaxAcceleration,
-                      r.scrollBackwardMoves, r.scrollJumps, r.truthVisibleFraction * 100, r.truthInReadZoneFraction * 100)
+                      r.scrollBackwardMoves, r.scrollJumps, r.truthVisibleFraction * 100, r.truthInReadZoneFraction * 100,
+                      r.confidenceWhenCorrect, r.confidenceWhenWrong, r.lowConfidenceFraction * 100)
     }
 
     /// Mean / min summary line for a set of reports.
@@ -83,6 +84,9 @@ public enum FollowEvalSuite {
         mean.scrollMaxAcceleration = s.max { $0.scrollMaxAcceleration }
         mean.scrollBackwardMoves = Int(s.reports.map(\.scrollBackwardMoves).reduce(0, +))
         mean.scrollJumps = Int(s.reports.map(\.scrollJumps).reduce(0, +))
+        mean.confidenceWhenCorrect = s.mean { $0.confidenceWhenCorrect }
+        mean.confidenceWhenWrong = s.mean { $0.confidenceWhenWrong }
+        mean.lowConfidenceFraction = s.mean { $0.lowConfidenceFraction }
         mean.truthVisibleFraction = s.mean { $0.truthVisibleFraction }
         mean.truthInReadZoneFraction = s.mean { $0.truthInReadZoneFraction }
         var minR = FollowEvalReport(exactAccuracy: s.min { $0.exactAccuracy }, withinOneAccuracy: s.min { $0.withinOneAccuracy },

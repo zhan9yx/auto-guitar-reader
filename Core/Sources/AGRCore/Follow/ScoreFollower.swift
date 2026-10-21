@@ -38,6 +38,7 @@ public final class ScoreFollower {
     // Dynamic probabilities
     private var adv: [Double]
     private var alpha: [Double]
+    private var hold: [Double]
     private var next: [Double]
     private var outMass: [Double]
     private var obs: [Double]
@@ -105,6 +106,7 @@ public final class ScoreFollower {
         adv = [Double](repeating: 0.5, count: events.count)
         alpha = [Double](repeating: 0, count: max(total, 1))
         next = alpha
+        hold = [Double](repeating: 0, count: events.count)
         outMass = [Double](repeating: 0, count: events.count)
         obs = [Double](repeating: 1, count: events.count)
         posterior = [Double](repeating: 0, count: events.count)
@@ -131,6 +133,7 @@ public final class ScoreFollower {
         guard n > 0 else { return }
         let idx = min(max(index, 0), n - 1)
         for s in 0..<totalStates { alpha[s] = 1e-12 / Double(max(totalStates, 1)) }
+        for i in 0..<n { hold[i] = 0 }
         func put(_ e: Int, _ mass: Double, spread: Double) {
             guard e >= 0 && e < n else { return }
             let m = count[e]
@@ -156,6 +159,7 @@ public final class ScoreFollower {
             let f = (1 - w) + w * min(max(evidence[i], 0), 1)
             let s0 = start[i]
             for k in 0..<count[i] { alpha[s0 + k] *= f }
+            hold[i] *= f
         }
         normalize()
         refreshPosterior()
@@ -291,6 +295,7 @@ public final class ScoreFollower {
 
     private func resetPrior() {
         for s in 0..<totalStates { alpha[s] = 0 }
+        for i in 0..<n { hold[i] = 0 }
         let uniform = max(1 - config.startAtFirst - config.startAtSection, 0.02) / Double(max(n, 1))
         for i in 0..<n { alpha[start[i]] += uniform }
         alpha[start[0]] += config.startAtFirst
@@ -302,12 +307,14 @@ public final class ScoreFollower {
     private func normalize() {
         var sum = 0.0
         for s in 0..<totalStates { sum += alpha[s] }
+        for i in 0..<n { sum += hold[i] }
         if !(sum > 1e-280) || !sum.isFinite {
             resetPrior()
             return
         }
         let inv = 1 / sum
         for s in 0..<totalStates { alpha[s] = max(alpha[s] * inv, 1e-40) }
+        for i in 0..<n { hold[i] = max(hold[i] * inv, 1e-40) }
     }
 
     private func forwardStep(onsetActive: Bool) {
@@ -321,6 +328,7 @@ public final class ScoreFollower {
         let leak = config.restartLeak / Double(max(n, 1))
         let maxExit = config.maxExitProb
         let jumpIn = pJump * prevTotalOut
+        let hf = config.holdFraction
         var totalOut = 0.0
         var sum = 0.0
 
@@ -355,8 +363,16 @@ public final class ScoreFollower {
                 arriving = al * pa
                 out += al * pe
             }
-            outMass[i] = out
-            totalOut += out
+            // Hold state: waits for the sound to move on.
+            let hOld = hold[i]
+            let hx = last ? 0 : min(maxExit, config.holdExit * (fingerstyle ? gate : 1))
+            let outH = hOld * hx
+            let outTotal = (1 - hf) * out + outH
+            outMass[i] = outTotal
+            totalOut += outTotal
+            let hNew = (hOld * (1 - hx) + (last ? 0 : hf * out)) * o
+            hold[i] = hNew
+            sum += hNew
         }
         prevTotalOut = totalOut
         // swap
@@ -367,6 +383,7 @@ public final class ScoreFollower {
         }
         let inv = 1 / sum
         for s in 0..<totalStates { alpha[s] = max(alpha[s] * inv, 1e-40) }
+        for i in 0..<n { hold[i] = max(hold[i] * inv, 1e-40) }
     }
 
     // MARK: - Outputs
@@ -377,6 +394,7 @@ public final class ScoreFollower {
             var p = 0.0
             let s0 = start[i]
             for k in 0..<count[i] { p += alpha[s0 + k] }
+            p += hold[i]
             posterior[i] = p
             if p > bestP { bestP = p; best = i }
         }
@@ -385,7 +403,7 @@ public final class ScoreFollower {
         let s0 = start[best], m = count[best]
         if bestP > 0 {
             for k in 0..<m { pos += (Double(k) + 0.5) * alpha[s0 + k] }
-            pos = pos / bestP / Double(m)
+            pos = pos / bestP / Double(m) + hold[best] / bestP
         }
         var window = bestP
         if best > 0 { window += posterior[best - 1] }

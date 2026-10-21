@@ -99,6 +99,12 @@ public struct FollowerConfig: Sendable {
     public var pNext: Double = 0.90
     public var pSkip: Double = 0.07
     public var pJump: Double = 0.03
+    /// Hold state (pauses, fermatas, a chord held longer than notated): a fraction `holdFraction` of the mass leaving
+    /// an event enters a "hold" state of that event (same observation, exit probability `holdExit` per frame) instead
+    /// of moving on. Hold hypotheses survive as long as the sound still matches the event while all hypotheses that
+    /// moved on are rejected by the observation.
+    public var holdFraction: Double = 0.1
+    public var holdExit: Double = 0.03
     /// Mass per frame injected uniformly into the first sub-state of every event (re-acquisition when lost).
     public var restartLeak: Double = 1e-6
     /// Prior at start: probability that the player starts at event 0 / at another section start (rest: anywhere).
@@ -182,6 +188,8 @@ extension FollowerConfig {
         case "maxSubstates": maxSubstates = Int(v)
         case "strumEarlyWindow": strumEarlyWindow = v
         case "strumEarlyExit": strumEarlyExit = v
+        case "holdFraction": holdFraction = v
+        case "holdExit": holdExit = v
         case "pNext": pNext = v
         case "pSkip": pSkip = v
         case "pJump": pJump = v

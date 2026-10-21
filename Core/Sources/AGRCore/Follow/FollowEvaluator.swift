@@ -27,6 +27,10 @@ public struct FollowEvalReport: Codable, Sendable {
     public var truthInReadZoneFraction: Double = 0
     /// Mean follower.process time per frame in microseconds (0 unless measured).
     public var followerMicrosPerFrame: Double = 0
+    /// Mean confidence on frames within +-1 event of the truth / on the others, and the fraction of frames below 0.35.
+    public var confidenceWhenCorrect: Double = 0
+    public var confidenceWhenWrong: Double = 0
+    public var lowConfidenceFraction: Double = 0
     public var lyricsEvidenceCount: Int = 0
     public var durationSeconds: Double = 0
 
@@ -239,13 +243,15 @@ public enum FollowEvaluator {
         }
         let endT = truthEnd(timeline: timeline, truth: truth, options: options)
         var exact = 0, near = 0, total = 0
+        var confOK = 0.0, confBad = 0.0, nBad = 0, nLow = 0
         var k = 0
         for r in records where !r.silent && r.time >= firstT && r.time < endT {
             while k + 1 < truth.count && truth[k + 1].time <= r.time { k += 1 }
             let t = truth[k].eventIndex
             total += 1
             if r.state.eventIndex == t { exact += 1 }
-            if abs(r.state.eventIndex - t) <= 1 { near += 1 }
+            if abs(r.state.eventIndex - t) <= 1 { near += 1; confOK += r.state.confidence } else { nBad += 1; confBad += r.state.confidence }
+            if r.state.confidence < 0.35 { nLow += 1 }
         }
 
         // Transition-detection latency.
@@ -283,6 +289,9 @@ public enum FollowEvaluator {
         rep.medianLatencyLive = pct(0.5) + halfWindow
         rep.p90LatencyLive = pct(0.9) + halfWindow
         rep.detectRate = transitions > 0 ? Double(detected) / Double(transitions) : 0
+        rep.confidenceWhenCorrect = near > 0 ? confOK / Double(near) : 0
+        rep.confidenceWhenWrong = nBad > 0 ? confBad / Double(nBad) : 0
+        rep.lowConfidenceFraction = total > 0 ? Double(nLow) / Double(total) : 0
         return rep
     }
 
@@ -357,7 +366,9 @@ public enum FollowEvaluator {
                 } else {
                     let v = (off - oPrev) / dtDisp
                     maxV = max(maxV, abs(v))
-                    if let vp = vPrev { maxA = max(maxA, abs(v - vp) / dtDisp) }
+                    // Steps where the offset sits on a document end are excluded (the scroll view's bounds stop it).
+                    let atEnd = off <= 1e-9 || off >= content - H - 1e-9 || oPrev <= 1e-9 || oPrev >= content - H - 1e-9
+                    if let vp = vPrev, !atEnd { maxA = max(maxA, abs(v - vp) / dtDisp) }
                     vPrev = v
                     if v < -1e-9 { backRun += -v * dtDisp; inBack = true }
                     else if inBack {

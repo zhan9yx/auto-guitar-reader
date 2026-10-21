@@ -245,6 +245,9 @@ public final class ScrollController {
             // Coast: relax to the feed speed (0 after coastSeconds).
             a = -2 * omega * (velocity - feedSpeed)
         }
+        // Wall guard: never run into the ends of the document faster than we can brake.
+        let wall = velocity > 0 ? maxOffset - offset : offset
+        if abs(velocity) > 0 && velocity * velocity > 1.6 * amax * max(wall, 0) { a = -amax * (velocity > 0 ? 1 : -1) }
         a = min(max(a, -amax), amax)
         velocity += a * dt
         velocity = min(max(velocity, -vmax), vmax)
