@@ -328,7 +328,7 @@ public final class ScoreFollower {
         let leak = config.restartLeak / Double(max(n, 1))
         let maxExit = config.maxExitProb
         let jumpIn = pJump * prevTotalOut
-        let hf = config.holdFraction
+        let hf = fingerstyle ? config.fingerHoldFraction : config.holdFraction
         var totalOut = 0.0
         var sum = 0.0
 

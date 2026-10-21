@@ -58,7 +58,7 @@ enum FollowEvalCommand {
         var follower = FollowerConfig()
         for (k, v) in overrides where !follower.set(k, v) { return fail("unknown tunable \(k)") }
 
-        if suite { return runSuite(seeds: seeds, follower: follower) }
+        if suite { return runSuite(seeds: seeds, firstSeed: firstSeed, follower: follower) }
 
         // Songs.
         var songs: [FollowEvalSongs.Song] = []
@@ -154,11 +154,11 @@ enum FollowEvalCommand {
         "\(mode.rawValue) snr=\(snr.map { String(format: "%.0f", $0) } ?? "-")dB voice=\(voice) lyrics=\(lyrics)"
     }
 
-    static func runSuite(seeds: Int, follower: FollowerConfig) -> Int32 {
+    static func runSuite(seeds: Int, firstSeed: UInt64, follower: FollowerConfig) -> Int32 {
         func make(_ name: String, _ mode: FollowMode, snr: Double, voice: Bool, lyrics: Bool = false, pauses: Bool = false, room: Bool = false) -> FollowEvalConfiguration {
             var c = FollowEvalConfiguration(name: name, mode: mode)
             c.snrDB = snr; c.voice = voice; c.lyrics = lyrics; c.pauses = pauses; c.room = room
-            c.seeds = (1...UInt64(seeds)).map { $0 }
+            c.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
             c.follower = follower
             return c
         }

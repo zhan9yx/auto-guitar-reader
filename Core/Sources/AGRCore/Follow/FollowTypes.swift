@@ -49,7 +49,7 @@ public struct FollowerConfig: Sendable {
     /// Weight of the bass-chroma cosine term (log domain).
     public var kappaBass: Double = 1.0
     /// Chroma smoothing window (seconds) and filter.
-    public var chromaSmoothSeconds: Double = 0.3
+    public var chromaSmoothSeconds: Double = 0.1
     public var chromaSmoothing: ChromaSmoothing = .median
     /// Template weights: lowest sounding note / chord root, other chord tones.
     public var rootWeight: Float = 1.0
@@ -82,7 +82,7 @@ public struct FollowerConfig: Sendable {
     /// Weight of the ringing of the previous two events' notes that the current event does not re-strike.
     public var ringDecay: [Float] = [0.45, 0.2]
     /// Mix of the semitone-spectrum cosine vs the chroma cosine for fingerstyle (1 = semitone only).
-    public var fingerSemitoneMix: Double = 0.7
+    public var fingerSemitoneMix: Double = 0.85
 
     // MARK: Transitions
     /// Duration model: each event is split into round(d / substateFrames) sub-states.
@@ -105,6 +105,8 @@ public struct FollowerConfig: Sendable {
     /// moved on are rejected by the observation.
     public var holdFraction: Double = 0.1
     public var holdExit: Double = 0.03
+    /// Hold fraction for fingerstyle (the next note's onset is the cue there; held notes are rarely longer than notated).
+    public var fingerHoldFraction: Double = 0
     /// Mass per frame injected uniformly into the first sub-state of every event (re-acquisition when lost).
     public var restartLeak: Double = 1e-6
     /// Prior at start: probability that the player starts at event 0 / at another section start (rest: anywhere).
@@ -190,6 +192,7 @@ extension FollowerConfig {
         case "strumEarlyExit": strumEarlyExit = v
         case "holdFraction": holdFraction = v
         case "holdExit": holdExit = v
+        case "fingerHoldFraction": fingerHoldFraction = v
         case "pNext": pNext = v
         case "pSkip": pSkip = v
         case "pJump": pJump = v
