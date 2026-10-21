@@ -34,7 +34,7 @@ open AutoGuitarReader.xcodeproj
   xcodebuild test -scheme AutoGuitarReader -destination 'platform=iOS Simulator,name=iPhone 16' CODE_SIGNING_ALLOWED=NO
   ```
 
-CI (`.github/workflows/ios.yml`): `core-linux` (swift:6.0 container), `ios` (macos-15: xcodegen, build, test, Core tests),
+CI (`ci/github-workflows/ios.yml` — move it to `.github/workflows/` to enable; it was kept out of `.github` because the push token lacked the `workflow` scope): `core-linux` (swift:6.0 container), `ios` (macos-15: xcodegen, build, test, Core tests),
 `server` (pytest).
 
 > The code of workstreams E (shell) and F (playback / follow integration) was written on a machine without Xcode/iOS SDK. All App files are syntax-checked
