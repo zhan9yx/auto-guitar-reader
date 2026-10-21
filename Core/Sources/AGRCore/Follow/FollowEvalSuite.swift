@@ -13,6 +13,7 @@ public struct FollowEvalConfiguration: Sendable {
     public var seeds: [UInt64] = Array(1...5)
     public var follower = FollowerConfig()
     public var measureCPU = false
+    public var featureConfig = FeatureConfig()
 
     public init(name: String, mode: FollowMode) { self.name = name; self.mode = mode }
 
@@ -55,6 +56,7 @@ public enum FollowEvalSuite {
         o.lyricChars = take.lyricChars
         o.scoreEndTime = take.scoreEndTime
         o.measureCPU = config.measureCPU
+        o.featureConfig = config.featureConfig
         return FollowEvaluator.evaluate(timeline: take.timeline, mode: config.mode, audio: take.audio,
                                         sampleRate: take.sampleRate, groundTruth: take.truth, options: o)
     }

@@ -27,6 +27,8 @@ public struct FollowEvalReport: Codable, Sendable {
     public var truthInReadZoneFraction: Double = 0
     /// Mean follower.process time per frame in microseconds (0 unless measured).
     public var followerMicrosPerFrame: Double = 0
+    /// Mean FeatureExtractor time per frame in microseconds (0 unless measured).
+    public var extractorMicrosPerFrame: Double = 0
     /// Mean confidence on frames within +-1 event of the truth / on the others, and the fraction of frames below 0.35.
     public var confidenceWhenCorrect: Double = 0
     public var confidenceWhenWrong: Double = 0
@@ -157,7 +159,7 @@ public enum FollowEvaluator {
         if let _ = o.lyrics {
             aligner = LyricsAligner(timeline: timeline)
             sung = o.lyricChars ?? lyricCharsFromTruth(timeline: timeline, truth: truth ?? [], end: o.scoreEndTime)
-            pool = Array(Set(sung.map(\.char)))
+            pool = Array(Set(sung.map(\.char))).sorted()
         }
         var simRng = TakeSynthesizer.Rng(seed: o.lyrics?.seed ?? 1)
         var transcript: [Character] = []
@@ -169,12 +171,16 @@ public enum FollowEvaluator {
         records.reserveCapacity(audio.count / 512 + 8)
         var cpuNanos: UInt64 = 0
         var cpuFrames = 0
+        var extNanos: UInt64 = 0
+        var extFrames = 0
 
         var keepK = 0
         var idx = 0
         while idx < audio.count {
             let end = min(idx + o.chunkSize, audio.count)
+            let e0 = o.measureCPU ? DispatchTime.now().uptimeNanoseconds : 0
             let frames = audio[idx..<end].withUnsafeBufferPointer { extractor.process($0) }
+            if o.measureCPU { extNanos += DispatchTime.now().uptimeNanoseconds - e0; extFrames += frames.count }
             idx = end
             for f in frames {
                 // Lyrics evidence (arrives asynchronously in the app; here on a 0.5 s grid).
@@ -220,6 +226,7 @@ public enum FollowEvaluator {
         report.lyricsEvidenceCount = lyricsCount
         report.durationSeconds = Double(audio.count) / sampleRate
         if cpuFrames > 0 { report.followerMicrosPerFrame = Double(cpuNanos) / 1000 / Double(cpuFrames) }
+        if extFrames > 0 { report.extractorMicrosPerFrame = Double(extNanos) / 1000 / Double(extFrames) }
         if o.driveScroll, !(truth ?? []).isEmpty {
             simulateScroll(records: records, timeline: timeline, truth: truth ?? [], options: o, into: &report)
         }
@@ -345,15 +352,9 @@ public enum FollowEvaluator {
         let endT = truthEnd(timeline: timeline, truth: truth, options: o)
 
         for (ri, r) in records.enumerated() {
-            if !r.silent {
-                if let yy = docY(event: r.state.eventIndex, progress: r.state.progressInEvent) {
-                    ctl.setTarget(y: yy, confidence: r.state.isPaused ? 0 : r.state.confidence, at: r.time)
-                }
-            } else {
-                // Frozen follower: keep feeding the last state with its confidence (the app does the same).
-                if let yy = docY(event: r.state.eventIndex, progress: r.state.progressInEvent) {
-                    ctl.setTarget(y: yy, confidence: r.state.isPaused ? 0 : r.state.confidence, at: r.time)
-                }
+            // The app feeds the controller every frame; a frozen follower (silence) keeps its last state and confidence.
+            if let yy = docY(event: r.state.eventIndex, progress: r.state.progressInEvent) {
+                ctl.setTarget(y: yy, confidence: r.state.isPaused ? 0 : r.state.confidence, at: r.time)
             }
             let tNext = ri + 1 < records.count ? records[ri + 1].time : r.time + 0.03
             while tDisp < tNext {

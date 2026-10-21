@@ -47,7 +47,7 @@ public struct FollowerConfig: Sendable {
     /// correlated (186 ms windows at 43 fps), so this is much smaller than a per-frame likelihood would suggest.
     public var kappa: Double = 3.0
     /// Weight of the bass-chroma cosine term (log domain).
-    public var kappaBass: Double = 1.0
+    public var kappaBass: Double = 0.5
     /// Chroma smoothing window (seconds) and filter.
     public var chromaSmoothSeconds: Double = 0.1
     public var chromaSmoothing: ChromaSmoothing = .median
@@ -80,7 +80,7 @@ public struct FollowerConfig: Sendable {
     /// Template amplitude of harmonics 2, 3, 4 relative to the fundamental.
     public var harmonicWeights: [Float] = [0.5, 0.35, 0.25]
     /// Weight of the ringing of the previous two events' notes that the current event does not re-strike.
-    public var ringDecay: [Float] = [0.45, 0.2]
+    public var ringDecay: [Float] = [0.3, 0.12]
     /// Mix of the semitone-spectrum cosine vs the chroma cosine for fingerstyle (1 = semitone only).
     public var fingerSemitoneMix: Double = 0.85
 
@@ -94,7 +94,7 @@ public struct FollowerConfig: Sendable {
     /// strumSing: the last `strumEarlyWindow` fraction of an event's chain may exit early with probability up to
     /// `strumEarlyExit` per frame (tapered), so a chord change that comes earlier than predicted is still followed.
     public var strumEarlyWindow: Double = 0.3
-    public var strumEarlyExit: Double = 0.03
+    public var strumEarlyExit: Double = 0.06
     /// Event end -> next event / skip one / jump to a section start (total, spread uniformly). Normalised at use.
     public var pNext: Double = 0.90
     public var pSkip: Double = 0.07
@@ -128,7 +128,9 @@ public struct FollowerConfig: Sendable {
     // MARK: Silence
     /// Silent frames within the first `silenceGraceSeconds` of a gap still advance the duration model (without
     /// observation); beyond that the model freezes (the player stopped, the score stops).
-    public var silenceGraceSeconds: Double = 0.6
+    public var silenceGraceSeconds: Double = 1.0
+    /// Same for fingerstyle: soft plucks decay below the noise gate between notes, and rests are common.
+    public var fingerSilenceGraceSeconds: Double = 1.5
     public var pauseAfterSilenceSeconds: Double = 3
 
     // MARK: Tempo adaptation
@@ -205,6 +207,7 @@ extension FollowerConfig {
         case "onsetEarlyExit": onsetEarlyExit = v
         case "maxExitProb": maxExitProb = v
         case "silenceGraceSeconds": silenceGraceSeconds = v
+        case "fingerSilenceGraceSeconds": fingerSilenceGraceSeconds = v
         case "pauseAfterSilenceSeconds": pauseAfterSilenceSeconds = v
         case "tempoMin": tempoMin = v
         case "tempoMax": tempoMax = v

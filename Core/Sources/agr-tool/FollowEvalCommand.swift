@@ -19,6 +19,7 @@ enum FollowEvalCommand {
         var trace = false
         var voice = false, lyrics = false, pauses = false, room = false, cpu = false
         var seeds = 5
+        var gateRatio: Double?
         var songIndex: Int?
         var firstSeed: UInt64 = 1
         var overrides: [(String, Double)] = []
@@ -39,6 +40,7 @@ enum FollowEvalCommand {
             case "--drift": drift = value().flatMap(Double.init) ?? drift
             case "--seeds": seeds = max(1, value().flatMap(Int.init) ?? seeds)
             case "--voice": voice = true
+            case "--gate-ratio": gateRatio = value().flatMap(Double.init)
             case "--song": songIndex = value().flatMap(Int.init)
             case "--first-seed": firstSeed = value().flatMap(UInt64.init) ?? 1
             case "--lyrics": lyrics = true
@@ -93,7 +95,7 @@ enum FollowEvalCommand {
                 let r = FollowEvaluator.evaluate(timeline: tl, mode: mode, audio: wav.samples, sampleRate: wav.sampleRate, groundTruth: truth, options: o)
                 print(FollowEvalSuite.tableHeader)
                 print(FollowEvalSuite.row(label: s.name, seed: "wav", r))
-                print(String(format: "follower: %.1f us/frame, %d frames, %.1f s", r.followerMicrosPerFrame, r.frames, r.durationSeconds))
+                print(String(format: "follower: %.1f us/frame, extractor: %.1f us/frame, %d frames, %.1f s", r.followerMicrosPerFrame, r.extractorMicrosPerFrame, r.frames, r.durationSeconds))
                 return 0
             } catch { return fail("cannot evaluate recording: \(error)") }
         }
@@ -104,6 +106,7 @@ enum FollowEvalCommand {
         cfg.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
         cfg.follower = follower
         cfg.measureCPU = cpu
+        if let g = gateRatio { cfg.featureConfig.gateRatio = g }
         cfg.name = describe(mode: mode, snr: cfg.snrDB, voice: voice, lyrics: lyrics)
 
         if let d = saveDir {
@@ -144,7 +147,7 @@ enum FollowEvalCommand {
             let sum = FollowEvalSuite.run(song: s, config: cfg)
             for (k, r) in sum.reports.enumerated() { print(FollowEvalSuite.row(label: s.name, seed: String(cfg.seeds[k]), r)) }
             all += sum.reports
-            if cpu, let r = sum.reports.first { print(String(format: "  follower cost: %.1f us/frame", r.followerMicrosPerFrame)) }
+            if cpu, let r = sum.reports.first { print(String(format: "  cost per frame (%.0f fps): follower %.1f us, feature extractor %.1f us", 22050.0 / 512, r.followerMicrosPerFrame, r.extractorMicrosPerFrame)) }
         }
         for l in FollowEvalSuite.summaryRows(label: "ALL", FollowEvalSummary(name: cfg.name, song: "all", reports: all)) { print(l) }
         return 0

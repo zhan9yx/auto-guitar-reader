@@ -26,8 +26,6 @@ final class ObservationModel {
     private var cV = [Float](repeating: 0, count: 12)
 
     // Per-frame scratch.
-    private var cosC: [Double]
-    private var cosB: [Double]
     private var ll: [Double]
     private var liveSemi: [Float]
 
@@ -41,7 +39,7 @@ final class ObservationModel {
         self.minMidi = featureConfig.minMidi
         self.bassBins = max(0, min(config.bassMaxMidi, featureConfig.maxMidi) - featureConfig.minMidi + 1)
         self.eventCount = timeline.events.count
-        cosC = []; cosB = []; ll = []; fitU = []
+        ll = []; fitU = []
         voiceBase[0] = 1
         voiceBase[7] = config.voiceFifth
         voiceBase[4] = config.voiceThird
@@ -49,10 +47,8 @@ final class ObservationModel {
         voiceNorm2 = voiceBase.reduce(0) { $0 + $1 * $1 }
         liveSemi = [Float](repeating: 0, count: nSemi)
         buildTemplates(timeline)
-        cosC = [Double](repeating: 0, count: templateCount)
-        cosB = cosC
-        ll = cosC
-        fitU = cosC
+        ll = [Double](repeating: 0, count: templateCount)
+        fitU = ll
     }
 
     // MARK: Template construction

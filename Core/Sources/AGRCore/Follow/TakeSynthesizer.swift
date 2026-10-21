@@ -183,7 +183,7 @@ enum TakeSynthesizer {
             for s in syls {
                 let e = events[s.event]
                 // Pitch: chord tone (55 %) or scale tone of the chord root.
-                var pcs: [Int] = Array(Set(e.midiNotes.map { (($0 % 12) + 12) % 12 }))
+                var pcs: [Int] = Array(Set(e.midiNotes.map { (($0 % 12) + 12) % 12 })).sorted()
                 let rootPC = e.chord.map { ($0.root + timeline.capo) % 12 } ?? (e.midiNotes.min().map { $0 % 12 } ?? 0)
                 let minor = e.chord.map { [.minor, .min7, .min9, .min6, .minAdd9, .min11].contains($0.quality) } ?? false
                 let scale = (minor ? [0, 2, 3, 5, 7, 8, 10] : [0, 2, 4, 5, 7, 9, 11]).map { (rootPC + $0) % 12 }

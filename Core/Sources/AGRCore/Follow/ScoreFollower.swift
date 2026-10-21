@@ -193,10 +193,10 @@ public final class ScoreFollower {
 
         if frame.isSilent {
             silentSeconds += framePeriod
-            if silentSeconds > 0.4 { ringCount = 0; ringHead = 0 }
+            if silentSeconds > max(0.4, (mode == .fingerstyle ? config.fingerSilenceGraceSeconds : config.silenceGraceSeconds)) { ringCount = 0; ringHead = 0 }
             if silentSeconds > config.pauseAfterSilenceSeconds { paused = true }
             state.isPaused = paused
-            if silentSeconds <= config.silenceGraceSeconds {
+            if silentSeconds <= (mode == .fingerstyle ? config.fingerSilenceGraceSeconds : config.silenceGraceSeconds) {
                 // Short gaps (decay between strums, a breath) are normal: time passes, there is just no evidence.
                 for i in 0..<n { obs[i] = 1 }
                 forwardStep(onsetActive: false)
