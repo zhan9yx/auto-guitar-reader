@@ -44,6 +44,11 @@ struct SettingsView: View {
             }
 
             SwiftUI.Section {
+                Picker("显示方式", selection: $s.autoScrollStyle) {
+                    ForEach(AutoScrollStyle.allCases) { style in
+                        Text(style.label).tag(style)
+                    }
+                }
                 VStack(alignment: .leading) {
                     Text("当前行位置：\(Int(settings.scrollAnchorRatio * 100))%（距屏幕顶部）")
                     Slider(value: $s.scrollAnchorRatio, in: 0.1...0.6, step: 0.05)
@@ -58,7 +63,7 @@ struct SettingsView: View {
             } header: {
                 Text("自动滚动")
             } footer: {
-                Text("这些参数将在播放 / 跟随模式中生效。")
+                Text("平滑滚动：谱面随演奏匀速滑动；翻页：当前行越过屏幕 2/3 时整体翻半屏（适合 iPad 横屏）。最大速度与当前行位置仅用于平滑滚动。")
             }
 
             SwiftUI.Section("跟随") {
@@ -69,12 +74,21 @@ struct SettingsView: View {
                     }
                 }
                 .disabled(!settings.lyricsRecognitionEnabled)
+                Picker("跟随灵敏度", selection: $s.followSensitivity) {
+                    ForEach(FollowSensitivity.allCases) { sensitivity in
+                        Text(sensitivity.label).tag(sensitivity)
+                    }
+                }
+                Text(settings.followSensitivity.detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
 
             SwiftUI.Section("模拟弹奏") {
                 Picker("默认节奏型", selection: $s.strumPatternID) {
+                    Text("跟随谱面").tag(String?.none)
                     ForEach(settings.availableStrumPatterns) { pattern in
-                        Text(pattern.name).tag(pattern.id)
+                        Text(pattern.name).tag(String?.some(pattern.id))
                     }
                 }
                 Stepper(value: $s.countInBeats, in: 0...8) {

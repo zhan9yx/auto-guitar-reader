@@ -2,10 +2,10 @@ import SwiftUI
 import Observation
 import AGRCore
 
-/// Mutable state shared between the reader and the (next-phase) playback / follow controllers.
+/// Mutable state shared between the reader and the playback / follow controllers (`ReaderConductor`).
 ///
 /// The reader creates one by default; a controller can also create it first and pass it to
-/// `ScoreReaderView(scoreID:session:...)` so it can set `highlight`, flip the activity flags and drive `driver`.
+/// `ScoreReaderView(scoreID:session:)` so it can set `highlight`, flip the activity flags and drive `driver`.
 @Observable
 @MainActor
 final class ReaderSession {
