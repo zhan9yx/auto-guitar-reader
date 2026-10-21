@@ -9,6 +9,8 @@ case "render":
     exit(RenderCommand.run(Array(args.dropFirst())))
 case "import":
     exit(runImportCommand(Array(args.dropFirst())))
+case "follow-eval":
+    exit(FollowEvalCommand.run(Array(args.dropFirst())))
 default:
-    print("usage: agr-tool <import|render> [options]")
+    print("usage: agr-tool <import|render|follow-eval> [options]")
 }
