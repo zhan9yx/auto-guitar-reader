@@ -222,6 +222,13 @@ final class ImportChordTextTests: XCTestCase {
         XCTAssertNil(score.meta.artist)
     }
 
+    func testBookTitleMarksWithTrailingArtist() throws {
+        let score = try ChordTextParser.parse("《七里香》 周杰伦\n原调:G\nC  G\n窗外的麻雀")
+        XCTAssertEqual(score.meta.title, "七里香")
+        XCTAssertEqual(score.meta.artist, "周杰伦")
+        XCTAssertEqual(score.meta.key, "G")
+    }
+
     func testFirstLyricLineIsNotTitle() throws {
         let score = try ChordTextParser.parse("C  G\n我曾经跨过山和大海\n他们说你不该如此\n")
         XCTAssertEqual(score.meta.title, "")

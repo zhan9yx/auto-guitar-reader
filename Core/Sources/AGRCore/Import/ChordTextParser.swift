@@ -62,6 +62,12 @@ enum TitleLine {
         guard TextWidth.columns(raw) <= 60 else { return nil }
         if ChordLineParser.parse(raw) != nil || SectionHeaderParser.parse(raw) != nil { return nil }
         if Rx.test(#"\[[A-G][^\]]*\]"#, raw) { return nil }
+        if let g = Rx.firstMatch(#"^《([^》]+)》\s*(.*)$"#, in: raw), let title = g[1] {
+            let rest = (g[2] ?? "").agrTrimmed
+            if rest.isEmpty || TextWidth.columns(rest) <= 30 {
+                return (i, title.agrTrimmed, rest.isEmpty ? nil : rest)
+            }
+        }
         for sep in [" - ", " – ", " — ", " ~ "] {
             if let r = raw.range(of: sep) {
                 let left = String(raw[..<r.lowerBound]).agrTrimmed

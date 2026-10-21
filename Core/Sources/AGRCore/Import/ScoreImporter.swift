@@ -15,8 +15,9 @@ enum TextDecoder {
         }
         if b.count >= 2, b[0] == 0xFF, b[1] == 0xFE { return String(data: data.dropFirst(2), encoding: .utf16LittleEndian) }
         if b.count >= 2, b[0] == 0xFE, b[1] == 0xFF { return String(data: data.dropFirst(2), encoding: .utf16BigEndian) }
-        if let s = String(data: data, encoding: .utf8) { return s }
+        // NUL bytes never occur in UTF-8 text, so check the UTF-16 zero-byte pattern first.
         if let enc = bomlessUTF16(data), let s = String(data: data, encoding: enc) { return s }
+        if let s = String(data: data, encoding: .utf8) { return s }
         if let s = GB18030.decode(data) { return s }
         return String(data: data, encoding: .isoLatin1)
     }

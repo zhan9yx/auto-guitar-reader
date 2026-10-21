@@ -18,7 +18,7 @@ public enum MusicXMLParser {
         xml.shouldResolveExternalEntities = false
         let ok = xml.parse()
         if reader.isTimewise { throw ImportError.unsupportedFormat("score-timewise") }
-        guard ok, reader.sawRoot else {
+        guard ok, reader.sawRoot, reader.closedRoot else {
             throw ImportError.malformed(xml.parserError?.localizedDescription ?? "not a MusicXML score-partwise document")
         }
         return try MusicXMLBuilder(reader: reader).build()
@@ -62,6 +62,7 @@ struct XPart {
 
 final class MusicXMLReader: NSObject, XMLParserDelegate {
     var sawRoot = false
+    var closedRoot = false
     var isTimewise = false
     var workTitle: String?
     var movementTitle: String?
@@ -82,7 +83,6 @@ final class MusicXMLReader: NSObject, XMLParserDelegate {
     private var position = 0
     private var lastStart = 0
     private var measure = XMeasure()
-    private var inPart = false
 
     // note / harmony state
     private var note: XNote?
@@ -106,7 +106,6 @@ final class MusicXMLReader: NSObject, XMLParserDelegate {
         case "creator": creatorType = attributeDict["type"]
         case "part":
             parts.append(XPart())
-            inPart = true
             divisions = 1
         case "measure":
             measure = XMeasure(beats: beats, beatType: beatType, divisions: divisions)
@@ -180,7 +179,7 @@ final class MusicXMLReader: NSObject, XMLParserDelegate {
         case "lyric": finishLyric()
         case "note": finishNote()
         case "measure": parts[parts.count - 1].measures.append(measure)
-        case "part": inPart = false
+        case "score-partwise": closedRoot = true
         default: break
         }
     }
