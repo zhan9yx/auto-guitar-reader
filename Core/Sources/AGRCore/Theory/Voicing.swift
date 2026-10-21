@@ -135,7 +135,11 @@ public enum VoicingLibrary {
         switch q {
         case .min9: return .min7
         case .dom11: return .dom7sus4
-        case .dom13: return .dom7
+        case .dom13, .dom7sharp9, .dom7flat9: return .dom7
+        case .min11: return .min7
+        case .sixNine: return .six
+        case .maj7sharp11: return .maj7
+        case .add11: return .major
         case .maj9: return .maj7
         case .minAdd9: return .minor
         case .add9: return .major

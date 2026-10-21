@@ -12,6 +12,7 @@ public struct ChordSymbol: Hashable, Sendable, CustomStringConvertible {
         case dom7 = "7", maj7 = "maj7", min7 = "m7", minMaj7 = "mM7", dim7 = "dim7", halfDim7 = "m7b5"
         case dom7sus4 = "7sus4", six = "6", min6 = "m6", add9 = "add9", minAdd9 = "madd9"
         case dom9 = "9", maj9 = "maj9", min9 = "m9", power = "5", dom11 = "11", dom13 = "13"
+        case sixNine = "6/9", dom7sharp9 = "7#9", dom7flat9 = "7b9", add11 = "add11", min11 = "m11", maj7sharp11 = "maj7#11"
     }
 
     /// Root pitch class 0...11 (C = 0).
@@ -63,7 +64,9 @@ public struct ChordSymbol: Hashable, Sendable, CustomStringConvertible {
 
     /// Quality aliases → canonical quality. Order matters (longest first).
     static let qualityAliases: [(String, Quality)] = [
-        ("maj9", .maj9), ("maj7", .maj7), ("Maj7", .maj7), ("M7", .maj7), ("Δ7", .maj7), ("Δ", .maj7),
+        ("maj7#11", .maj7sharp11), ("maj7(9)", .maj9), ("maj9", .maj9), ("6/9", .sixNine), ("69", .sixNine),
+        ("7#9", .dom7sharp9), ("7(#9)", .dom7sharp9), ("7b9", .dom7flat9), ("7(b9)", .dom7flat9),
+        ("m11", .min11), ("add11", .add11), ("add4", .add11), ("maj7", .maj7), ("Maj7", .maj7), ("M7", .maj7), ("Δ7", .maj7), ("Δ", .maj7),
         ("mMaj7", .minMaj7), ("mM7", .minMaj7), ("m(maj7)", .minMaj7),
         ("m7b5", .halfDim7), ("m7-5", .halfDim7), ("ø7", .halfDim7), ("ø", .halfDim7),
         ("madd9", .minAdd9), ("m(add9)", .minAdd9),
@@ -86,9 +89,12 @@ public struct ChordSymbol: Hashable, Sendable, CustomStringConvertible {
         var bassPC: Int? = nil
         if let slash = s.lastIndex(of: "/") {
             let bassPart = s[s.index(after: slash)...]
-            guard let (b, blen, _) = ChordSymbol.parseNote(bassPart), blen == bassPart.count else { return nil }
-            bassPC = b
-            main = s[..<slash]
+            if let (b, blen, _) = ChordSymbol.parseNote(bassPart), blen == bassPart.count {
+                bassPC = b
+                main = s[..<slash]
+            } else if !s[..<slash].hasSuffix("6") {
+                return nil  // "6/9" is a quality, anything else after "/" is not a bass note
+            }
         }
         guard let (root, len, flat) = ChordSymbol.parseNote(main) else { return nil }
         let qualityText = String(main.dropFirst(len))
@@ -120,7 +126,13 @@ public struct ChordSymbol: Hashable, Sendable, CustomStringConvertible {
         case .maj9: return [0, 2, 4, 7, 11]
         case .min9: return [0, 2, 3, 7, 10]
         case .power: return [0, 7]
-        case .dom11: return [0, 5, 7, 10]
+        case .dom11: return [0, 4, 5, 7, 10]
+        case .sixNine: return [0, 2, 4, 7, 9]
+        case .dom7sharp9: return [0, 3, 4, 7, 10]
+        case .dom7flat9: return [0, 1, 4, 7, 10]
+        case .add11: return [0, 4, 5, 7]
+        case .min11: return [0, 3, 5, 7, 10]
+        case .maj7sharp11: return [0, 4, 6, 7, 11]
         case .dom13: return [0, 4, 7, 9, 10]
         }
     }

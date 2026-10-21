@@ -228,6 +228,18 @@ public struct Line: Codable, Identifiable, Hashable, Sendable {
         self.anchor = anchor
     }
 
+    enum CodingKeys: String, CodingKey { case id, kind, segments, tab, text, anchor }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decodeIfPresent(String.self, forKey: .id) ?? UUID().uuidString
+        kind = try c.decode(LineKind.self, forKey: .kind)
+        segments = try c.decodeIfPresent([ChordSegment].self, forKey: .segments) ?? []
+        tab = try c.decodeIfPresent(TabBlock.self, forKey: .tab)
+        text = try c.decodeIfPresent(String.self, forKey: .text)
+        anchor = try c.decodeIfPresent(PageAnchor.self, forKey: .anchor)
+    }
+
     /// Lyrics text of the line (segments concatenated).
     public var lyricText: String { segments.map(\.text).joined() }
 }
@@ -246,6 +258,15 @@ public struct ChordSegment: Codable, Hashable, Sendable {
         self.chord = chord
         self.text = text
         self.beats = beats
+    }
+
+    enum CodingKeys: String, CodingKey { case chord, text, beats }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        chord = try c.decodeIfPresent(String.self, forKey: .chord)
+        text = try c.decodeIfPresent(String.self, forKey: .text) ?? ""
+        beats = try c.decodeIfPresent(Double.self, forKey: .beats)
     }
 }
 
@@ -337,6 +358,15 @@ public struct ChordShape: Codable, Hashable, Sendable {
         self.frets = frets
         self.fingers = fingers
         self.baseFret = baseFret
+    }
+
+    enum CodingKeys: String, CodingKey { case frets, fingers, baseFret }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        frets = try c.decode([Int].self, forKey: .frets)
+        fingers = try c.decodeIfPresent([Int].self, forKey: .fingers)
+        baseFret = try c.decodeIfPresent(Int.self, forKey: .baseFret) ?? 1
     }
 }
 
