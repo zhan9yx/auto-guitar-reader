@@ -107,7 +107,9 @@ public final class ScrollController {
             // Reading-speed estimate from the confident target stream.
             if let ly = lastReadY, time > lastReadTime + 1e-6 {
                 let dt = time - lastReadTime
-                let inst = (y - ly) / dt
+                // Line-to-line steps of the follower are staircases: cap the instantaneous speed sample.
+                let cap = 1.5 * config.maxSpeed * viewportHeight
+                let inst = min(max((y - ly) / dt, -cap), cap)
                 let alpha = 1 - exp(-dt / max(config.speedSmoothingSeconds, 1e-3))
                 // Ignore teleports (relocations) in the speed estimate.
                 if abs(y - ly) < 0.5 * viewportHeight { readSpeed += alpha * (inst - readSpeed) }
