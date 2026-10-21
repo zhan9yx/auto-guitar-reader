@@ -1,0 +1,178 @@
+name: AutoGuitarReader
+
+options:
+  bundleIdPrefix: io.github.zhan9yx
+  developmentLanguage: zh-Hans
+  deploymentTarget:
+    iOS: "17.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "17.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    DEVELOPMENT_LANGUAGE: zh-Hans
+
+packages:
+  Core:
+    path: Core
+
+targets:
+  AutoGuitarReader:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App/Sources
+    dependencies:
+      - package: Core
+        product: AGRCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.zhan9yx.autoguitarreader
+        PRODUCT_NAME: AutoGuitarReader
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        CODE_SIGN_STYLE: Automatic
+        ENABLE_PREVIEWS: YES
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDevelopmentRegion: zh-Hans
+        CFBundleDisplayName: 自动吉他谱
+        CFBundleName: $(PRODUCT_NAME)
+        CFBundleIdentifier: $(PRODUCT_BUNDLE_IDENTIFIER)
+        CFBundleExecutable: $(EXECUTABLE_NAME)
+        CFBundlePackageType: APPL
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleLocalizations: [zh-Hans, en]
+        LSRequiresIPhoneOS: true
+        ITSAppUsesNonExemptEncryption: false
+        UILaunchScreen: {}
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: true
+        UIApplicationSupportsIndirectInputEvents: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIBackgroundModes:
+          - audio
+        UIFileSharingEnabled: true
+        LSSupportsOpeningDocumentsInPlace: true
+        NSMicrophoneUsageDescription: 用于识别你的弹奏/演唱进度以自动翻页
+        NSSpeechRecognitionUsageDescription: 用于识别你演唱的歌词，帮助判断当前唱到哪一句并自动翻页
+        NSCameraUsageDescription: 用于拍摄纸质吉他谱并识别为可播放的电子谱
+        NSPhotoLibraryUsageDescription: 用于从相册选择吉他谱图片并识别
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+          NSAllowsLocalNetworking: true
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: ChordPro 和弦谱
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - io.github.zhan9yx.chordpro
+          - CFBundleTypeName: AGR 曲谱
+            CFBundleTypeRole: Editor
+            LSHandlerRank: Owner
+            LSItemContentTypes:
+              - io.github.zhan9yx.agr-score
+              - public.json
+          - CFBundleTypeName: MusicXML 乐谱
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - com.recordare.musicxml
+              - public.xml
+          - CFBundleTypeName: 纯文本
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.plain-text
+          - CFBundleTypeName: PDF 文档
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - com.adobe.pdf
+          - CFBundleTypeName: 图片
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.image
+        UTExportedTypeDeclarations:
+          - UTTypeIdentifier: io.github.zhan9yx.agr-score
+            UTTypeDescription: AGR 曲谱
+            UTTypeConformsTo:
+              - public.json
+              - public.data
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - agr
+              public.mime-type:
+                - application/vnd.agr-score+json
+        UTImportedTypeDeclarations:
+          - UTTypeIdentifier: io.github.zhan9yx.chordpro
+            UTTypeDescription: ChordPro 和弦谱
+            UTTypeConformsTo:
+              - public.plain-text
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - cho
+                - chopro
+                - chordpro
+                - pro
+                - crd
+          - UTTypeIdentifier: com.recordare.musicxml
+            UTTypeDescription: MusicXML 乐谱
+            UTTypeConformsTo:
+              - public.xml
+            UTTypeTagSpecification:
+              public.filename-extension:
+                - musicxml
+                - mxl
+
+  AutoGuitarReaderTests:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: App/Tests
+    dependencies:
+      - target: AutoGuitarReader
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.zhan9yx.autoguitarreader.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: "5.0"
+        TARGETED_DEVICE_FAMILY: "1,2"
+
+schemes:
+  AutoGuitarReader:
+    build:
+      targets:
+        AutoGuitarReader: all
+        AutoGuitarReaderTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - AutoGuitarReaderTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release

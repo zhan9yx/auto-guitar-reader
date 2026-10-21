@@ -1,0 +1,111 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  core-linux:
+    name: Core (Linux, swift test)
+    runs-on: ubuntu-latest
+    container: swift:6.0
+    steps:
+      - uses: actions/checkout@v4
+      - name: swift test
+        working-directory: Core
+        run: swift test
+
+  ios:
+    name: iOS app (macOS, xcodebuild)
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select latest Xcode 16
+        run: |
+          XCODE_APP="$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$XCODE_APP" ]; then
+            echo "No Xcode 16 found; using default Xcode"
+          else
+            echo "Using $XCODE_APP"
+            sudo xcode-select -s "$XCODE_APP/Contents/Developer"
+          fi
+          xcodebuild -version
+          swift --version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (iOS Simulator, generic)
+        run: |
+          set -o pipefail
+          xcodebuild \
+            -project AutoGuitarReader.xcodeproj \
+            -scheme AutoGuitarReader \
+            -destination 'generic/platform=iOS Simulator' \
+            -configuration Debug \
+            build \
+            CODE_SIGNING_ALLOWED=NO | tee build.log | tail -n 200
+
+      - name: Pick an available iPhone simulator
+        id: sim
+        run: |
+          UDID="$(xcrun simctl list devices available -j | python3 -c '
+          import json, sys
+          data = json.load(sys.stdin)
+          candidates = []
+          for runtime, devices in data["devices"].items():
+              if "iOS" not in runtime:
+                  continue
+              for d in devices:
+                  if d.get("isAvailable", True) and d["name"].startswith("iPhone"):
+                      candidates.append((runtime, d["name"], d["udid"]))
+          candidates.sort(reverse=True)
+          print(candidates[0][2] if candidates else "")
+          ')"
+          if [ -z "$UDID" ]; then
+            echo "No iPhone simulator available" >&2
+            xcrun simctl list devices available
+            exit 1
+          fi
+          echo "Using simulator $UDID"
+          echo "udid=$UDID" >> "$GITHUB_OUTPUT"
+
+      - name: Test (iPhone simulator)
+        run: |
+          set -o pipefail
+          xcodebuild test \
+            -project AutoGuitarReader.xcodeproj \
+            -scheme AutoGuitarReader \
+            -destination "id=${{ steps.sim.outputs.udid }}" \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO | tee test.log | tail -n 200
+
+      - name: Core tests on macOS
+        working-directory: Core
+        run: swift test
+
+  server:
+    name: Server (pytest)
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: |
+            server/requirements.txt
+            server/requirements-dev.txt
+      - name: Install dependencies
+        run: pip install -r server/requirements.txt -r server/requirements-dev.txt
+      - name: pytest
+        run: pytest server/tests
