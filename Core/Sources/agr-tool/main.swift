@@ -5,6 +5,8 @@ import Foundation
 // Subcommands are added by the workstreams; see `agr-tool help`.
 let args = Array(CommandLine.arguments.dropFirst())
 switch args.first {
+case "render":
+    exit(RenderCommand.run(Array(args.dropFirst())))
 default:
     print("usage: agr-tool <command> [options]")
 }
