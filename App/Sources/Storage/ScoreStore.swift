@@ -6,10 +6,12 @@ import AGRCore
 enum ScoreStoreError: LocalizedError {
     case notFound
     case invalidFileName(String)
+    case missingPage(String)
 
     var errorDescription: String? {
         switch self {
         case .notFound: return "找不到这份曲谱"
+        case .missingPage(let name): return "找不到原图文件：\(name)"
         case .invalidFileName(let name): return "无效的文件名：\(name)"
         }
     }
@@ -169,10 +171,17 @@ final class ScoreStore {
         var score = try loadScore(id: id)
         let newID = UUID()
         let fm = FileManager.default
-        try fm.copyItem(at: directory(for: id), to: directory(for: newID))
+        let newDirectory = directory(for: newID)
+        try fm.copyItem(at: directory(for: id), to: newDirectory)
         score.id = newID
         score.meta.title = (score.meta.title.isEmpty ? "未命名曲谱" : score.meta.title) + " 副本"
-        return try save(score: score)
+        do {
+            // Overwrites the copied score.json (which still carries the old id).
+            return try save(score: score)
+        } catch {
+            try? fm.removeItem(at: newDirectory)
+            throw error
+        }
     }
 
     func delete(id: UUID) {

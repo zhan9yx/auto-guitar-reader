@@ -1,6 +1,37 @@
 import SwiftUI
 import AGRCore
 
+/// Server-side upload limits (defaults of server/app/settings.py: AGR_MAX_ASSETS / AGR_MAX_ASSET_BYTES).
+enum UploadLimits {
+    static let maxAssets = 10
+    static let maxAssetBytes = 5 * 1024 * 1024
+
+    static func mimeType(forFileName name: String) -> String {
+        switch (name as NSString).pathExtension.lowercased() {
+        case "png": return "image/png"
+        case "gif": return "image/gif"
+        case "webp": return "image/webp"
+        case "heic": return "image/heic"
+        case "heif": return "image/heif"
+        default: return "image/jpeg"
+        }
+    }
+}
+
+enum UploadError: LocalizedError {
+    case tooManyPages(Int)
+    case pageTooLarge(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .tooManyPages(let count):
+            return "原图共 \(count) 页，社区最多接受 \(UploadLimits.maxAssets) 页。请关闭“包含原始图片”后再上传。"
+        case .pageTooLarge(let name):
+            return "原图 \(name) 超过 \(UploadLimits.maxAssetBytes / 1024 / 1024) MB，社区不接受。请关闭“包含原始图片”后再上传。"
+        }
+    }
+}
+
 /// Confirmation sheet for uploading a library score to the community server.
 @MainActor
 struct UploadSheet: View {
@@ -108,14 +139,30 @@ struct UploadSheet: View {
         do {
             var score = try store.loadScore(id: summary.id)
             var assets: [(name: String, data: Data, mimeType: String)] = []
-            if summary.hasPages && includeImages {
-                for page in score.pages {
+            if includeImages && !score.pages.isEmpty {
+                // The server requires every uploaded asset to be referenced by `pages[].fileName` and vice versa
+                // (no duplicates, no unreferenced files).
+                var seen = Set<String>()
+                var uniquePages: [PageImage] = []
+                for page in score.pages where seen.insert(page.fileName).inserted {
+                    uniquePages.append(page)
+                }
+                score.pages = uniquePages
+                if uniquePages.count > UploadLimits.maxAssets {
+                    throw UploadError.tooManyPages(uniquePages.count)
+                }
+                for page in uniquePages {
                     guard let data = store.pageImageData(scoreID: summary.id, name: page.fileName) else {
-                        throw ScoreStoreError.notFound
+                        throw ScoreStoreError.missingPage(page.fileName)
                     }
-                    assets.append((name: page.fileName, data: data, mimeType: "image/jpeg"))
+                    if data.count > UploadLimits.maxAssetBytes {
+                        throw UploadError.pageTooLarge(page.fileName)
+                    }
+                    assets.append((name: page.fileName, data: data, mimeType: UploadLimits.mimeType(forFileName: page.fileName)))
                 }
             } else {
+                // Without images the server rejects `pages` entries it has no asset for: strip them
+                // (line anchors are harmless and kept).
                 score.pages = []
             }
             let result = try await client.upload(score: score, assets: assets)

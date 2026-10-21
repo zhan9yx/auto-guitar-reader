@@ -122,7 +122,6 @@ targets:
                 - agr
               public.mime-type:
                 - application/vnd.agr-score+json
-        UTImportedTypeDeclarations:
           - UTTypeIdentifier: io.github.zhan9yx.chordpro
             UTTypeDescription: ChordPro 和弦谱
             UTTypeConformsTo:
@@ -134,6 +133,7 @@ targets:
                 - chordpro
                 - pro
                 - crd
+        UTImportedTypeDeclarations:
           - UTTypeIdentifier: com.recordare.musicxml
             UTTypeDescription: MusicXML 乐谱
             UTTypeConformsTo:
@@ -151,6 +151,8 @@ targets:
       - path: App/Tests
     dependencies:
       - target: AutoGuitarReader
+      - package: Core
+        product: AGRCore
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.zhan9yx.autoguitarreader.tests

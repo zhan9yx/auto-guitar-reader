@@ -89,9 +89,9 @@ public enum PerformancePlanner {
 
     /// Plans playback.
     ///
-    /// Strum pattern priority per chord event: the section's `strumPatternID` (looked up in
-    /// `score.strumPatterns`) → `options.strumPattern` → `.arpeggio` if the score mode is fingerstyle,
-    /// otherwise `.defaultPop`. Patterns are phased to the measure grid (beat 0 = measure start).
+    /// Strum pattern priority per chord event: `options.strumPattern` (the user's explicit choice in the UI)
+    /// → the section's `strumPatternID` (looked up in `score.strumPatterns`) → `.arpeggio` if the score mode
+    /// is fingerstyle, otherwise `.defaultPop`. Patterns are phased to the measure grid (beat 0 = measure start).
     /// Tab events produce exact notes (string/fret + capo + transpose, via `TimelineEvent.midiNotes`).
     public static func plan(_ timeline: Timeline, score: Score, options: PlaybackOptions) -> [NoteEvent] {
         var p = Planner(timeline: timeline, score: score, options: options)
@@ -178,9 +178,9 @@ private struct Planner {
     // MARK: strumming
 
     func pattern(for e: TimelineEvent) -> StrumPattern {
+        if let p = options.strumPattern { return p }
         let sec = score.sections.indices.contains(e.line.sectionIndex) ? score.sections[e.line.sectionIndex] : nil
         if let id = sec?.strumPatternID, let p = score.strumPatterns.first(where: { $0.id == id }) { return p }
-        if let p = options.strumPattern { return p }
         return score.meta.mode == .fingerstyle ? .arpeggio : .defaultPop
     }
 

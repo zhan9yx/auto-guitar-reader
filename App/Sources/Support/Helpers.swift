@@ -46,7 +46,7 @@ enum TransposeHelper {
     static func preferFlats(forKey key: String?, semitones: Int) -> Bool? {
         guard semitones != 0, let key = key, let symbol = ChordSymbol(key) else { return nil }
         let target = symbol.transposed(by: semitones)
-        let minorQualities: [ChordSymbol.Quality] = [.minor, .min7, .min6, .minAdd9, .min9]
+        let minorQualities: [ChordSymbol.Quality] = [.minor, .min7, .min6, .minAdd9, .min9, .min11, .minMaj7]
         let isMinor = minorQualities.contains(target.quality)
         let majorRoot = isMinor ? (target.root + 3) % 12 : target.root
         let flatMajorRoots: [Int] = [5, 10, 3, 8, 1]
@@ -106,9 +106,37 @@ enum ScoreStats {
     }
 }
 
+// MARK: - Page data
+
+extension Score {
+    /// Drops the original page images' metadata together with the per-line page anchors that point into them
+    /// (text-only copies: `.agr` imports, community downloads whose images could not be fetched).
+    mutating func removePageData() {
+        pages = []
+        for sectionIndex in sections.indices {
+            for lineIndex in sections[sectionIndex].lines.indices {
+                sections[sectionIndex].lines[lineIndex].anchor = nil
+            }
+        }
+    }
+}
+
 // MARK: - Errors
 
 func describeError(_ error: Error) -> String {
+    if let communityError = error as? CommunityError {
+        switch communityError {
+        case .http(let status, let detail):
+            if let detail = detail, !detail.trimmed.isEmpty {
+                return "服务器返回错误（\(status)）：\(detail)"
+            }
+            return "服务器返回错误（\(status)）"
+        case .decoding:
+            return "无法解析服务器返回的数据，请确认服务器地址指向社区服务"
+        case .invalidURL:
+            return "服务器地址无效，请在“设置”中检查。"
+        }
+    }
     if let importError = error as? ImportError {
         switch importError {
         case .unsupportedFormat(let detail):
@@ -117,7 +145,7 @@ func describeError(_ error: Error) -> String {
             return "内容为空，没有识别到可用的谱面"
         case .malformed(let detail):
             return "文件内容有误：\(detail)"
-        default:
+        @unknown default:
             return "导入失败"
         }
     }
@@ -160,8 +188,8 @@ extension Binding where Value == String? {
 extension UTType {
     /// `.agr` score package JSON (declared in Info.plist as an exported type).
     static let agrScore = UTType(exportedAs: "io.github.zhan9yx.agr-score", conformingTo: .json)
-    /// ChordPro text (declared in Info.plist as an imported type).
-    static let chordPro = UTType(importedAs: "io.github.zhan9yx.chordpro", conformingTo: .plainText)
+    /// ChordPro text (declared in Info.plist as an exported type: the identifier is in our own namespace).
+    static let chordPro = UTType(exportedAs: "io.github.zhan9yx.chordpro", conformingTo: .plainText)
 }
 
 enum ImportTypes {

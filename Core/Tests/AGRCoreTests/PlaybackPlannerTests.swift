@@ -208,12 +208,26 @@ final class PlaybackPlannerTests: XCTestCase {
         XCTAssertEqual(notes.map(\.midi), [43, 67])
     }
 
-    func testSectionPatternOverridesOptionsPattern() {
+    func testOptionsPatternOverridesSectionPattern() {
+        // An explicit pattern chosen in the UI (options) wins over the section's own pattern.
         let custom = StrumPattern(id: "mine", name: "m", subdivision: 1, strokes: "D-D-")
         let s = chordScore(["C"], beats: 4, patterns: [custom], sectionPattern: "mine")
-        let st = strokes(plan(s, opts(.arpeggio)))
+        let st = strokes(plan(s, opts(StrumPattern(id: "d", name: "d", subdivision: 1, strokes: "D---"))))
+        XCTAssertEqual(st.count, 1)
+        XCTAssertEqual(st.map { $0.map(\.time).min()! }, [0])
+    }
+
+    func testSectionPatternUsedWhenNoOptionsPattern() {
+        let custom = StrumPattern(id: "mine", name: "m", subdivision: 1, strokes: "D-D-")
+        let s = chordScore(["C"], beats: 4, patterns: [custom], sectionPattern: "mine")
+        let st = strokes(plan(s, opts(nil)))
         XCTAssertEqual(st.count, 2)
         XCTAssertEqual(st.map { $0.map(\.time).min()! }, [0, 1.0])
+    }
+
+    func testUnknownSectionPatternFallsBackToDefaults() {
+        let s = chordScore(["C"], beats: 4, patterns: [], sectionPattern: "missing")
+        XCTAssertEqual(plan(s, opts(nil)), plan(chordScore(["C"], beats: 4), opts(nil)))
     }
 
     func testSwingDelaysOffBeats() {

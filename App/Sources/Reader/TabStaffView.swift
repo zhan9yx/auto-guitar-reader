@@ -88,6 +88,13 @@ struct TabLayout {
     }
 }
 
+private struct TabStaffWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 /// Six-line tablature drawn with `Canvas`: bar lines per measure, fret numbers by beat, chord names above;
 /// measures wrap to new rows by available width.
 struct TabStaffView: View {
@@ -112,12 +119,15 @@ struct TabStaffView: View {
         .frame(height: layout.totalHeight)
         .frame(maxWidth: .infinity)
         .background {
+            // A preference (not onAppear/onChange) so the width is also delivered when the view is hosted in a
+            // UIHostingController that is re-measured by the scroll container.
             GeometryReader { geometry in
-                Color.clear
-                    .onAppear { availableWidth = geometry.size.width }
-                    .onChange(of: geometry.size.width) { _, newWidth in
-                        availableWidth = newWidth
-                    }
+                Color.clear.preference(key: TabStaffWidthKey.self, value: geometry.size.width)
+            }
+        }
+        .onPreferenceChange(TabStaffWidthKey.self) { width in
+            if width > 0, abs(width - availableWidth) > 0.5 {
+                availableWidth = width
             }
         }
     }
