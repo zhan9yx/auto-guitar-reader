@@ -33,6 +33,8 @@ final class SettingsStore {
         static let recognitionLanguage = "settings.follow.language"
         static let strumPattern = "settings.playback.strumPatternID"
         static let countIn = "settings.playback.countInBeats"
+        static let scrollStyle = "settings.scroll.style"
+        static let followSensitivity = "settings.follow.sensitivity"
     }
 
     static let defaultServerURL = "http://localhost:8000"
@@ -65,6 +67,10 @@ final class SettingsStore {
     var scrollManualOverrideSeconds: Double {
         didSet { defaults.set(scrollManualOverrideSeconds, forKey: Keys.manualOverride) }
     }
+    /// 平滑滚动 / 翻页.
+    var autoScrollStyle: AutoScrollStyle {
+        didSet { defaults.set(autoScrollStyle.rawValue, forKey: Keys.scrollStyle) }
+    }
 
     // Follow
     var lyricsRecognitionEnabled: Bool {
@@ -73,10 +79,21 @@ final class SettingsStore {
     var recognitionLanguage: RecognitionLanguage {
         didSet { defaults.set(recognitionLanguage.rawValue, forKey: Keys.recognitionLanguage) }
     }
+    /// Follow sensitivity preset (maps to `FollowerConfig.kappa` / `pJump`, see `FollowSensitivity`).
+    var followSensitivity: FollowSensitivity {
+        didSet { defaults.set(followSensitivity.rawValue, forKey: Keys.followSensitivity) }
+    }
 
     // Playback
-    var strumPatternID: String {
-        didSet { defaults.set(strumPatternID, forKey: Keys.strumPattern) }
+    /// Default strum pattern; nil = "跟随谱面" (each section plays its own pattern, `PlaybackOptions.strumPattern = nil`).
+    var strumPatternID: String? {
+        didSet {
+            if let id = strumPatternID {
+                defaults.set(id, forKey: Keys.strumPattern)
+            } else {
+                defaults.removeObject(forKey: Keys.strumPattern)
+            }
+        }
     }
     var countInBeats: Int {
         didSet { defaults.set(countInBeats, forKey: Keys.countIn) }
@@ -101,9 +118,11 @@ final class SettingsStore {
         self.scrollAnchorRatio = SettingsStore.double(defaults, Keys.anchorRatio, 0.30)
         self.scrollMaxSpeed = SettingsStore.double(defaults, Keys.maxSpeed, 0.6)
         self.scrollManualOverrideSeconds = SettingsStore.double(defaults, Keys.manualOverride, 3)
+        self.autoScrollStyle = AutoScrollStyle(rawValue: defaults.string(forKey: Keys.scrollStyle) ?? "") ?? .smooth
         self.lyricsRecognitionEnabled = SettingsStore.bool(defaults, Keys.lyricsRecognition, true)
         self.recognitionLanguage = RecognitionLanguage(rawValue: defaults.string(forKey: Keys.recognitionLanguage) ?? "") ?? .zhCN
-        self.strumPatternID = defaults.string(forKey: Keys.strumPattern) ?? StrumPattern.defaultPop.id
+        self.strumPatternID = defaults.string(forKey: Keys.strumPattern)
+        self.followSensitivity = FollowSensitivity(rawValue: defaults.string(forKey: Keys.followSensitivity) ?? "") ?? .standard
         self.countInBeats = SettingsStore.int(defaults, Keys.countIn, 4)
     }
 
@@ -121,13 +140,37 @@ final class SettingsStore {
 
     // MARK: Derived
 
-    /// Scroll configuration for the (next-phase) auto-scroller.
+    /// Scroll configuration of the auto-scroller (smooth mode).
     var scrollConfig: ScrollConfig {
         var config = ScrollConfig()
         config.anchorRatio = scrollAnchorRatio
         config.maxSpeed = scrollMaxSpeed
         config.manualOverrideSeconds = scrollManualOverrideSeconds
         return config
+    }
+
+    /// Page-turn configuration (翻页模式): shares the manual override time; the landing position follows the anchor.
+    var pageTurnConfig: PageTurnConfig {
+        var config = PageTurnConfig()
+        config.manualOverrideSeconds = scrollManualOverrideSeconds
+        config.landingRatio = min(max(scrollAnchorRatio / 2, 0.05), 0.3)
+        return config
+    }
+
+    /// Everything `AutoScrollLogic` needs; read every display frame, so changes apply immediately.
+    var autoScrollSettings: AutoScrollSettings {
+        AutoScrollSettings(style: autoScrollStyle, scroll: scrollConfig, pageTurn: pageTurnConfig)
+    }
+
+    /// Follower tunables for the chosen sensitivity.
+    var followerConfig: FollowerConfig {
+        followSensitivity.config()
+    }
+
+    /// The explicit default strum pattern (nil = follow the score).
+    var defaultStrumPattern: StrumPattern? {
+        guard let id = strumPatternID else { return nil }
+        return availableStrumPatterns.first { $0.id == id }
     }
 
     var availableStrumPatterns: [StrumPattern] {

@@ -2,18 +2,18 @@ import SwiftUI
 import UIKit
 import AGRCore
 
-/// The main reading screen. Hosts the text / image document in a `ScoreScrollContainer`
-/// and exposes a toolbar that the playback / follow phase plugs into via `onPlay` / `onFollow`.
+/// The main reading screen. Hosts the text / image document in a `ScoreScrollContainer`; the ▶︎ 播放 and 🎤 跟随
+/// toolbar buttons open the playback / follow bars (driven by `ReaderConductor`).
 @MainActor
 struct ScoreReaderView: View {
     let scoreID: UUID
-    var onPlay: (() -> Void)?
-    var onFollow: (() -> Void)?
 
     @Environment(ScoreStore.self) private var store
     @Environment(SettingsStore.self) private var settings
+    @Environment(\.scenePhase) private var scenePhase
 
     @State private var session: ReaderSession
+    @State private var conductor: ReaderConductor
     @State private var score: Score?
     @State private var pageImages: [UIImage?] = []
     @State private var loadError: String?
@@ -23,16 +23,11 @@ struct ScoreReaderView: View {
     @State private var didApplyDefaults = false
     @State private var showEditor = false
 
-    init(
-        scoreID: UUID,
-        session: ReaderSession? = nil,
-        onPlay: (() -> Void)? = nil,
-        onFollow: (() -> Void)? = nil
-    ) {
+    init(scoreID: UUID, session: ReaderSession? = nil) {
         self.scoreID = scoreID
-        self.onPlay = onPlay
-        self.onFollow = onFollow
-        _session = State(initialValue: session ?? ReaderSession())
+        let readerSession = session ?? ReaderSession()
+        _session = State(initialValue: readerSession)
+        _conductor = State(initialValue: ReaderConductor(session: readerSession))
     }
 
     var body: some View {
@@ -55,18 +50,18 @@ struct ScoreReaderView: View {
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
-                    onPlay?()
+                    conductor.togglePanel(.playback)
                 } label: {
-                    Label("播放", systemImage: "play.fill")
+                    Label("播放", systemImage: conductor.panel == .playback ? "play.circle.fill" : "play.fill")
                 }
-                .disabled(onPlay == nil || score == nil)
+                .disabled(score == nil)
 
                 Button {
-                    onFollow?()
+                    conductor.togglePanel(.follow)
                 } label: {
-                    Label("跟随", systemImage: "mic.fill")
+                    Label("跟随", systemImage: conductor.panel == .follow ? "mic.circle.fill" : "mic.fill")
                 }
-                .disabled(onFollow == nil || score == nil)
+                .disabled(score == nil)
 
                 Menu {
                     Button {
@@ -149,10 +144,22 @@ struct ScoreReaderView: View {
         .onChange(of: session.isSessionActive) { _, active in
             UIApplication.shared.isIdleTimerDisabled = active
         }
+        .onChange(of: effectiveTranspose) { _, value in
+            conductor.setTranspose(value)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .background: conductor.appDidEnterBackground()
+            case .active: conductor.appDidBecomeActive()
+            default: break
+            }
+        }
         .onDisappear {
+            conductor.stopAll()
             UIApplication.shared.isIdleTimerDisabled = false
         }
         .task(id: scoreID) {
+            conductor.stopAll()
             loadScore()
         }
     }
@@ -163,6 +170,9 @@ struct ScoreReaderView: View {
 
     private var isImageMode: Bool { displayMode == .image && hasPages }
 
+    /// Image mode shows the picture as written, so playback / following use the original key there.
+    private var effectiveTranspose: Int { isImageMode ? 0 : transpose }
+
     private var transposeLabel: String {
         TransposeHelper.keyLabel(original: score?.meta.key, semitones: transpose)
     }
@@ -171,10 +181,35 @@ struct ScoreReaderView: View {
 
     @ViewBuilder
     private func readerBody(_ score: Score) -> some View {
-        ScoreScrollContainer(driver: session.driver) {
-            documentContent(score)
+        VStack(spacing: 0) {
+            ScoreScrollContainer(driver: session.driver) {
+                documentContent(score)
+            }
+            .background(Color(uiColor: .systemBackground))
+
+            performancePanel
         }
-        .background(Color(uiColor: .systemBackground))
+    }
+
+    @ViewBuilder
+    private var performancePanel: some View {
+        switch conductor.panel {
+        case .none:
+            EmptyView()
+        case .playback:
+            PlaybackBarView(
+                playback: conductor.playback,
+                transpose: $transpose,
+                transposeLabel: transposeLabel,
+                transposeEnabled: !isImageMode,
+                statusMessage: conductor.statusMessage,
+                onPlayPause: { conductor.togglePlayPause() },
+                onRestart: { conductor.restartPlayback() },
+                onClose: { conductor.closePanel() }
+            )
+        case .follow:
+            FollowBarView(conductor: conductor, onClose: { conductor.closePanel() })
+        }
     }
 
     @ViewBuilder
@@ -219,6 +254,8 @@ struct ScoreReaderView: View {
             pageImages = images
             score = loaded
             loadError = nil
+            conductor.bind(score: loaded, settings: settings)
+            conductor.setTranspose(effectiveTranspose)
             if !didApplyDefaults {
                 fontSize = CGFloat(settings.defaultFontSize)
                 displayMode = (settings.defaultDisplayMode == .image && !loaded.pages.isEmpty) ? .image : .text
