@@ -36,6 +36,23 @@ public struct FollowEvalReport: Codable, Sendable {
     public var lyricsEvidenceCount: Int = 0
     public var durationSeconds: Double = 0
 
+    // Full-stop metrics (NaN-free; all 0 / -1 when the take has no stop). Times are "live": frame time plus half an
+    // analysis window, i.e. when the app could first know.
+    /// Number of stops evaluated.
+    public var stopCount: Int = 0
+    /// Seconds from the end of the sound until the extractor reports silence for good.
+    public var stopSilentLatency: Double = 0
+    /// Seconds from the end of the sound until `isPaused` first turns true (-1: never).
+    public var stopPausedLatency: Double = 0
+    /// Fraction of the frames between (sound end + 3.5 s) and the restart that report `isPaused`.
+    public var stopPausedFraction: Double = 0
+    /// Frames from the first analysis window containing the restart until the gate reopens.
+    public var restartGateFrames: Double = 0
+    /// Frames from the restart (event start) until the follower reports that event exactly (capped at 5 s).
+    public var restartRecoveryFrames: Double = 0
+    /// +-1 accuracy over the 3 s after the restart.
+    public var restartWindowAccuracy: Double = 0
+
     public init(exactAccuracy: Double, withinOneAccuracy: Double, medianLatency: Double, frames: Int) {
         self.exactAccuracy = exactAccuracy
         self.withinOneAccuracy = withinOneAccuracy
@@ -74,6 +91,8 @@ public struct FollowEvalOptions: Sendable {
     public var lyricChars: [(time: Double, char: Character, eventIndex: Int)]? = nil
     /// End of the scored region (seconds); frames after it are ignored. Derived from the timeline when nil.
     public var scoreEndTime: Double? = nil
+    /// Full stops of the take (see `SyntheticTake.stops`); enables the stop metrics.
+    public var stops: [(soundEnd: Double, restart: Double, event: Int)] = []
     public init() {}
 }
 
@@ -223,6 +242,7 @@ public enum FollowEvaluator {
         }
 
         var report = score(records: records, timeline: timeline, truth: truth ?? [], halfWindow: halfWindow, options: o)
+        scoreStops(records: records, halfWindow: halfWindow, options: o, into: &report)
         report.lyricsEvidenceCount = lyricsCount
         report.durationSeconds = Double(audio.count) / sampleRate
         if cpuFrames > 0 { report.followerMicrosPerFrame = Double(cpuNanos) / 1000 / Double(cpuFrames) }
@@ -300,6 +320,47 @@ public enum FollowEvaluator {
         rep.confidenceWhenWrong = nBad > 0 ? confBad / Double(nBad) : 0
         rep.lowConfidenceFraction = total > 0 ? Double(nLow) / Double(total) : 0
         return rep
+    }
+
+    /// Metrics of the full stops: how fast silence / pause is reported and how fast the follower recovers.
+    static func scoreStops(records: [FrameRecord], halfWindow: Double, options o: FollowEvalOptions, into rep: inout FollowEvalReport) {
+        guard !o.stops.isEmpty, records.count > 2 else { return }
+        let hop = Double(o.featureConfig.hopSize) / o.featureConfig.sampleRate
+        var silentLat = 0.0, pausedLat = 0.0, pausedFrac = 0.0, gate = 0.0, recov = 0.0, win = 0.0
+        for st in o.stops {
+            // Silence: first frame after the last non-silent frame before the restart.
+            var lastActive = -1
+            for (i, r) in records.enumerated() where r.time >= st.soundEnd - 0.3 && r.time <= st.restart - halfWindow - 0.05 && !r.silent { lastActive = i }
+            if lastActive >= 0 && lastActive + 1 < records.count {
+                silentLat += max(0, records[lastActive + 1].time + halfWindow - st.soundEnd)
+            }
+            if let r = records.first(where: { $0.time + halfWindow >= st.soundEnd && $0.state.isPaused }) {
+                pausedLat += r.time + halfWindow - st.soundEnd
+            } else { pausedLat += -1 }
+            let span = records.filter { $0.time >= st.soundEnd + 3.5 + halfWindow && $0.time <= st.restart - halfWindow - 0.1 }
+            if !span.isEmpty { pausedFrac += Double(span.filter { $0.state.isPaused }.count) / Double(span.count) }
+            // Gate reopening.
+            if let r = records.first(where: { $0.time >= st.restart - halfWindow - 0.05 && !$0.silent && $0.time + halfWindow >= st.restart - hop }) {
+                gate += max(0, (r.time + halfWindow - st.restart) / hop)
+            } else { gate += 5 / hop }
+            // Recovery to the exact event.
+            if let r = records.first(where: { $0.time >= st.restart && !$0.silent && $0.state.eventIndex == st.event }), r.time - st.restart < 5 {
+                recov += max(0, (r.time - st.restart) / hop)
+            } else { recov += 5 / hop }
+            let after = records.filter { !$0.silent && $0.time >= st.restart && $0.time < st.restart + 3 }
+            if !after.isEmpty {
+                // Truth: the stop event from the restart on (the next event follows within 3 s; +-1 tolerance covers it).
+                win += Double(after.filter { abs($0.state.eventIndex - st.event) <= 1 }.count) / Double(after.count)
+            }
+        }
+        let n = Double(o.stops.count)
+        rep.stopCount = o.stops.count
+        rep.stopSilentLatency = silentLat / n
+        rep.stopPausedLatency = pausedLat / n
+        rep.stopPausedFraction = pausedFrac / n
+        rep.restartGateFrames = gate / n
+        rep.restartRecoveryFrames = recov / n
+        rep.restartWindowAccuracy = win / n
     }
 
     // MARK: scroll simulation

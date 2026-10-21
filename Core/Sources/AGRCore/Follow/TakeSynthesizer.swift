@@ -29,6 +29,12 @@ public struct TakeOptions: Sendable {
     public var tempoScale: Double = 1
     /// Notes ring at most this long into a pause.
     public var pauseRing: Double = 0.5
+    /// Seconds of complete stop (the player stops, the room noise stays) inserted before the middle event of the
+    /// first verse-like section pass (the second pass with >= 4 events, else the first); 0 = none.
+    public var stopMid: Double = 0
+    /// Gain applied to the finished take after peak normalisation (dB; -12 = a quiet player / low mic gain; the SNR
+    /// is unchanged).
+    public var outputGainDB: Double = 0
 
     public init() {}
 }
@@ -43,21 +49,15 @@ public struct SyntheticTake: Sendable {
     /// Each sung syllable (character of the lyrics), its start time and the event it belongs to.
     public var lyricChars: [(time: Double, char: Character, eventIndex: Int)]
     public var timeline: Timeline
+    /// Full stops inserted by `TakeOptions.stopMid`: the sound is gone at `soundEnd`, playing resumes with event
+    /// `event` at `restart` (seconds).
+    public var stops: [(soundEnd: Double, restart: Double, event: Int)] = []
 }
 
 enum TakeSynthesizer {
     // MARK: random helpers
-    struct Rng {
-        var g: SplitMix64
-        init(seed: UInt64) { g = SplitMix64(seed: seed) }
-        mutating func uniform() -> Double { (g.signed() + 1) / 2 }
-        mutating func range(_ a: Double, _ b: Double) -> Double { a + (b - a) * uniform() }
-        mutating func gauss() -> Double {
-            let u1 = max(uniform(), 1e-12), u2 = uniform()
-            return (-2 * log(u1)).squareRoot() * cos(2 * Double.pi * u2)
-        }
-        mutating func int(_ n: Int) -> Int { min(n - 1, Int(uniform() * Double(n))) }
-    }
+    /// The seeded generator shared with the planner (`Playback/SeededRandom.swift`).
+    typealias Rng = SplitMix64
 
     // MARK: tempo / time warp
 
@@ -117,6 +117,17 @@ enum TakeSynthesizer {
                 if rng.uniform() < 0.7 { pauses.append((events[sp.firstEvent].startBeat * spb, rng.range(1, 2))) }
             }
         }
+        var stopEvent: Int?
+        var stopAt = 0.0
+        if o.stopMid > 0 {
+            let cands = timeline.sectionPasses.filter { $0.eventCount >= 4 }
+            if let sp = cands.count > 1 ? cands[1] : cands.first {
+                let k = sp.firstEvent + sp.eventCount / 2
+                stopAt = events[k].startBeat * spb
+                pauses.append((stopAt, o.stopMid))
+                stopEvent = k
+            }
+        }
         let warp = makeWarp(duration: nominalEnd + 5, drift: o.tempoDrift, pauses: pauses, rng: &rng)
 
         // Per-event jitter (seconds), limited by the event length.
@@ -136,7 +147,10 @@ enum TakeSynthesizer {
         // Warp the planned notes.
         var warped: [NoteEvent] = []
         warped.reserveCapacity(planned.count)
-        for ne in planned {
+        for planned1 in planned {
+            var ne = planned1
+            // Humanised notes of the restart event may be planned a few ms before the pause: they belong after it.
+            if let k = stopEvent, ne.eventIndex >= k, ne.time < stopAt { ne.time = stopAt }
             var n = ne
             let j = ne.eventIndex >= 0 && ne.eventIndex < jitter.count ? jitter[ne.eventIndex] : 0
             let t0 = warp.map(ne.time)
@@ -268,11 +282,20 @@ enum TakeSynthesizer {
         for x in mix { peak = max(peak, abs(x)) }
         if peak > 1e-6 { let g = 0.5 / peak; for i in 0..<mix.count { mix[i] *= g } }
 
+        if o.outputGainDB != 0 {
+            let g = Float(pow(10, o.outputGainDB / 20))
+            for i in 0..<mix.count { mix[i] *= g }
+        }
+
         var truth: [(time: Double, eventIndex: Int)] = []
         for i in 0..<events.count { truth.append((eventStart[i], i)) }
         let scoreEnd = warp.map(nominalEnd) + (jitter.last ?? 0)
-        return SyntheticTake(audio: mix, sampleRate: o.sampleRate, truth: truth, scoreEndTime: scoreEnd,
-                             lyricChars: lyricChars, timeline: timeline)
+        var take = SyntheticTake(audio: mix, sampleRate: o.sampleRate, truth: truth, scoreEndTime: scoreEnd,
+                                 lyricChars: lyricChars, timeline: timeline)
+        if let k = stopEvent {
+            take.stops = [(soundEnd: eventStart[k] - o.stopMid + o.pauseRing, restart: eventStart[k], event: k)]
+        }
+        return take
     }
 
     // MARK: voice / noise helpers
@@ -309,7 +332,7 @@ enum TakeSynthesizer {
         var out = [Float](repeating: 0, count: n)
         var b0 = 0.0, b1 = 0.0, b2 = 0.0
         for i in 0..<n {
-            let w = rng.g.signed()
+            let w = rng.signed()
             b0 = 0.99765 * b0 + w * 0.0990460
             b1 = 0.96300 * b1 + w * 0.2965164
             b2 = 0.57000 * b2 + w * 1.0526913

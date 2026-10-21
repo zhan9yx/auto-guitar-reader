@@ -11,7 +11,8 @@ import Foundation
 ///   --save-take DIR    write take-<song>-<seed>.wav and truth CSV of synthesised takes into DIR
 enum FollowEvalCommand {
     static func run(_ args: [String]) -> Int32 {
-        var demo = false, suite = false
+        var demo = false, suite = false, stress = false
+        var stopMid = 0.0, level = 0.0
         var scorePath: String?, audioPath: String?, truthPath: String?, saveDir: String?
         var mode: FollowMode = .strumSing
         var snr: Double?
@@ -29,6 +30,9 @@ enum FollowEvalCommand {
             switch args[i] {
             case "--demo": demo = true
             case "--suite": suite = true
+            case "--stress": stress = true
+            case "--stop-mid": stopMid = value().flatMap(Double.init) ?? 5
+            case "--level": level = value().flatMap(Double.init) ?? 0
             case "--score": scorePath = value()
             case "--audio": audioPath = value()
             case "--truth": truthPath = value()
@@ -61,6 +65,7 @@ enum FollowEvalCommand {
         for (k, v) in overrides where !follower.set(k, v) { return fail("unknown tunable \(k)") }
 
         if suite { return runSuite(seeds: seeds, firstSeed: firstSeed, follower: follower) }
+        if stress { return runStress(seeds: seeds, firstSeed: firstSeed, follower: follower, gateRatio: gateRatio) }
 
         // Songs.
         var songs: [FollowEvalSongs.Song] = []
@@ -103,6 +108,7 @@ enum FollowEvalCommand {
         var cfg = FollowEvalConfiguration(name: describe(mode: mode, snr: snr, voice: voice, lyrics: lyrics), mode: mode)
         cfg.snrDB = snr ?? (mode == .strumSing ? 15 : 20)
         cfg.drift = drift; cfg.voice = voice; cfg.lyrics = lyrics; cfg.pauses = pauses; cfg.room = room
+        cfg.stopMid = stopMid; cfg.levelDB = level
         cfg.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
         cfg.follower = follower
         cfg.measureCPU = cpu
@@ -146,6 +152,7 @@ enum FollowEvalCommand {
         for s in songs {
             let sum = FollowEvalSuite.run(song: s, config: cfg)
             for (k, r) in sum.reports.enumerated() { print(FollowEvalSuite.row(label: s.name, seed: String(cfg.seeds[k]), r)) }
+            if stopMid > 0 { print(FollowEvalSuite.stopHeader); print(FollowEvalSuite.stopRow(label: s.name, sum)) }
             all += sum.reports
             if cpu, let r = sum.reports.first { print(String(format: "  cost per frame (%.0f fps): follower %.1f us, feature extractor %.1f us", 22050.0 / 512, r.followerMicrosPerFrame, r.extractorMicrosPerFrame)) }
         }
@@ -185,6 +192,46 @@ enum FollowEvalCommand {
             }
             for l in FollowEvalSuite.summaryRows(label: "== \(c.name)", FollowEvalSummary(name: c.name, song: "all", reports: all)) { print(l) }
         }
+        return 0
+    }
+
+    /// Gate stress scenarios: a full stop in the middle of a verse, quiet playing (-12 dB), both.
+    static func runStress(seeds: Int, firstSeed: UInt64, follower: FollowerConfig, gateRatio: Double?) -> Int32 {
+        func make(_ name: String, _ mode: FollowMode, snr: Double, voice: Bool, stop: Double = 0, level: Double = 0, room: Bool = false) -> FollowEvalConfiguration {
+            var c = FollowEvalConfiguration(name: name, mode: mode)
+            c.snrDB = snr; c.voice = voice; c.room = room; c.stopMid = stop; c.levelDB = level
+            c.seeds = (0..<UInt64(seeds)).map { firstSeed + $0 }
+            c.follower = follower
+            if let g = gateRatio { c.featureConfig.gateRatio = g }
+            return c
+        }
+        let configs = [
+            make("strum voice SNR15 stop5", .strumSing, snr: 15, voice: true, stop: 5),
+            make("strum no-voice SNR15 stop5", .strumSing, snr: 15, voice: false, stop: 5),
+            make("strum voice SNR15 stop5 room", .strumSing, snr: 15, voice: true, stop: 5, room: true),
+            make("strum voice SNR15 -12dB", .strumSing, snr: 15, voice: true, level: -12),
+            make("finger SNR20 stop5", .fingerstyle, snr: 20, voice: false, stop: 5),
+            make("finger SNR20 -12dB", .fingerstyle, snr: 20, voice: false, level: -12),
+            make("finger SNR20 -12dB stop5", .fingerstyle, snr: 20, voice: false, stop: 5, level: -12),
+            make("finger SNR20 -12dB room", .fingerstyle, snr: 20, voice: false, level: -12, room: true),
+        ]
+        print(FollowEvalSuite.tableHeader)
+        var stopLines: [String] = []
+        for c in configs {
+            var all: [FollowEvalReport] = []
+            for s in FollowEvalSongs.songs(for: c.mode) {
+                let sum = FollowEvalSuite.run(song: s, config: c)
+                all += sum.reports
+                for l in FollowEvalSuite.summaryRows(label: "\(c.name) | \(s.name)", sum) { print(l) }
+                if c.stopMid > 0 { stopLines.append(FollowEvalSuite.stopRow(label: "\(c.name) | \(s.name)", sum)) }
+            }
+            let total = FollowEvalSummary(name: c.name, song: "all", reports: all)
+            for l in FollowEvalSuite.summaryRows(label: "== \(c.name)", total) { print(l) }
+            if c.stopMid > 0 { stopLines.append(FollowEvalSuite.stopRow(label: "== \(c.name)", total)) }
+        }
+        print("")
+        print(FollowEvalSuite.stopHeader)
+        for l in stopLines { print(l) }
         return 0
     }
 

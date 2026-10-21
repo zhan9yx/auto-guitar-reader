@@ -10,6 +10,9 @@ public struct FollowEvalConfiguration: Sendable {
     public var lyrics: Bool = false
     public var pauses: Bool = false
     public var room: Bool = false
+    /// Seconds of full stop in the middle of a verse (0 = none) and the take's output gain in dB.
+    public var stopMid: Double = 0
+    public var levelDB: Double = 0
     public var seeds: [UInt64] = Array(1...5)
     public var follower = FollowerConfig()
     public var measureCPU = false
@@ -21,6 +24,7 @@ public struct FollowEvalConfiguration: Sendable {
         var o = TakeOptions()
         o.seed = seed; o.tempoDrift = drift; o.snrDB = snrDB; o.withVoice = voice
         o.sectionPauses = pauses; o.room = room
+        o.stopMid = stopMid; o.outputGainDB = levelDB
         return o
     }
 }
@@ -55,6 +59,7 @@ public enum FollowEvalSuite {
         o.lyrics = config.lyrics ? LyricsSimulation(seed: seed &+ 100) : nil
         o.lyricChars = take.lyricChars
         o.scoreEndTime = take.scoreEndTime
+        o.stops = take.stops
         o.measureCPU = config.measureCPU
         o.featureConfig = config.featureConfig
         return FollowEvaluator.evaluate(timeline: take.timeline, mode: config.mode, audio: take.audio,
@@ -72,6 +77,21 @@ public enum FollowEvalSuite {
                       r.medianLatencyLive, r.detectRate * 100, r.scrollMaxSpeed, r.scrollMaxAcceleration,
                       r.scrollBackwardMoves, r.scrollJumps, r.truthVisibleFraction * 100, r.truthInReadZoneFraction * 100,
                       r.confidenceWhenCorrect, r.confidenceWhenWrong, r.lowConfidenceFraction * 100)
+    }
+
+    public static let stopHeader = "config / song                         nStops silent  paused  pausedFrac gateFrames recoverFrames  +-1(3s)"
+
+    /// Stop metrics (mean over the reports; one line).
+    public static func stopRow(label: String, _ s: FollowEvalSummary) -> String {
+        let l = label.padding(toLength: 34, withPad: " ", startingAt: 0)
+        let with = s.reports.filter { $0.stopCount > 0 }
+        guard !with.isEmpty else { return l + " (no stops)" }
+        func m(_ f: (FollowEvalReport) -> Double) -> Double { with.map(f).reduce(0, +) / Double(with.count) }
+        func w(_ f: (FollowEvalReport) -> Double) -> Double { with.map(f).max() ?? 0 }
+        return String(format: "%@ %5d  %5.2fs  %5.2fs   %5.1f%%    %5.1f(%4.0f)  %6.1f(%4.0f)    %5.1f%%", l as NSString, with.count,
+                      m { $0.stopSilentLatency }, m { $0.stopPausedLatency }, m { $0.stopPausedFraction } * 100,
+                      m { $0.restartGateFrames }, w { $0.restartGateFrames }, m { $0.restartRecoveryFrames }, w { $0.restartRecoveryFrames },
+                      m { $0.restartWindowAccuracy } * 100)
     }
 
     /// Mean / min summary line for a set of reports.
