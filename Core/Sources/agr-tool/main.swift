@@ -1,0 +1,10 @@
+import AGRCore
+import Foundation
+
+// agr-tool: command-line utilities around AGRCore (import, render, follow-eval).
+// Subcommands are added by the workstreams; see `agr-tool help`.
+let args = Array(CommandLine.arguments.dropFirst())
+switch args.first {
+default:
+    print("usage: agr-tool <command> [options]")
+}
