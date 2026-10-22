@@ -421,7 +421,9 @@ enum OMRJianpuReader {
                 if !add.isEmpty { jb.append(contentsOf: add); jb.sort() }
             }
         }
-        let bc: [Double] = jb.count >= 2 ? jb : tabCenters
+        // A missed jianpu barline piles later measures into the first one and the beats run past the bar.
+        // The tab barlines already agree with the staff, so use those when the counts differ.
+        let bc: [Double] = (jb.count >= 2 && jb.count == tabCenters.count) ? jb : tabCenters
         res.boundaries = bc
         if jb.count >= 2 && jb.count != tabCenters.count {
             res.issues.append(issue(.barlineMismatch, nil, "jianpu row has \(jb.count - 1) measures, tab has \(tabCenters.count - 1)", conf: 0.5))
