@@ -192,10 +192,13 @@ enum OMRTabAnalyzer {
                 // thin shaft with arrow head (vertical or slanted)
                 if h >= 1.4 * u && w <= 1.3 * u {
                     let rows = inkRows(bmp)
-                    let k = max(2, Int(0.5 * u))
-                    let top = rows.prefix(k).reduce(0, +), bot = rows.suffix(k).reduce(0, +)
+                    func offBand(_ i: Int) -> Bool { let y = r.y0 + i; return !st.bands.contains { y >= $0.0 - 1 && y <= $0.1 + 1 } }
+                    let k = max(3, Int(0.8 * u))
+                    var top = 0, bot = 0
+                    for i in 0..<min(k, rows.count) where offBand(i) { top = max(top, rows[i]) }
+                    for i in max(0, rows.count - k)..<rows.count where offBand(i) { bot = max(bot, rows[i]) }
                     var dir: Stroke = bot >= top ? .down : .up
-                    if abs(bot - top) < max(3, Int(0.15 * u)) { dir = .down }
+                    if abs(bot - top) < 2 { dir = .down }
                     var strs: [Int] = []
                     for i in 0..<6 where st.lines[i] >= Double(r.y0) - 0.3 * u && st.lines[i] <= Double(r.y1) + 0.3 * u { strs.append(i + 1) }
                     if !strs.isEmpty {
@@ -216,10 +219,12 @@ enum OMRTabAnalyzer {
                 rests.append(r); continue
             }
             if h < 0.3 * u && w < 0.4 * u { continue }
+            if w < 0.3 * u || Double(c.area) < 0.1 * u * u { continue }
             let cs = crossScore(bmp)
             let cl = classifier.classify(bmp, role: .tabDigit)
             if let (label, conf) = cl, conf >= 0.25 {
                 if label == "x" { items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: conf, rect: r)); items[items.count - 1].strumStrings = []; if so > 0.4 { others.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.1, string: sIdx + 1, stringOffset: so)) }; continue }
+                if ProcessInfo.processInfo.environment["OMR_DEBUG_GLYPH"] != nil, Int(label) != nil { FileHandle.standardError.write(Data("digit \(label) conf \(conf) rect \(r.x0),\(r.y0) \(r.w)x\(r.h) area \(c.area)\n".utf8)) }
                 if let d = Int(label) { items.append(Item(x: r.cx, kind: .digit(d), string: sIdx + 1, conf: conf, rect: r)); continue }
                 if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" || label == "(" || label == ")" { others.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
             }
