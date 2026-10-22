@@ -2,9 +2,10 @@ import Foundation
 import AGRCore
 
 /// Identifies one measure of a `.system` line.
-struct NotationMeasureRef: Hashable {
+struct NotationMeasureRef: Hashable, Identifiable {
     var line: LineRef
     var measure: Int
+    var id: String { "\(line.sectionIndex).\(line.lineIndex).\(measure)" }
 }
 
 /// Position inside a notation system highlighted by playback / following.

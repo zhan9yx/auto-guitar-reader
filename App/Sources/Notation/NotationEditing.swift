@@ -12,7 +12,7 @@ struct ReviewIssue: Identifiable, Equatable {
         static func < (a: Severity, b: Severity) -> Bool { a.rawValue < b.rawValue }
     }
 
-    var id = UUID()
+    var id: String { path + "|" + message }
     var path: String
     var message: String
     var severity: Severity = .warning
@@ -180,6 +180,17 @@ enum MeasureEditing {
     static func addVerse(to measure: inout NotationMeasure, verseCount: Int) {
         for index in measure.melody.indices {
             while measure.melody[index].lyrics.count < verseCount { measure.melody[index].lyrics.append("") }
+        }
+    }
+
+    /// Drops trailing verses that are empty on every note (an "added" verse the user never filled in).
+    static func trimEmptyVerses(_ measure: inout NotationMeasure) {
+        var keep = 0
+        for note in measure.melody {
+            for (index, text) in note.lyrics.enumerated() where !text.isEmpty { keep = max(keep, index + 1) }
+        }
+        for index in measure.melody.indices where measure.melody[index].lyrics.count > keep {
+            measure.melody[index].lyrics = Array(measure.melody[index].lyrics.prefix(keep))
         }
     }
 

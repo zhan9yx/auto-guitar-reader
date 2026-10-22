@@ -356,6 +356,11 @@ final class NotationLayoutTests: XCTestCase {
         MeasureEditing.appendTabEvent(to: &m, defaultBeats: 4)
         XCTAssertEqual(m.tab.count, 1)
 
+        MeasureEditing.addVerse(to: &m, verseCount: 3)
+        XCTAssertEqual(m.melody[0].lyrics.count, 3)
+        MeasureEditing.trimEmptyVerses(&m)
+        XCTAssertEqual(m.melody[0].lyrics, ["", "好"])
+
         var score = SampleScores.notationSample()
         let ref = NotationMeasureRef(line: LineRef(sectionIndex: 0, lineIndex: 0), measure: 1)
         XCTAssertTrue(score.updateNotationMeasure(ref, m))

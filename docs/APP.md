@@ -111,6 +111,40 @@ via the Files app are picked up). Demo scores are seeded once (`UserDefaults` fl
 - Both document views are pure value views (no environment objects, because they are hosted in a
   `UIHostingController`) and report line frames / content size through preference keys.
 
+### Notation systems (弹唱六线谱, AGR v2 `LineKind.system`)
+
+Files: `App/Sources/Notation/*` (layout / rhythm / highlight / editing are framework-free and unit-tested on Linux in
+`App/Tests/AutoGuitarReaderTests/NotationLayoutTests.swift`; `NotationSystemView` is the Canvas drawing),
+`Editor/MeasureEditView.swift`, `Editor/SystemScoreEditorView.swift`.
+
+- **Layout** (`NotationLayout.make`): all sizes derive from the reader font size (`NotationMetrics`). Each measure gets a
+  natural width = max(content minimum, beats x 2.0 em); the minimum comes from the tightest onset spacing of the tab
+  events, melody glyphs, lyrics (CJK = 1 em per character) and chord names. A system is **re-wrapped** to the available
+  width (greedy, then balanced: 4 measures -> 2+2), rows are stretched up to 1.7x. Original system lines keep their `LineRef`:
+  the line frame is the union of all rows, per-measure frames are reported through `NotationMeasureFramesKey`
+  (`ScoreDocumentView.onMeasureFrames`). Auto-scroll maps the line progress linearly over the (equal-height) rows.
+  iPhone portrait at the default font -> 2 measures per row, iPad -> 4.
+- **Rows (top to bottom)**: volta / marks, chord names (+ mini diagrams: printed `ChordMark.shape`, `chordDefinitions`, else the
+  built-in voicing; when transposed the diagram is regenerated from the transposed chord), six-line tab staff (TAB clef, x for
+  `chordTone`, fret digits, H/P/S arcs on the destination note, strum = vertical line + arrow head), rhythm stems and
+  beams from the event durations (8th = 1 beam, 16th = 2, dotted, quarter stem, half short stem, whole none), 简谱 row (octave dots,
+  underlines grouped per beat, "-" extensions, rests repeat "0", dotted notes, accidentals, tie / slur arcs), one lyric row per verse.
+  Fret numbers are not transposed (like `TabStaffView`); chord names and diagrams are.
+- **Display options** (reader menu, persisted with `@AppStorage`): 显示简谱 / 显示六线谱 / 显示和弦图 / 显示歌词 (全部 or 第 N 段).
+- **Highlight**: `ReaderSession.notationHighlight: NotationHighlight?` = (line, measureIndex, beat), set by `ReaderConductor`
+  through `NotationHighlightMapper`. Drawn as a translucent band between the midpoints to the neighbouring onsets plus a
+  filled chord pill. **Assumption about Core v2 timeline events of `.system` lines**: `tabMeasureIndex` = index into
+  `NotationSystem.measures`, `tabEventIndex` = index into that measure's `tab` (beat = `tab[i].beat`); if the measure index is
+  missing the position is derived from `progressInLine.lowerBound` x total beats of the line (measures concatenated).
+- **Import review**: for system scores the preview is the notation, with an issues panel (`ImportReviewView(issues:)`,
+  `ReviewIssue(path:message:severity:)`, path `sections[i].lines[j].system.measures[k]...`) merged with `NotationLint`;
+  tapping an issue scrolls to the system and flashes the measure; tapping a measure opens `MeasureEditView`.
+- **Editor**: `ScoreEditorEntry` routes system scores to `SystemScoreEditorView` (explanation + metadata + tap-to-edit
+  measures) instead of the ChordPro editor, which would lose the notation.
+- Samples: `SampleScores.notationSample()` (8 measures, x arpeggios, one strum measure, repeat with volta, 2 verses).
+- Not handled: compound meters (underline / beam logic assumes quarter-note beats), horizontal scrolling for a single measure
+  wider than the screen (it is squeezed instead), per-event highlight of the lyric text.
+
 #### ScrollDriver API (what the next phase uses)
 
 `ScoreScrollContainer` is a `UIViewRepresentable` around `ReaderScrollView` (a `UIScrollView`) hosting the document
