@@ -338,6 +338,18 @@ enum OMRTabAnalyzer {
             }
             for r in mRests { slots.append(Slot(x: r.cx, dur: unitScale, ev: nil)) }
             slots.sort { $0.x < $1.x }
+            // Two unbeamed notes and nothing else, sitting on either half of the bar, are half notes.
+            // A quarter and a half look the same (stem, no beam); the pair is what distinguishes them.
+            let mW = max(1, rg.1 - rg.0)
+            let evSlots = slots.indices.filter { slots[$0].ev != nil }
+            if evSlots.count == 2,
+               abs((slots[evSlots[0]].dur + slots[evSlots[1]].dur) - beats / 2) < 0.2,
+               evSlots.allSatisfy({ slots[$0].ev?.stem.map { $0.beams == 0 } ?? true }) {
+                let gap = (slots[evSlots[1]].x - slots[evSlots[0]].x) / mW
+                if gap > 0.28, gap < 0.72 {
+                    for i in evSlots { slots[i].dur = beats / 2 }
+                }
+            }
             if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
             let restIdx = slots.indices.filter { slots[$0].ev == nil }
             let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
