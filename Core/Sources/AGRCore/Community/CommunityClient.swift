@@ -53,7 +53,137 @@ public struct CommunityClient: Sendable {
         try Self.checkStatus(response: response, data: data)
     }
 
+    // MARK: Profiles, favorites, my uploads
+
+    public func me() async throws -> CommunityProfile {
+        try await perform(makeMeRequest(), as: CommunityProfile.self)
+    }
+
+    public func updateMe(_ update: CommunityProfileUpdate) async throws -> CommunityProfile {
+        try await perform(makeUpdateMeRequest(update), as: CommunityProfile.self)
+    }
+
+    /// `data` must be a JPEG or PNG of at most `CommunityProfile.maxAvatarBytes`.
+    public func uploadAvatar(data: Data, mimeType: String = "image/jpeg") async throws -> CommunityProfile {
+        try await perform(makeAvatarUploadRequest(data: data, mimeType: mimeType), as: CommunityProfile.self)
+    }
+
+    public func deleteAvatar() async throws -> CommunityProfile {
+        try await perform(makeDeleteAvatarRequest(), as: CommunityProfile.self)
+    }
+
+    public func user(id: String) async throws -> CommunityProfile {
+        try await perform(makeUserRequest(id: id), as: CommunityProfile.self)
+    }
+
+    public func userScores(userID: String, page: Int = 1, pageSize: Int = 20) async throws -> CommunitySearchResponse {
+        try await perform(makeUserScoresRequest(userID: userID, page: page, pageSize: pageSize), as: CommunitySearchResponse.self)
+    }
+
+    public func myScores(page: Int = 1, pageSize: Int = 20) async throws -> CommunitySearchResponse {
+        try await perform(makeMyScoresRequest(page: page, pageSize: pageSize), as: CommunitySearchResponse.self)
+    }
+
+    public func favorites(page: Int = 1, pageSize: Int = 20) async throws -> CommunitySearchResponse {
+        try await perform(makeFavoritesRequest(page: page, pageSize: pageSize), as: CommunitySearchResponse.self)
+    }
+
+    @discardableResult
+    public func favorite(scoreID: String) async throws -> CommunityFavoriteState {
+        try await perform(makeFavoriteRequest(scoreID: scoreID, on: true), as: CommunityFavoriteState.self)
+    }
+
+    @discardableResult
+    public func unfavorite(scoreID: String) async throws -> CommunityFavoriteState {
+        try await perform(makeFavoriteRequest(scoreID: scoreID, on: false), as: CommunityFavoriteState.self)
+    }
+
+    /// Deletes one of my uploads (server answers 403 for scores of other users).
+    public func deleteScore(id: String) async throws {
+        _ = try await performRaw(makeDeleteScoreRequest(id: id))
+    }
+
+    /// Downloads avatar image bytes for a profile's server-relative `avatarURL`.
+    public func fetchAvatar(for profile: CommunityProfile) async throws -> Data? {
+        guard let url = try avatarURL(for: profile) else { return nil }
+        return try await performRaw(baseRequest(url: url, method: "GET"))
+    }
+
+    /// Absolute avatar URL (nil when the profile has no uploaded image).
+    public func avatarURL(for profile: CommunityProfile) throws -> URL? {
+        guard let path = profile.avatarURL, !path.isEmpty else { return nil }
+        return try resolve(serverPath: path)
+    }
+
     // MARK: Request building (pure, testable without network)
+
+    func makeMeRequest() throws -> URLRequest {
+        baseRequest(url: try makeURL(pathComponents: ["me"]), method: "GET")
+    }
+
+    func makeUpdateMeRequest(_ update: CommunityProfileUpdate) throws -> URLRequest {
+        var request = baseRequest(url: try makeURL(pathComponents: ["me"]), method: "PUT")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        do { request.httpBody = try JSONEncoder().encode(update) } catch { throw CommunityError.invalidURL }
+        return request
+    }
+
+    func makeAvatarUploadRequest(data: Data, mimeType: String = "image/jpeg",
+                                 boundary: String = "AGR-\(UUID().uuidString)") throws -> URLRequest {
+        var request = baseRequest(url: try makeURL(pathComponents: ["me", "avatar"]), method: "PUT")
+        var form = MultipartFormData(boundary: boundary)
+        let ext = mimeType.lowercased().contains("png") ? "png" : "jpg"
+        form.addFile(field: "avatar", fileName: "avatar.\(ext)", mimeType: mimeType, data: data)
+        request.setValue(form.contentType, forHTTPHeaderField: "Content-Type")
+        request.httpBody = form.finalized()
+        return request
+    }
+
+    func makeDeleteAvatarRequest() throws -> URLRequest {
+        baseRequest(url: try makeURL(pathComponents: ["me", "avatar"]), method: "DELETE")
+    }
+
+    func makeUserRequest(id: String) throws -> URLRequest {
+        baseRequest(url: try makeURL(pathComponents: ["users", id]), method: "GET")
+    }
+
+    func makeUserScoresRequest(userID: String, page: Int = 1, pageSize: Int = 20) throws -> URLRequest {
+        let url = try makeURL(pathComponents: ["users", userID, "scores"],
+                              query: [("page", String(page)), ("page_size", String(pageSize))])
+        return baseRequest(url: url, method: "GET")
+    }
+
+    func makeMyScoresRequest(page: Int = 1, pageSize: Int = 20) throws -> URLRequest {
+        let url = try makeURL(pathComponents: ["me", "scores"], query: [("page", String(page)), ("page_size", String(pageSize))])
+        return baseRequest(url: url, method: "GET")
+    }
+
+    func makeFavoritesRequest(page: Int = 1, pageSize: Int = 20) throws -> URLRequest {
+        let url = try makeURL(pathComponents: ["me", "favorites"], query: [("page", String(page)), ("page_size", String(pageSize))])
+        return baseRequest(url: url, method: "GET")
+    }
+
+    func makeFavoriteRequest(scoreID: String, on: Bool) throws -> URLRequest {
+        baseRequest(url: try makeURL(pathComponents: ["scores", scoreID, "favorite"]), method: on ? "POST" : "DELETE")
+    }
+
+    func makeDeleteScoreRequest(id: String) throws -> URLRequest {
+        baseRequest(url: try makeURL(pathComponents: ["scores", id]), method: "DELETE")
+    }
+
+    /// `<baseURL prefix><path>?<query>` for a server-relative path such as `/api/v1/users/x/avatar?v=3`.
+    func resolve(serverPath: String) throws -> URL {
+        guard serverPath.hasPrefix("/"), !serverPath.hasPrefix("//"),
+              var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false),
+              components.scheme != nil, components.host != nil else { throw CommunityError.invalidURL }
+        var prefix = components.percentEncodedPath
+        while prefix.hasSuffix("/") { prefix.removeLast() }
+        let parts = serverPath.split(separator: "?", maxSplits: 1, omittingEmptySubsequences: false)
+        components.percentEncodedPath = prefix + String(parts[0])
+        components.percentEncodedQuery = parts.count > 1 ? String(parts[1]) : nil
+        guard let url = components.url else { throw CommunityError.invalidURL }
+        return url
+    }
 
     func makeSearchRequest(query: String, sort: CommunitySort = .recent, page: Int = 1, pageSize: Int = 20) throws -> URLRequest {
         let items: [(String, String)] = [
@@ -150,6 +280,17 @@ public struct CommunityClient: Sendable {
     }
 
     // MARK: Transport
+
+    private func performRaw(_ request: URLRequest) async throws -> Data {
+        let (data, response) = try await send(request)
+        try Self.checkStatus(response: response, data: data)
+        return data
+    }
+
+    private func perform<T: Decodable>(_ request: @autoclosure () throws -> URLRequest, as type: T.Type) async throws -> T {
+        let data = try await performRaw(try request())
+        return try Self.decode(type, from: data)
+    }
 
     private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
         #if canImport(FoundationNetworking)
