@@ -14,9 +14,12 @@ public struct NoteEvent: Hashable, Sendable {
     public var eventIndex: Int
     /// Metronome / count-in click (rendered by the sequencer as a short noise burst; `midi` is ignored).
     public var isClick: Bool
+    /// Melody voice note (简谱 melody of system lines, `PlaybackOptions.playMelody`); `stringIndex` is -2.
+    /// Rendered by the sequencer with a soft sine-ish voice, monophonic.
+    public var isMelody: Bool
 
     public init(time: Double, midi: Int, velocity: Float, duration: Double, stringIndex: Int,
-                eventIndex: Int, isClick: Bool = false) {
+                eventIndex: Int, isClick: Bool = false, isMelody: Bool = false) {
         self.time = time
         self.midi = midi
         self.velocity = velocity
@@ -24,6 +27,7 @@ public struct NoteEvent: Hashable, Sendable {
         self.stringIndex = stringIndex
         self.eventIndex = eventIndex
         self.isClick = isClick
+        self.isMelody = isMelody
     }
 }
 
@@ -39,9 +43,13 @@ public struct PlaybackOptions: Sendable {
     public var seed: UInt64 = 1
     /// Click on every beat for the whole piece (not only the count-in).
     public var metronome: Bool = false
+    /// Also render the 简谱 melody of `.system` lines as a soft melody voice (`NoteEvent.isMelody`).
+    public var playMelody: Bool = false
 
     public init(tempoScale: Double = 1, strumPattern: StrumPattern? = nil, countInBeats: Int = 0,
-                swing: Double = 0, humanize: Double = 0.3, seed: UInt64 = 1, metronome: Bool = false) {
+                swing: Double = 0, humanize: Double = 0.3, seed: UInt64 = 1, metronome: Bool = false,
+                playMelody: Bool = false) {
+        self.playMelody = playMelody
         self.tempoScale = tempoScale
         self.strumPattern = strumPattern
         self.countInBeats = countInBeats
@@ -76,13 +84,19 @@ public enum PerformancePlanner {
     /// → the section's `strumPatternID` (looked up in `score.strumPatterns`) → `.arpeggio` if the score mode
     /// is fingerstyle, otherwise `.defaultPop`. Patterns are phased to the measure grid (beat 0 = measure start).
     /// Tab events produce exact notes (string/fret + capo + transpose, via `TimelineEvent.midiNotes`).
+    ///
+    /// `.system` lines (v2) play the printed tab from `Timeline.systemMeasures`: "×" picks sound the fret of the
+    /// chord shape in effect, digits as printed, events with a `stroke` are strummed over the listed strings
+    /// (down = low → high, up = high → low). Default strum patterns are NOT applied there, except for measures
+    /// that print no tab at all (chord-only systems), which fall back to the usual pattern per chord span.
+    /// With `options.playMelody` the 简谱 melody is added as `isMelody` notes (key from `meta.key`).
     public static func plan(_ timeline: Timeline, score: Score, options: PlaybackOptions) -> [NoteEvent] {
         var p = Planner(timeline: timeline, score: score, options: options)
         return p.run()
     }
 }
 
-private struct RawNote {
+struct RawNote {
     var time: Double          // seconds, before count-in offset
     var midi: Int
     var velocity: Float
@@ -92,7 +106,7 @@ private struct RawNote {
     var minDuration: Double
 }
 
-private struct Planner {
+struct Planner {
     let timeline: Timeline
     let score: Score
     let options: PlaybackOptions
@@ -120,15 +134,17 @@ private struct Planner {
     }
 
     mutating func run() -> [NoteEvent] {
-        for e in timeline.events {
+        for e in timeline.events where !e.fromSystem {
             switch e.kind {
             case .chord: strum(e)
             case .notes: tabNotes(e)
             case .rest: break
             }
         }
+        for inst in timeline.systemMeasures { systemMeasure(inst) }
         var out = finalize()
         let offset = PerformancePlanner.countInSeconds(timeline, options)
+        if options.playMelody { out.append(contentsOf: melody(offset: offset)) }
         out.append(contentsOf: clicks(offset: offset))
         out.sort { a, b in
             if a.time != b.time { return a.time < b.time }

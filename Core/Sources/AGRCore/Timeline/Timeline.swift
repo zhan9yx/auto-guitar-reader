@@ -44,6 +44,15 @@ public struct TimelineEvent: Hashable, Sendable {
     public var progressInLine: ClosedRange<Double>
     /// Fingering used for `midiNotes` (chord events only).
     public var voicing: Voicing?
+    /// True for events derived from a `.system` line (v2 notation system).
+    public var fromSystem: Bool = false
+    /// System events: lyric verse (0-based) this event's `lyric` was taken from.
+    public var verse: Int = 0
+    /// System tab events: string number (1 = high E ... 6 = low E) of every entry of `midiNotes` (index-aligned).
+    /// Notes that cannot sound (× on a string muted by the chord shape) are dropped from both arrays, so for system
+    /// lines `midiNotes` is NOT index-aligned with `TabEvent.notes`. For system events `tabMeasureIndex` is the index
+    /// into `NotationSystem.measures` of the measure where the event starts and `tabEventIndex` indexes `NotationMeasure.tab`.
+    public var noteStrings: [Int] = []
 
     public init(index: Int, kind: TimelineEventKind, line: LineRef, passIndex: Int = 0,
                 segmentIndex: Int? = nil, tabMeasureIndex: Int? = nil, tabEventIndex: Int? = nil,
@@ -69,14 +78,25 @@ public struct TimelineEvent: Hashable, Sendable {
     public var endBeat: Double { startBeat + beats }
 }
 
+/// How `.system` lines are cut into timeline events.
+public enum TimelineGranularity: String, Sendable {
+    /// One event per chord span (strum-and-sing). Carries the chord voicing and the sung syllables.
+    case chord
+    /// One event per printed tab event (fingerstyle). Carries the resolved notes and the syllables sung over it.
+    case tabEvent
+}
+
 public struct TimelineOptions: Sendable {
     /// Semitones added to every chord / note (shape changes with it; capo unaffected).
     public var transpose: Int = 0
     /// Overrides `Score.meta.tempo` (BPM).
     public var tempo: Double? = nil
-    public init(transpose: Int = 0, tempo: Double? = nil) {
+    /// Event granularity for `.system` lines. nil = by score mode (strumSing → `.chord`, fingerstyle → `.tabEvent`).
+    public var granularity: TimelineGranularity? = nil
+    public init(transpose: Int = 0, tempo: Double? = nil, granularity: TimelineGranularity? = nil) {
         self.transpose = transpose
         self.tempo = tempo
+        self.granularity = granularity
     }
 }
 
@@ -97,10 +117,14 @@ public struct Timeline: Sendable {
     public var tuning: [Int]
     public var transpose: Int
     public var sectionPasses: [SectionPass]
+    /// Play-order expansion of every measure of every `.system` line (repeats, voltas, D.S. applied). Empty for
+    /// scores without system lines. Playback renders the printed tab from these.
+    public var systemMeasures: [SystemMeasureInstance]
 
     public init(events: [TimelineEvent] = [], tempo: Double = 80, timeSignature: TimeSignature = TimeSignature(),
                 totalBeats: Double = 0, capo: Int = 0, tuning: [Int] = ScoreMeta.standardTuning,
-                transpose: Int = 0, sectionPasses: [SectionPass] = []) {
+                transpose: Int = 0, sectionPasses: [SectionPass] = [],
+                systemMeasures: [SystemMeasureInstance] = []) {
         self.events = events
         self.tempo = tempo
         self.timeSignature = timeSignature
@@ -109,6 +133,7 @@ public struct Timeline: Sendable {
         self.tuning = tuning
         self.transpose = transpose
         self.sectionPasses = sectionPasses
+        self.systemMeasures = systemMeasures
     }
 
     /// First event of each section pass (follower jump targets).
@@ -142,7 +167,7 @@ extension Timeline {
         b.run()
         return Timeline(events: b.events, tempo: b.tempo, timeSignature: score.meta.timeSignature,
                         totalBeats: b.cursor, capo: score.meta.capo, tuning: score.meta.tuning,
-                        transpose: options.transpose, sectionPasses: b.passes)
+                        transpose: options.transpose, sectionPasses: b.passes, systemMeasures: b.systemInstances)
     }
 }
 
@@ -159,7 +184,7 @@ func timelineDisplayWidth(_ s: String) -> Int {
     return w
 }
 
-private struct TimelineBuilder {
+struct TimelineBuilder {
     let score: Score
     let options: TimelineOptions
     let tempo: Double
@@ -170,6 +195,8 @@ private struct TimelineBuilder {
     /// Last chord event state, for chordless lines and leading text.
     var lastChord: (symbol: ChordSymbol, voicing: Voicing, midi: [Int])?
     var pendingPrefix: String = ""
+    var systemInstances: [SystemMeasureInstance] = []
+    var systemCarry: ResolvedChordSpan?
 
     init(score: Score, options: TimelineOptions) {
         self.score = score
@@ -193,13 +220,16 @@ private struct TimelineBuilder {
             let pass = passCount[si, default: 0]
             passCount[si] = pass + 1
             let first = events.count
+            var systemsDone = false
             for (li, line) in score.sections[si].lines.enumerated() {
                 let ref = LineRef(sectionIndex: si, lineIndex: li)
                 switch line.kind {
                 case .lyrics, .chords: chordLine(line, ref, pass)
                 case .tab: tabLine(line, ref, pass)
                 case .comment: break
-                case .system: break  // TODO(v2): expand NotationSystem measures
+                case .system:
+                    // All system lines of the section are expanded together (repeats span systems).
+                    if !systemsDone { systemsDone = true; systemLines(section: si, pass: pass) }
                 }
             }
             if events.count > first {
@@ -232,7 +262,7 @@ private struct TimelineBuilder {
 
     // MARK: lyrics / chords lines
 
-    fileprivate struct Pending {
+    struct Pending {
         var event: TimelineEvent
         var weight: Double
     }
@@ -319,7 +349,7 @@ private struct TimelineBuilder {
     }
 
     /// Assigns progress ranges and appends the line's events.
-    fileprivate mutating func finish(_ items: inout [Pending], _ ref: LineRef) {
+    mutating func finish(_ items: inout [Pending], _ ref: LineRef) {
         guard !items.isEmpty else { return }
         let total = items.reduce(0) { $0 + $1.weight }
         var acc = 0.0
