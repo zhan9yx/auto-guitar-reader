@@ -193,9 +193,10 @@ enum OMRStaffDetector {
                         else { break }
                     }
                     if e - x >= minRun {
-                        let probe = y + dir * 3
+                        // Only a one-pixel shoulder. A fret or an × continues away from the line.
+                        let next = y + dir
                         for xx in x..<e where bm.ink(xx, y) {
-                            if !bm.ink(xx, probe) && !bm.ink(xx, probe + dir) { bm[xx, y] = 0 }
+                            if next < 0 || next >= bm.h || !bm.ink(xx, next) { bm[xx, y] = 0 }
                         }
                     }
                     x = e
