@@ -11,6 +11,8 @@ case "import":
     exit(runImportCommand(Array(args.dropFirst())))
 case "follow-eval":
     exit(FollowEvalCommand.run(Array(args.dropFirst())))
+case "ai-dump-requests", "ai-apply":
+    exit(AICommand.run(args))
 default:
-    print("usage: agr-tool <import|render|follow-eval> [options]")
+    print("usage: agr-tool <import|render|follow-eval|ai-dump-requests|ai-apply> [options]")
 }
