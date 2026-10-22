@@ -2,7 +2,7 @@ import XCTest
 @testable import AGRCore
 
 /// One clean `classic_ref` page from `tools/omr-synth` (seed 1, level none).
-/// Readers are called directly: the engine does not attach chords or melody yet.
+/// Readers are called directly, and `OMREngine.recognize` must attach the same fields.
 final class OMRReaderSmokeTests: XCTestCase {
     func testClassicRefPageReaders() throws {
         let dir = URL(fileURLWithPath: #filePath)
@@ -80,5 +80,33 @@ final class OMRReaderSmokeTests: XCTestCase {
                 rest = rest[range.upperBound...]
             }
         }
+    }
+
+    func testEngineAttachesHeaderChordsAndMelody() throws {
+        let dir = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("Fixtures/omr")
+        let image = try GrayImage.decodePGM(Data(contentsOf: dir.appendingPathComponent("page-0.pgm")))
+        let score = try ScoreCoding.decoder().decode(Score.self, from: Data(contentsOf: dir.appendingPathComponent("score.agr.json")))
+        let ocr = try JSONDecoder().decode([OCRToken].self, from: Data(contentsOf: dir.appendingPathComponent("page-0.ocr.json")))
+        let pageSystems = score.sections.flatMap { sec in
+            sec.lines.compactMap { line -> NotationSystem? in
+                guard line.anchor?.page == 0, let system = line.system else { return nil }
+                return system
+            }
+        }
+
+        let (out, report) = OMREngine.recognize(pages: [(image: image, ocr: ocr, fileName: "page-0.pgm")])
+        XCTAssertEqual(report.systemCount, pageSystems.count)
+        XCTAssertEqual(out.meta.title, score.meta.title)
+        let gotSystems = out.sections.flatMap(\.lines).compactMap(\.system)
+        XCTAssertEqual(gotSystems.count, pageSystems.count)
+        let gotChords = gotSystems[0].measures.flatMap { $0.chords.map(\.name) }.sorted()
+        let expChords = pageSystems[0].measures.flatMap { $0.chords.map(\.name) }.sorted()
+        XCTAssertEqual(gotChords, expChords, "engine chords \(gotChords) != \(expChords); issues \(report.issues.map(\.message))")
+        let gotDegrees = gotSystems[0].measures.flatMap { $0.melody.map(\.degree) }
+        let expDegrees = pageSystems[0].measures.flatMap { $0.melody.map(\.degree) }
+        XCTAssertEqual(gotDegrees, expDegrees, "engine degrees \(gotDegrees) != \(expDegrees)")
     }
 }
