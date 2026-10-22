@@ -67,6 +67,27 @@ enum OMRDeskew {
         return out
     }
 
+    /// Nearest-neighbour warp of a binary page. Bilinear resampling of the gray image turns
+    /// one-pixel staff lines gray, and a second threshold then drops them.
+    static func rotate(_ bm: Bitmap, slope a: Double) -> Bitmap {
+        let phi = atan(a)
+        let c = cos(phi), s = sin(phi)
+        let cx = Double(bm.w) / 2, cy = Double(bm.h) / 2
+        var out = Bitmap(w: bm.w, h: bm.h)
+        let w = bm.w, h = bm.h
+        for y in 0..<h {
+            let dy = Double(y) - cy
+            for x in 0..<w {
+                let dx = Double(x) - cx
+                let sx = cx + dx * c - dy * s
+                let sy = cy + dx * s + dy * c
+                let ix = Int(sx.rounded()), iy = Int(sy.rounded())
+                if ix >= 0, iy >= 0, ix < w, iy < h, bm.d[iy * w + ix] != 0 { out.d[y * w + x] = 1 }
+            }
+        }
+        return out
+    }
+
     /// Maps a point from the original image frame to the deskewed frame.
     static func forward(x: Double, y: Double, slope a: Double, width: Int, height: Int) -> (Double, Double) {
         let phi = atan(a)

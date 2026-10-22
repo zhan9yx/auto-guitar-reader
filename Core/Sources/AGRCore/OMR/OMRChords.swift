@@ -138,7 +138,7 @@ enum OMRChordReader {
                let alt = library.name(for: d.frets) ?? identify(frets: d.frets), let altSym = ChordNameNormalizer.symbol(alt), shapeFit(altSym, d.frets) >= 0.95,
                names[ni].confidence < 0.995 {
                 // OCR misread (G/D, C/E ...): the diagram identifies another chord exactly
-                entries.append((d.left, alt, d.shape, di, 0.5 * d.confidence, 0.05))
+                entries.append((d.cx, alt, d.shape, di, 0.5 * d.confidence, 0.05))
                 issues.append(OMRIssue(kind: .unknownChord, path: "sections[0].lines[{L}].system.measures[0].chords",
                                        message: "printed name \(names[ni].text) contradicts the diagram; used \(alt)", context: "\(systemIndex)", ocrSnippets: [names[ni].text], confidence: 0.5))
                 continue
@@ -149,11 +149,11 @@ enum OMRChordReader {
                    let lib = library.bestShape(for: names[ni].text), shapeFit(sym, lib) >= 0.95 {
                     shape = ChordShape(frets: lib, baseFret: shape.baseFret)      // repeated chord: trust the page's majority reading
                 } else { learned.add(name: names[ni].text, frets: shape.frets) }
-                entries.append((d.left, names[ni].text, shape, di, min(d.confidence, names[ni].confidence), 0.05))
+                entries.append((d.cx, names[ni].text, shape, di, min(d.confidence, names[ni].confidence), 0.05))
             } else if let known = library.name(for: d.frets) {
-                entries.append((d.left, known, d.shape, di, 0.6 * d.confidence, 0.05))
+                entries.append((d.cx, known, d.shape, di, 0.6 * d.confidence, 0.05))
             } else if let guess = identify(frets: d.frets) {
-                entries.append((d.left, guess, d.shape, di, 0.3 * d.confidence, 0.05))
+                entries.append((d.cx, guess, d.shape, di, 0.3 * d.confidence, 0.05))
                 issues.append(OMRIssue(kind: .unknownChord, path: "sections[0].lines[{L}].system.measures[0]",
                                        message: "chord diagram without printed name; guessed \(guess)",
                                        context: "\(systemIndex)", confidence: 0.3))
@@ -165,7 +165,7 @@ enum OMRChordReader {
         let halves = diagrams.map { $0.cx - $0.left }.sorted()
         let halfW = halves.isEmpty ? 1.7 * u : halves[halves.count / 2]
         for (ni, n) in names.enumerated() where !usedNames.contains(ni) {
-            entries.append((n.x0, n.text, nil, nil, n.confidence, 0.12))
+            entries.append((n.cx, n.text, nil, nil, n.confidence, 0.12))
         }
 
         var measures = [[ChordMark]](repeating: [], count: spans.count)

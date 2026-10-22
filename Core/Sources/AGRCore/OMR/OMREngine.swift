@@ -10,8 +10,10 @@ public enum OMREngine {
         var score = Score(meta: ScoreMeta(source: ScoreSource(kind: .image)))
         var lines: [Line] = []
         var headerDone = false
+        var carriedTime: TimeSignature?
         for (pi, page) in pages.enumerated() {
-            let r = OMRPage.process(page: pi, image: page.image, ocr: page.ocr, options: options)
+            let r = OMRPage.process(page: pi, image: page.image, ocr: page.ocr, options: options, knownTime: carriedTime)
+            if r.meta.timeSignature.beats > 0 { carriedTime = r.meta.timeSignature }
             score.pages.append(PageImage(fileName: page.fileName ?? "page-\(pi).jpg", width: page.image.width, height: page.image.height))
             if !headerDone || pi == 0 { score.meta = mergeMeta(score.meta, r.meta); headerDone = true }
             else if score.meta.title.isEmpty { score.meta = mergeMeta(score.meta, r.meta) }
@@ -51,8 +53,16 @@ struct PageResult {
     var removedText: [String] = []
 }
 
+struct BuiltSystem {
+    var staff: TabStaff
+    var bars: [BarlineStructure]
+    var measures: [NotationMeasure]
+    /// Pixel x of each tab event (`TabEvent` itself has no x). Parallel to `measures`.
+    var eventX: [[Double]]
+}
+
 enum OMRPage {
-    static func process(page: Int, image: GrayImage, ocr: [OCRToken], options: OMROptions, trace: OMRTrace? = nil) -> PageResult {
+    static func process(page: Int, image: GrayImage, ocr: [OCRToken], options: OMROptions, trace: OMRTrace? = nil, knownTime: TimeSignature? = nil) -> PageResult {
         var res = PageResult()
         var image = image
         var ocr = ocr
@@ -68,12 +78,15 @@ enum OMRPage {
                 t.x = c.0 / W - t.width / 2; t.y = c.1 / H - t.height / 2
                 return t
             }
-            bm = OMRVision.binarize(image).bm
-            bmLine = OMRVision.binarize(image, threshold: Int(bgLevel - 0.22 * (bgLevel - inkLevel))).bm
+            bm = OMRDeskew.rotate(bm, slope: slope)
+            bmLine = OMRDeskew.rotate(bmLine, slope: slope)
         }
         OMRVision.removeSolidBlobs(&bm)
         OMRVision.removeSolidBlobs(&bmLine)
         let staves = OMRStaffDetector.detect(bmLine)
+        if ProcessInfo.processInfo.environment["AGR_OMR_TRACE"] != nil {
+            FileHandle.standardError.write(Data("slope \(slope) staves \(staves.count) u \(staves.first.map { $0.u } ?? 0)\n".utf8))
+        }
         if staves.isEmpty {
             res.issues.append(OMRIssue(kind: .noStaff, path: "sections[0]", message: "no six-line tab staff found on page \(page)"))
             return res
@@ -85,6 +98,12 @@ enum OMRPage {
         var beats = 4.0
         var unit = 4
         var timeFromClef = false
+        if let known = knownTime, known.beats > 0 {
+            beats = Double(known.beats)
+            unit = known.unit
+            res.meta.timeSignature = known
+            timeFromClef = true
+        }
         // time signature from the first staff's clef area
         do {
             let st = staves[0]
@@ -96,16 +115,12 @@ enum OMRPage {
                 timeFromClef = true
             }
         }
-        struct BuiltSystem {
-            var staff: TabStaff
-            var bars: [BarlineStructure]
-            var measures: [NotationMeasure]
-            /// Pixel x of each tab event (`TabEvent` itself has no x). Parallel to `measures`.
-            var eventX: [[Double]]
-        }
         var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
             let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st)
+            if ProcessInfo.processInfo.environment["AGR_OMR_TRACE"] != nil {
+                FileHandle.standardError.write(Data(" staff y \(Int(st.top)) bars \(bars.count) x \(st.x0)-\(st.x1)\n".utf8))
+            }
             trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
             for b in bars { trace?.add(IRect(x0: b.x0 - 1, y0: Int(st.top) - 4, x1: b.x1 + 1, y1: Int(st.bottom) + 4), (0, 160, 0)) }
             let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared, trace: trace)
@@ -161,6 +176,21 @@ enum OMRPage {
         res.issues.append(contentsOf: header.issues)
         for s in header.nonScoreText where !res.removedText.contains(s) { res.removedText.append(s) }
 
+        // The clef digits are sometimes missed, and the header then supplies 6/8 after the tab
+        // was read in 4/4. Durations are in the time signature's beat, so re-read the tab.
+        let sig = res.meta.timeSignature
+        if sig.beats > 0, (Int(beats.rounded()) != sig.beats || unit != sig.unit) {
+            beats = Double(sig.beats)
+            unit = sig.unit
+            for si in built.indices {
+                let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: built[si].staff, bars: built[si].bars,
+                                                  beats: beats, unit: unit, classifier: .shared)
+                guard mts.count == built[si].measures.count else { continue }
+                for mi in mts.indices { built[si].measures[mi].tab = mts[mi].events }
+                built[si].eventX = mts.map(\.eventX)
+            }
+        }
+
         let pageBeats = res.meta.timeSignature.beats > 0 ? Double(res.meta.timeSignature.beats) : beats
         let inputs: [ChordSystemInput] = built.enumerated().map { si, sys in
             let band: Double? = si > 0 ? max(built[si - 1].staff.bottom + 2 * sys.staff.u, sys.staff.top - 10.5 * sys.staff.u) : nil
@@ -168,6 +198,7 @@ enum OMRPage {
             return ChordSystemInput(staff: sys.staff, bandTop: band, spans: spans)
         }
         let chordRs = OMRChordReader.readPage(bm: bm, gray: image, systems: inputs, ocr: kept)
+        attachPrintedMarks(ocr: kept, width: W, height: H, built: &built)
         for si in built.indices {
             let chordTop: Double? = chordRs.indices.contains(si) ? chordRs[si].bandTop : nil
             if chordRs.indices.contains(si) {
@@ -189,6 +220,9 @@ enum OMRPage {
             for (mi, mel) in jr.measures.enumerated() where mi < built[si].measures.count {
                 built[si].measures[mi].melody = mel
             }
+            for (mi, ms) in jr.marks.enumerated() where mi < built[si].measures.count {
+                for m in ms where !built[si].measures[mi].marks.contains(m) { built[si].measures[mi].marks.append(m) }
+            }
             var contentBottom: Double?
             if jr.rowBottom > jr.rowTop { contentBottom = jr.rowBottom }
             if let lb = jr.lyricRows.map(\.bottom).max() { contentBottom = max(contentBottom ?? lb, lb) }
@@ -196,6 +230,73 @@ enum OMRPage {
             res.lines.append(Line.system(NotationSystem(measures: built[si].measures), anchor: anchor))
         }
         return res
+    }
+
+    /// Section names and volta numbers are printed text. They sit above a system and are not tab glyphs.
+    static func attachPrintedMarks(ocr: [OCRToken], width W: Double, height H: Double, built: inout [BuiltSystem]) {
+        guard W > 0, H > 0, !built.isEmpty else { return }
+        for t in ocr {
+            let text = t.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !text.isEmpty else { continue }
+            let cx = (t.x + t.width / 2) * W
+            let cy = (t.y + t.height / 2) * H
+            if let nums = voltaNumbers(text) {
+                guard let si = systemIndex(containingX: cx, y: cy, built: built, bandAbove: 2.6, bandBelow: 0.2) else { continue }
+                let u = built[si].staff.u
+                let bars = built[si].bars
+                guard bars.count >= 2 else { continue }
+                var mi = 0
+                for k in 0..<(bars.count - 1) where cx >= bars[k].xAfter - 0.4 * u { mi = k }
+                guard mi < built[si].measures.count else { continue }
+                if built[si].measures[mi].volta != nums { built[si].measures[mi].volta = nums }
+                continue
+            }
+            let folded = ChordNameNormalizer.foldWidth(text)
+            guard SectionHeaderParser.isSectionLabel(folded), text.count <= 12 else { continue }
+            guard let si = nearestSystemBelow(x: cx, y: cy, built: built) else { continue }
+            guard !built[si].measures.isEmpty else { continue }
+            if !built[si].measures[0].marks.contains(text) { built[si].measures[0].marks.insert(text, at: 0) }
+        }
+    }
+
+    /// "1." / "2." / "1,2." as printed on a volta bracket. A bare digit is a fret or a time signature, not a volta.
+    static func voltaNumbers(_ raw: String) -> [Int]? {
+        let s = ChordNameNormalizer.foldWidth(raw).filter { !$0.isWhitespace }
+        guard s.contains(".") || s.contains(",") || s.contains("，") else { return nil }
+        var t = s
+        if t.hasSuffix(".") { t.removeLast() }
+        guard !t.isEmpty else { return nil }
+        let parts = t.split { $0 == "," || $0 == "，" || $0 == "." }
+        var nums: [Int] = []
+        for p in parts {
+            guard let v = Int(p), (1...8).contains(v), p.count == 1 else { return nil }
+            nums.append(v)
+        }
+        return nums.isEmpty ? nil : nums
+    }
+
+    static func systemIndex(containingX x: Double, y: Double, built: [BuiltSystem], bandAbove: Double, bandBelow: Double) -> Int? {
+        var best: (Int, Double)?
+        for (si, sys) in built.enumerated() {
+            let st = sys.staff
+            guard x >= Double(st.x0) - 2 * st.u, x <= Double(st.x1) + 2 * st.u else { continue }
+            guard y >= st.top - bandAbove * st.u, y <= st.top + bandBelow * st.u else { continue }
+            let d = abs(st.top - y)
+            if best == nil || d < best!.1 { best = (si, d) }
+        }
+        return best?.0
+    }
+
+    static func nearestSystemBelow(x: Double, y: Double, built: [BuiltSystem]) -> Int? {
+        var best: (Int, Double)?
+        for (si, sys) in built.enumerated() {
+            let st = sys.staff
+            let gap = st.top - y
+            guard gap > -0.4 * st.u, gap < 16 * st.u else { continue }
+            guard x >= Double(st.x0) - 6 * st.u, x <= Double(st.x0) + 10 * st.u else { continue }
+            if best == nil || gap < best!.1 { best = (si, gap) }
+        }
+        return best?.0
     }
 
     /// Measure gaps from barline `x0`/`x1` (`xAfter` / `xBefore` include repeat dots).

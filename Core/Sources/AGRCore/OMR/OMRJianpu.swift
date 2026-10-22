@@ -25,6 +25,8 @@ struct JianpuReadResult {
     var lyricRows: [LyricRow] = []
     /// x of the measure boundaries used (measures.count + 1 entries).
     var boundaries: [Double] = []
+    /// Printed marks per tab measure (`jianpu-paren-open` / `jianpu-paren-close`), indexed like `bars`.
+    var marks: [[String]] = []
 }
 
 /// Numbered-notation (简谱) melody + lyrics reader for one tab system.
@@ -117,7 +119,7 @@ enum OMRJianpuReader {
         var notes: [JianpuNote] = []
         var used = Set<Int>()
         var barXs: [Double] = []
-        var parenXs: [Double] = []
+        var parens: [(x: Double, mark: String)] = []
         // barlines of the jianpu row (the left system line may reach up to the staff, so any height is allowed)
         for c in lab0.comps {
             let r = offsetRect(c.rect)
@@ -155,7 +157,10 @@ enum OMRJianpuReader {
                 continue
             }
             guard let k = classifier.classify(b) else { continue }
-            if k.label == "(" || k.label == ")" { parenXs.append(r.cx); used.insert(c.id); continue }
+            if k.label == "(" || k.label == ")" {
+                parens.append((r.cx, k.label == "(" ? "jianpu-paren-open" : "jianpu-paren-close"))
+                used.insert(c.id); continue
+            }
             if k.label == "#" || k.label == "b" { continue }   // accidentals are handled below
             var label = k.label
             var conf = max(0, 1 - k.dist / 0.4)
@@ -211,26 +216,31 @@ enum OMRJianpuReader {
             // small blobs: octave dots, augmentation dots
             if w >= 0.1 * Hd, h >= 0.1 * Hd, w <= 0.55 * Hd, h <= 0.55 * Hd, w / h >= 0.5, w / h <= 2.0,
                Double(c.area) >= 0.45 * w * h {
+                var claimed = false
                 if r.cy < rowTop - 0.02 * Hd {
                     guard r.cy >= rowTop - 1.5 * u - 0.3 * Hd else { continue }
                     if let i = nearestNote(r.cx, maxDist: max(0.45 * Hd, 0.6 * (notes[0].x1 - notes[0].x0) + 2)),
-                       abs(notes[i].cx - r.cx) <= 0.5 * (notes[i].x1 - notes[i].x0) + 2.5 { notes[i].above += 1 }
+                       abs(notes[i].cx - r.cx) <= 0.5 * (notes[i].x1 - notes[i].x0) + 2.5 { notes[i].above += 1; claimed = true }
                 } else if r.cy >= rowTop + 0.3 * Hd && r.cy <= rowBottom + 0.1 * Hd {
-                    // augmentation dot: right of a digit
+                    // augmentation dot hugs the previous digit; a sharp sitting on the next digit does not
                     var bi = -1, bd = Double.infinity
                     for (i, n) in notes.enumerated() where r.cx > n.x1 - 1.0 {
                         let d = r.cx - n.x1
                         if d < bd { bd = d; bi = i }
                     }
-                    if bi >= 0, bd <= 0.9 * u + 0.3 * Hd, !nearBar(r.cx, 0.9 * u) || bd < 0.5 * u { notes[bi].dots += 1 }
+                    if bi >= 0 {
+                        let nextLeft = bi + 1 < notes.count ? notes[bi + 1].x0 : Double.infinity
+                        if bd <= min(0.80 * u, 0.55 * Hd + 3), nextLeft - r.cx > bd + 0.2 * u,
+                           !nearBar(r.cx, 0.9 * u) || bd < 0.45 * u { notes[bi].dots += 1; claimed = true }
+                    }
                 }
-                continue
+                if claimed { continue }
             }
-            // accidentals: left of a digit
+            // accidentals: left of a digit (may overlap the digit's left edge)
             if h >= 0.3 * Hd, h <= 1.0 * Hd, w >= 0.15 * Hd, w <= 0.9 * Hd, r.cy >= rowTop - 0.2 * Hd, r.cy <= rowBottom + 0.2 * Hd {
                 var bi = -1, bd = Double.infinity
-                for (i, n) in notes.enumerated() where Double(r.x1) <= n.x0 + 0.15 * u {
-                    let d = n.x0 - Double(r.x1)
+                for (i, n) in notes.enumerated() where r.cx < n.cx && Double(r.x0) >= n.x0 - 1.3 * u {
+                    let d = n.x0 - Double(r.cx)
                     if d < bd { bd = d; bi = i }
                 }
                 if bi >= 0, bd <= 0.9 * u {
@@ -370,6 +380,15 @@ enum OMRJianpuReader {
                 slotIdx += 1
             }
         }
+        var markLists = [[String]](repeating: [], count: max(0, bars.count - 1))
+        if bars.count >= 2 {
+            for p in parens {
+                var mi = 0
+                for k in 0..<(bars.count - 1) where p.x >= Double(bars[k].x0) - 0.4 * u { mi = k }
+                if mi < markLists.count, !markLists[mi].contains(p.mark) { markLists[mi].append(p.mark) }
+            }
+        }
+        res.marks = markLists
         res.notes = notes
         return res
     }

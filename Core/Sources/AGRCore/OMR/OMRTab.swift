@@ -67,7 +67,13 @@ enum OMRTabAnalyzer {
                 if clean.d[y * clean.w + x] != 0 {
                     var e = y
                     while e < yTo && clean.d[e * clean.w + x] != 0 { e += 1 }
-                    if e - y >= minLen && e - y <= Int(7 * u) && Double(y) <= st.bottom + 1.8 * u && Double(e) >= st.bottom + 0.7 * u { if best == nil || e - y > best!.1 - best!.0 { best = (y, e) } }
+                    // A full-height strum shaft continues into the stem and is longer than 7u.
+                    // Keep only the part that starts at the staff bottom and hangs below it.
+                    let stemTop = max(y, Int((st.bottom + 0.12 * u).rounded()))
+                    let len = e - stemTop
+                    if len >= minLen && len <= Int(4.8 * u) && Double(stemTop) <= st.bottom + 1.8 * u && Double(e) >= st.bottom + 0.7 * u {
+                        if best == nil || len > best!.1 - best!.0 { best = (stemTop, e) }
+                    }
                     y = e
                 } else { y += 1 }
             }
@@ -105,6 +111,53 @@ enum OMRTabAnalyzer {
         return bands
     }
 
+    /// Augmentation dot just right of the stem end (a dotted quarter / eighth). 0 or 1.
+    static func augmentationDots(clean: Bitmap, stem: Stem, staff st: TabStaff) -> Int {
+        let u = st.u
+        // Start just right of the stem. A flag is connected to the stem; a dot is not.
+        let stemRight = Int(stem.x + Double(stem.width) / 2) + 1
+        let x0 = max(0, stemRight)
+        let x1 = min(clean.w, Int((stem.x + 0.90 * u).rounded()))
+        let y0 = max(0, Int((Double(stem.y1) - 0.70 * u).rounded()))
+        let y1 = min(clean.h, Int((Double(stem.y1) - 0.02 * u).rounded()))
+        guard x1 > x0, y1 > y0 else { return 0 }
+        let ww = x1 - x0, hh = y1 - y0
+        var seen = [Bool](repeating: false, count: ww * hh)
+        func at(_ x: Int, _ y: Int) -> Int { (y - y0) * ww + (x - x0) }
+        var dots = 0
+        for y in y0..<y1 {
+            for x in x0..<x1 where clean.ink(x, y) && !seen[at(x, y)] {
+                var stack = [(x, y)]
+                seen[at(x, y)] = true
+                var n = 0, minx = x, maxx = x, miny = y, maxy = y, beam = false
+                while let p = stack.popLast() {
+                    n += 1
+                    minx = min(minx, p.0); maxx = max(maxx, p.0); miny = min(miny, p.1); maxy = max(maxy, p.1)
+                    if p.0 >= x1 - 2 {
+                        var xx = x1, run = 0
+                        while xx < clean.w && clean.ink(xx, p.1) {
+                            run += 1; xx += 1
+                            if run > Int(0.55 * u) { beam = true; break }
+                        }
+                    }
+                    for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                        let nx = p.0 + dx, ny = p.1 + dy
+                        if nx >= x0, nx < x1, ny >= y0, ny < y1, clean.ink(nx, ny), !seen[at(nx, ny)] {
+                            seen[at(nx, ny)] = true
+                            stack.append((nx, ny))
+                        }
+                    }
+                }
+                if beam || minx <= stemRight { continue }
+                let bw = maxx - minx + 1, bh = maxy - miny + 1
+                if n >= max(3, Int(u * u * 0.035)), n <= Int(u * u * 0.30),
+                   bw >= 2, bh >= 2, bw <= Int(0.50 * u) + 1, bh <= Int(0.50 * u) + 1,
+                   abs(bw - bh) <= max(2, Int(0.25 * u)) { dots += 1 }
+            }
+        }
+        return min(dots, 1)
+    }
+
     // MARK: Main
 
     struct Item {
@@ -128,7 +181,10 @@ enum OMRTabAnalyzer {
         let u = st.u
         let unitScale = Double(unit) / 4.0
         var stems = findStems(clean: clean, staff: st, bars: bars)
-        for i in stems.indices { stems[i].beams = beamCount(clean: clean, stem: stems[i], staff: st) }
+        for i in stems.indices {
+            stems[i].beams = beamCount(clean: clean, stem: stems[i], staff: st)
+            stems[i].dotted = augmentationDots(clean: clean, stem: stems[i], staff: st) > 0
+        }
 
         // glyph bitmap: staff-free, stems erased so that glyphs touching stems separate
         var gb = clean
@@ -273,8 +329,11 @@ enum OMRTabAnalyzer {
             struct Slot { var x: Double; var dur: Double; var ev: Ev? }
             var slots: [Slot] = []
             for e in evs {
-                let dur: Double
-                if let s = e.stem { dur = [1.0, 0.5, 0.25, 0.125, 0.0625][min(4, s.beams)] * unitScale } else { dur = unitScale }
+                var dur: Double
+                if let s = e.stem {
+                    dur = [1.0, 0.5, 0.25, 0.125, 0.0625][min(4, s.beams)] * unitScale
+                    if s.dotted { dur *= 1.5 }
+                } else { dur = unitScale }
                 slots.append(Slot(x: e.x, dur: dur, ev: e))
             }
             for r in mRests { slots.append(Slot(x: r.cx, dur: unitScale, ev: nil)) }

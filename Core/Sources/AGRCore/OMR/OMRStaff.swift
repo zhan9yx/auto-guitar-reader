@@ -229,18 +229,42 @@ enum OMRStaffDetector {
             func dotsNear(_ xa: Int, _ xb: Int) -> Bool {
                 let cb = clean ?? bm
                 let c1 = ((st.lines[1] + st.lines[2]) / 2), c2 = ((st.lines[3] + st.lines[4]) / 2)
-                let r = Int((0.3 * u).rounded())
+                let r = Int((0.34 * u).rounded())
+                // The clef letters sit in the same columns as the dots, so all ink in the window is not one blob.
                 func dot(_ cy: Double) -> Bool {
-                    var x0 = Int.max, x1 = -1, y0 = Int.max, y1 = -1, n = 0
-                    for y in (Int(cy.rounded()) - r)...(Int(cy.rounded()) + r) { for x in max(0, xa)..<max(max(0, xa), min(cb.w, xb)) where cb.ink(x, y) { n += 1; x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) } }
-                    if ProcessInfo.processInfo.environment["OMR_DEBUG_DOT"] != nil { FileHandle.standardError.write(Data("dot cy \(cy) x \(xa)-\(xb) n \(n) bbox \(x0),\(y0)-\(x1),\(y1)\n".utf8)) }
-                    if n < max(4, Int(u * u * 0.05)) { return false }
-                    let bw = Double(x1 - x0 + 1), bh = Double(y1 - y0 + 1)
-                    return bw <= 0.75 * u && bh <= 0.75 * u && abs(Double(y0 + y1) / 2 - cy) <= 0.25 * u && Double(n) >= 0.58 * bw * bh && bw / bh >= 0.65 && bw / bh <= 1.55 && bw >= 0.25 * u
+                    let ya = Int(cy.rounded()) - r, yb = Int(cy.rounded()) + r
+                    let xLo = max(0, xa), xHi = min(cb.w, xb)
+                    guard xHi > xLo, yb > ya else { return false }
+                    let ww = xHi - xLo, hh = yb - ya + 1
+                    var seen = [Bool](repeating: false, count: ww * hh)
+                    func at(_ x: Int, _ y: Int) -> Int { (y - ya) * ww + (x - xLo) }
+                    for y in ya...yb {
+                        for x in xLo..<xHi where cb.ink(x, y) && !seen[at(x, y)] {
+                            var stack = [(x, y)]
+                            seen[at(x, y)] = true
+                            var n = 0, minx = x, maxx = x, miny = y, maxy = y
+                            while let p = stack.popLast() {
+                                n += 1
+                                minx = min(minx, p.0); maxx = max(maxx, p.0); miny = min(miny, p.1); maxy = max(maxy, p.1)
+                                for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+                                    let nx = p.0 + dx, ny = p.1 + dy
+                                    if nx >= xLo, nx < xHi, ny >= ya, ny <= yb, cb.ink(nx, ny), !seen[at(nx, ny)] {
+                                        seen[at(nx, ny)] = true
+                                        stack.append((nx, ny))
+                                    }
+                                }
+                            }
+                            let bw = Double(maxx - minx + 1), bh = Double(maxy - miny + 1)
+                            if n >= max(3, Int(u * u * 0.02)), bw <= 0.55 * u, bh <= 0.55 * u, bw >= 0.14 * u, bh >= 0.14 * u,
+                               abs((Double(miny + maxy) / 2) - cy) <= 0.28 * u, Double(n) >= 0.45 * bw * bh,
+                               bw / bh >= 0.55, bw / bh <= 1.8 { return true }
+                        }
+                    }
+                    return false
                 }
                 return dot(c1) && dot(c2)
             }
-            let dr = Int(u * 1.0)
+            let dr = Int(u * 1.15)
             bs.hasDotsRight = dotsNear(x1 + 1, x1 + dr)
             bs.hasDotsLeft = dotsNear(x0 - dr, x0 - 1)
             if bs.hasDotsRight && bs.hasDotsLeft { bs.kind = .startEndRepeat }
