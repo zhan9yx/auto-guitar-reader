@@ -16,3 +16,9 @@ datasets/
 tools/omr-synth/.venv/
 tools/omr-synth/fonts/
 tools/omr-synth/out/
+
+# OMR OCR sidecar
+tools/ocr/.venv/
+tools/ocr/pip-cache/
+tools/ocr/tmp/
+tools/ocr/models/
