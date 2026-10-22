@@ -174,14 +174,44 @@ enum OMRStaffDetector {
     }
 
     /// Full-height vertical lines across the staff -> barline structures (including edges).
-    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, clean: Bitmap? = nil, staff st: TabStaff) -> [BarlineStructure] {
+    /// `gray`, when it matches `bm`, closes holes of at most 3 rows where the barline is still
+    /// darker than both neighbors but lighter than the line threshold. A stem gap is white, not a ridge.
+    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, clean: Bitmap? = nil, staff st: TabStaff, gray: GrayImage? = nil) -> [BarlineStructure] {
         let u = st.u
         let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
         var cols: [Int] = []
+        let g = (gray != nil && gray!.width == bm.w && gray!.height == bm.h) ? gray : nil
+        let ys = ((y0 + 2)...(y1 - 2)).filter { $0 >= 0 && $0 < bm.h }
         for x in max(0, st.x0 - 3)..<min(bm.w, st.x1 + 3) {
-            var gap = 0, maxGap = 0, n = 0
-            for y in (y0 + 2)...(y1 - 2) where y >= 0 && y < bm.h {
+            var hits: [Bool] = []
+            hits.reserveCapacity(ys.count)
+            for y in ys {
                 let hit = bm.d[y * bm.w + x] != 0 || (x > 0 && bm.d[y * bm.w + x - 1] != 0 && x + 1 < bm.w && bm.d[y * bm.w + x + 1] != 0)
+                hits.append(hit)
+            }
+            if let g, x > 0, x + 1 < bm.w {
+                var i = 0
+                while i < hits.count {
+                    if hits[i] { i += 1; continue }
+                    var j = i
+                    while j < hits.count && !hits[j] { j += 1 }
+                    let sided = (i > 0 ? 1 : 0) + (j < hits.count ? 1 : 0)
+                    if sided >= 1 && j - i > 0 && j - i <= 3 {
+                        var ridge = true
+                        for k in i..<j {
+                            let y = ys[k]
+                            let c = Int(g.pixels[y * g.width + x])
+                            let l = Int(g.pixels[y * g.width + x - 1])
+                            let r = Int(g.pixels[y * g.width + x + 1])
+                            if c + 16 > l || c + 16 > r { ridge = false; break }
+                        }
+                        if ridge { for k in i..<j { hits[k] = true } }
+                    }
+                    i = j
+                }
+            }
+            var gap = 0, maxGap = 0, n = 0
+            for hit in hits {
                 if hit { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
             }
             maxGap = max(maxGap, gap)
