@@ -107,9 +107,26 @@ enum OMRTabAnalyzer {
 
     // MARK: Main
 
+    struct Item {
+        var x: Double
+        var kind: TabGlyph.Kind
+        var string: Int
+        var conf: Double
+        var strumDir: Stroke? = nil
+        var strumStrings: [Int] = []
+        var isShaft = false
+        var rect: IRect
+    }
+
+    /// Row-wise ink count of a component bitmap.
+    static func inkRows(_ b: Bitmap) -> [Int] {
+        (0..<b.h).map { y in var n = 0; for x in 0..<b.w where b.d[y * b.w + x] != 0 { n += 1 }; return n }
+    }
+
     static func analyze(bm: Bitmap, clean: Bitmap, staff st: TabStaff, bars: [BarlineStructure],
-                        beats: Double, classifier: OMRGlyphClassifier, trace: OMRTrace? = nil) -> [MeasureTab] {
+                        beats: Double, unit: Int = 4, classifier: OMRGlyphClassifier, trace: OMRTrace? = nil) -> [MeasureTab] {
         let u = st.u
+        let unitScale = Double(unit) / 4.0
         var stems = findStems(clean: clean, staff: st, bars: bars)
         for i in stems.indices { stems[i].beams = beamCount(clean: clean, stem: stems[i], staff: st) }
 
@@ -122,124 +139,187 @@ enum OMRTabAnalyzer {
         }
         for b in bars { for x in max(0, b.x0 - 1)..<min(gb.w, b.x1 + 1) { for y in max(0, Int(st.top - u * 0.4))..<min(gb.h, Int(st.bottom + u * 0.4)) { gb.d[y * gb.w + x] = 0 } } }
         // restrict to the tab band
-        let yLo = Int(st.top - 0.9 * u), yHi = Int(st.bottom + 1.2 * u)
+        let yLo = Int(st.top - 0.9 * u), yHi = Int(st.bottom + 1.3 * u)
         var band = Bitmap(w: gb.w, h: gb.h)
         for y in max(0, yLo)..<min(gb.h, yHi) { for x in st.x0..<min(gb.w, st.x1) { band.d[y * gb.w + x] = gb.d[y * gb.w + x] } }
         let lab = OMRVision.label(band)
 
-        var glyphs: [TabGlyph] = []
+        var items: [Item] = []
+        var rests: [IRect] = []
+        var others: [TabGlyph] = []
+        func stringIndex(_ cy: Double) -> (Int, Double) {
+            let off = (cy - st.top) / u
+            let i = min(5, max(0, Int(off.rounded())))
+            return (i, abs(off - Double(i)))
+        }
         for c in lab.comps {
             let r = c.rect
             let w = Double(r.w), h = Double(r.h)
             if c.area < 4 { continue }
-            if h > 1.6 * u || w > 1.6 * u && h > 0.5 * u { continue }
             let bmp = OMRVision.extract(lab, c)
-            let cy = r.cy
-            let off = (cy - st.top) / u
-            let sIdx = min(5, max(0, Int(off.rounded())))
-            let so = abs(off - Double(sIdx))
-            // dash = rest
-            let fracOff = abs(off - off.rounded())
-            if w >= 0.5 * u && h <= 0.4 * u && w / max(h, 1) >= 2.2 && fracOff > 0.2 && cy > st.top && cy < st.bottom {
-                glyphs.append(TabGlyph(rect: r, kind: .rest, confidence: 0.9, string: sIdx + 1, stringOffset: so)); continue
+            // ---- tall comps: strum shafts / x columns / x with arrow head
+            if h >= 1.25 * u {
+                // string windows containing a cross
+                var wins: [(Int, Double)] = []   // (string index, score)
+                for i in 0..<6 {
+                    let ly = st.lines[i]
+                    let wy0 = Int((ly - 0.5 * u).rounded()) - r.y0, wy1 = Int((ly + 0.5 * u).rounded()) - r.y0
+                    if wy0 < -Int(0.2 * u) || wy1 > r.h + Int(0.2 * u) { continue }
+                    let sub = OMRVision.crop(bmp, IRect(x0: 0, y0: max(0, wy0), x1: r.w, y1: min(r.h, wy1)))
+                    if sub.w < 4 || sub.h < 4 { continue }
+                    let sc = crossScore(OMRGlyphFeatures.tight(sub))
+                    if sc > 0.35 && w >= 0.55 * u { wins.append((i, sc)) }
+                }
+                if !wins.isEmpty && w <= 1.7 * u {
+                    var dir: Stroke? = nil
+                    let first = wins.first!.0, last = wins.last!.0
+                    let topEdge = Int((st.lines[first] - 0.55 * u).rounded()) - r.y0
+                    let botEdge = Int((st.lines[last] + 0.55 * u).rounded()) - r.y0
+                    var topInk = 0, botInk = 0
+                    let rows = inkRows(bmp)
+                    for y in 0..<r.h { if y < topEdge - 1 { topInk += rows[y] }; if y > botEdge + 1 { botInk += rows[y] } }
+                    let thr = max(8, Int(0.08 * u * u))
+                    if topInk >= thr && topInk > botInk { dir = .up } else if botInk >= thr { dir = .down }
+                    let strs = wins.map { $0.0 + 1 }
+                    for (k, wn) in wins.enumerated() {
+                        var it = Item(x: r.cx, kind: .cross, string: wn.0 + 1, conf: min(1, wn.1 + 0.3), rect: r)
+                        if k == 0 { it.strumDir = dir }
+                        items.append(it)
+                    }
+                    _ = strs
+                    continue
+                }
+                // thin shaft with arrow head (vertical or slanted)
+                if h >= 1.4 * u && w <= 1.3 * u {
+                    let rows = inkRows(bmp)
+                    let k = max(2, Int(0.5 * u))
+                    let top = rows.prefix(k).reduce(0, +), bot = rows.suffix(k).reduce(0, +)
+                    var dir: Stroke = bot >= top ? .down : .up
+                    if abs(bot - top) < max(3, Int(0.15 * u)) { dir = .down }
+                    var strs: [Int] = []
+                    for i in 0..<6 where st.lines[i] >= Double(r.y0) - 0.3 * u && st.lines[i] <= Double(r.y1) + 0.3 * u { strs.append(i + 1) }
+                    if !strs.isEmpty {
+                        var it = Item(x: r.cx, kind: .cross, string: strs[0], conf: 0.8, rect: r)
+                        it.strumDir = dir; it.strumStrings = strs; it.isShaft = true
+                        items.append(it)
+                    }
+                    continue
+                }
+                continue
             }
-            if h < 0.3 * u && w < 0.4 * u { continue }  // dots / specks
+            if w > 1.6 * u && h > 0.5 * u { continue }
+            let (sIdx, so) = stringIndex(r.cy)
+            // dash = rest
+            let fracOff = abs((r.cy - st.top) / u - ((r.cy - st.top) / u).rounded())
+            _ = fracOff
+            if w >= 0.5 * u && w <= 1.5 * u && h <= 0.45 * u && Double(r.h) >= Double(st.thickness) + 1 && w / max(h, 1) >= 2.0 && r.cy > st.top + 0.3 * u && r.cy < st.bottom - 0.3 * u {
+                rests.append(r); continue
+            }
+            if h < 0.3 * u && w < 0.4 * u { continue }
             let cs = crossScore(bmp)
             let cl = classifier.classify(bmp, role: .tabDigit)
             if let (label, conf) = cl, conf >= 0.25 {
-                if label == "x" { glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
-                if let d = Int(label) { glyphs.append(TabGlyph(rect: r, kind: .digit(d), confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
-                if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" { glyphs.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
+                if label == "x" { items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: conf, rect: r)); items[items.count - 1].strumStrings = []; if so > 0.4 { others.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.1, string: sIdx + 1, stringOffset: so)) }; continue }
+                if let d = Int(label) { items.append(Item(x: r.cx, kind: .digit(d), string: sIdx + 1, conf: conf, rect: r)); continue }
+                if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" || label == "(" || label == ")" { others.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
             }
             if cs > 0.5 && w >= 0.3 * u && h >= 0.3 * u {
-                glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: cs * 0.8, string: sIdx + 1, stringOffset: so)); continue
+                items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: cs * 0.8, rect: r)); continue
             }
-            if w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 { glyphs.append(TabGlyph(rect: r, kind: .arc, confidence: 0.5, string: sIdx + 1, stringOffset: so)); continue }
-            glyphs.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))
+            others.append(TabGlyph(rect: r, kind: w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 ? .arc : .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))
         }
+        for it in items { trace?.add(it.rect, it.isShaft ? (255, 0, 255) : (it.kind == .cross ? (0, 0, 255) : (200, 0, 200))) }
+        for r in rests { trace?.add(r, (255, 128, 0)) }
+        for s in stems { trace?.add(IRect(x0: Int(s.x) - 1, y0: s.y0, x1: Int(s.x) + 2, y1: s.y1), (0, 200, 200), "b\(s.beams)") }
 
         // measure ranges from barlines
         var ranges: [(Double, Double)] = []
         let sorted = bars.sorted { $0.x0 < $1.x0 }
-        if sorted.count >= 2 {
-            for i in 0..<(sorted.count - 1) { ranges.append((sorted[i].xAfter, sorted[i + 1].xBefore)) }
-        }
-        for g in glyphs { trace?.add(g.rect, g.kind == .cross ? (0, 0, 255) : (g.kind == .rest ? (255, 128, 0) : (200, 0, 200))) }
-        for s in stems { trace?.add(IRect(x0: Int(s.x) - 1, y0: s.y0, x1: Int(s.x) + 2, y1: s.y1), (0, 200, 200), "b\(s.beams)") }
+        if sorted.count >= 2 { for i in 0..<(sorted.count - 1) { ranges.append((sorted[i].xAfter, sorted[i + 1].xBefore)) } }
+
         var out: [MeasureTab] = []
         for (mi, rg) in ranges.enumerated() {
-            let mg = glyphs.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
+            var mItems = items.filter { $0.x >= rg.0 && $0.x < rg.1 }
             let ms = stems.filter { $0.x >= rg.0 && $0.x < rg.1 }
+            let mRests = rests.filter { $0.cx >= rg.0 && $0.cx < rg.1 }
             var timeSig: (Int, Int)? = nil
-            var mgNotes = mg
             if mi == 0, stems.count >= 3, let fs = ms.first?.x {
-                let left = mg.filter { $0.rect.cx < fs - 0.5 * u }
                 var up = [Int](), lo = [Int]()
-                for g in left { if case .digit(let d) = g.kind, g.rect.h > Int(0.95 * u) { if g.rect.cy < st.top + 2.5 * u { up.append(d) } else { lo.append(d) } } }
+                for it in mItems where it.x < fs - 0.5 * u {
+                    if case .digit(let d) = it.kind, it.rect.h > Int(0.95 * u) { if it.rect.cy < st.top + 2.5 * u { up.append(d) } else { lo.append(d) } }
+                }
                 if up.count == 1 && lo.count == 1 { timeSig = (up[0], lo[0]) }
-                mgNotes = mg.filter { $0.rect.cx >= fs - 0.5 * u }
+                mItems = mItems.filter { $0.x >= fs - 0.5 * u }
             }
-            let note = mgNotes.filter { if case .rest = $0.kind { return false }; if case .arc = $0.kind { return false }; if case .unknown = $0.kind { return false }; return true }
-            let rests = mg.filter { $0.kind == .rest }
-            // cluster note glyphs to events: nearest stem within 0.7u, else own cluster by x
-            struct Ev { var x: Double; var glyphs: [TabGlyph]; var stem: Stem? }
+            // cluster to events
+            struct Ev { var x: Double; var items: [Item]; var stem: Stem? }
             var evs: [Ev] = []
-            for g in note.sorted(by: { $0.rect.cx < $1.rect.cx }) {
+            for g in mItems.sorted(by: { $0.x < $1.x }) {
                 var bestStem: Stem? = nil
-                var bd = 0.7 * u
-                for s in ms { let d = abs(s.x - g.rect.cx); if d < bd { bd = d; bestStem = s } }
+                var bd = (g.isShaft ? 0.9 : 0.65) * u
+                for s in ms { let d = abs(s.x - g.x); if d < bd { bd = d; bestStem = s } }
                 if let s = bestStem {
-                    if let k = evs.firstIndex(where: { $0.stem?.x == s.x }) { evs[k].glyphs.append(g) } else { evs.append(Ev(x: s.x, glyphs: [g], stem: s)) }
-                } else if let k = evs.lastIndex(where: { $0.stem == nil && abs($0.x - g.rect.cx) < 0.45 * u }) {
-                    evs[k].glyphs.append(g)
-                } else { evs.append(Ev(x: g.rect.cx, glyphs: [g], stem: nil)) }
+                    if let k = evs.firstIndex(where: { $0.stem?.x == s.x }) { evs[k].items.append(g) } else { evs.append(Ev(x: s.x, items: [g], stem: s)) }
+                } else if let k = evs.lastIndex(where: { $0.stem == nil && abs($0.x - g.x) < 0.45 * u }) {
+                    evs[k].items.append(g)
+                } else { evs.append(Ev(x: g.x, items: [g], stem: nil)) }
             }
-            // stems without glyphs are ignored (could be ties etc.)
             evs.sort { $0.x < $1.x }
-            struct Item { var x: Double; var dur: Double; var ev: Ev? }
-            var items: [Item] = []
+            struct Slot { var x: Double; var dur: Double; var ev: Ev? }
+            var slots: [Slot] = []
             for e in evs {
                 let dur: Double
-                if let s = e.stem { dur = [1.0, 0.5, 0.25, 0.125, 0.0625][min(4, s.beams)] } else { dur = 1.0 }
-                items.append(Item(x: e.x, dur: dur, ev: e))
+                if let s = e.stem { dur = [1.0, 0.5, 0.25, 0.125, 0.0625][min(4, s.beams)] * unitScale } else { dur = unitScale }
+                slots.append(Slot(x: e.x, dur: dur, ev: e))
             }
-            for r in rests { items.append(Item(x: r.rect.cx, dur: 1.0, ev: nil)) }
-            items.sort { $0.x < $1.x }
-            if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) glyphs \(mg.map { "\($0.kind)@\(Int($0.rect.cx)),\(Int($0.rect.cy)) \($0.rect.w)x\($0.rect.h)" })\n stems \(ms.map { "\(Int($0.x)):b\($0.beams)" })\n items \(items.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
-            let restIdx = items.indices.filter { items[$0].ev == nil }
-            let evSum = items.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
+            for r in mRests { slots.append(Slot(x: r.cx, dur: unitScale, ev: nil)) }
+            slots.sort { $0.x < $1.x }
+            if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
+            let restIdx = slots.indices.filter { slots[$0].ev == nil }
+            let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
             if !restIdx.isEmpty {
                 let remain = beats - evSum
-                if remain > 0 && abs(remain - Double(restIdx.count)) > 1e-6 {
-                    for k in restIdx { items[k].dur = remain / Double(restIdx.count) }
+                if remain > 0 && abs(remain - Double(restIdx.count) * unitScale) > 1e-6 {
+                    for k in restIdx { slots[k].dur = remain / Double(restIdx.count) }
                 }
             }
             var t = 0.0
             var events: [TabEvent] = []
             var xs: [Double] = []
             var low: [Int] = []
-            for it in items {
-                if let e = it.ev {
+            for sl in slots {
+                if let e = sl.ev {
                     var notes: [TabNote] = []
+                    var stroke: Stroke? = nil
                     var bad = false
-                    for g in e.glyphs.sorted(by: { $0.string > $1.string }) {
-                        if g.stringOffset > 0.4 || g.confidence < 0.45 { bad = true }
+                    var digitGlyphs: [TabGlyph] = []
+                    var seen = Set<Int>()
+                    for g in e.items {
+                        if g.conf < 0.45 { bad = true }
+                        if let d = g.strumDir { stroke = d }
+                        if g.isShaft { for s in g.strumStrings where !seen.contains(s) { seen.insert(s); notes.append(TabNote.chordTone(string: s)) }; continue }
                         switch g.kind {
-                        case .cross: notes.append(TabNote.chordTone(string: g.string))
-                        case .digit(let d): notes.append(TabNote(string: g.string, fret: d))
+                        case .cross: if !seen.contains(g.string) { seen.insert(g.string); notes.append(TabNote.chordTone(string: g.string)) }
+                        case .digit: digitGlyphs.append(TabGlyph(rect: g.rect, kind: g.kind, confidence: g.conf, string: g.string, stringOffset: 0))
                         default: break
                         }
                     }
-                    // merge multi-digit frets (e.g. "1","0" side by side on one string)
-                    notes = mergeDigits(e.glyphs, notes: notes, u: u)
+                    if !digitGlyphs.isEmpty {
+                        let dn = mergeDigits(digitGlyphs, notes: digitGlyphs.map { g -> TabNote in if case .digit(let d) = g.kind { return TabNote(string: g.string, fret: d) }; return TabNote(string: g.string, fret: 0) }, u: u)
+                        for n in dn where !seen.contains(n.string) { seen.insert(n.string); notes.append(n) }
+                    }
+                    notes.sort { $0.string > $1.string }
                     if bad { low.append(events.count) }
-                    events.append(TabEvent(beat: t, duration: it.dur, notes: notes))
-                    xs.append(it.x)
+                    events.append(TabEvent(beat: t, duration: sl.dur, notes: notes, stroke: stroke))
+                    xs.append(sl.x)
+                } else {
+                    events.append(TabEvent(beat: t, duration: sl.dur, notes: []))
+                    xs.append(sl.x)
                 }
-                t += it.dur
+                t += sl.dur
             }
+            let mg = others.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
             out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }))
-            _ = mi
         }
         return out
     }

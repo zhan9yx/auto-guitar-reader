@@ -56,8 +56,9 @@ enum OMRPage {
         var res = PageResult()
         var image = image
         var ocr = ocr
-        var (bm, _, bgLevel, _) = OMRVision.binarize(image)
-        let slope = OMRDeskew.estimateSlope(bm)
+        var (bm, _, bgLevel, inkLevel) = OMRVision.binarize(image)
+        var bmLine = OMRVision.binarize(image, threshold: Int(bgLevel - 0.22 * (bgLevel - inkLevel))).bm
+        let slope = OMRDeskew.estimateSlope(bmLine)
         if slope != 0 {
             image = OMRDeskew.rotate(image, slope: slope, fill: UInt8(max(0, min(255, bgLevel))))
             ocr = ocr.map { t in
@@ -68,21 +69,36 @@ enum OMRPage {
                 return t
             }
             bm = OMRVision.binarize(image).bm
+            bmLine = OMRVision.binarize(image, threshold: Int(bgLevel - 0.22 * (bgLevel - inkLevel))).bm
         }
-        let staves = OMRStaffDetector.detect(bm)
+        OMRVision.removeSolidBlobs(&bm)
+        OMRVision.removeSolidBlobs(&bmLine)
+        let staves = OMRStaffDetector.detect(bmLine)
         if staves.isEmpty {
             res.issues.append(OMRIssue(kind: .noStaff, path: "sections[0]", message: "no six-line tab staff found on page \(page)"))
             return res
         }
         let clean = OMRStaffDetector.removeLines(bm, staves: staves)
+        let lineClean = bmLine
         trace?.image = image
         let H = Double(image.height), W = Double(image.width)
-        let beats = 4.0
+        var beats = 4.0
+        var unit = 4
+        // time signature from the first staff's clef area
+        do {
+            let st = staves[0]
+            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, staff: st)
+            let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared)
+            if let ts = mts.first?.timeSig, ts.beats > 0, ts.beats <= 12, [2, 4, 8].contains(ts.unit) {
+                beats = Double(ts.beats) * (ts.unit == 8 ? 1 : 1); unit = ts.unit
+                res.meta.timeSignature = TimeSignature(beats: ts.beats, unit: ts.unit)
+            }
+        }
         for (si, st) in staves.enumerated() {
-            let bars = OMRStaffDetector.barlines(bm, staff: st)
+            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, staff: st)
             trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
             for b in bars { trace?.add(IRect(x0: b.x0 - 1, y0: Int(st.top) - 4, x1: b.x1 + 1, y1: Int(st.bottom) + 4), (0, 160, 0)) }
-            let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, classifier: .shared, trace: trace)
+            let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared, trace: trace)
             var measures: [NotationMeasure] = []
             for (mi, mt) in mts.enumerated() {
                 var m = NotationMeasure(tab: mt.events)

@@ -150,3 +150,44 @@ enum OMRVision {
         return b
     }
 }
+
+extension OMRVision {
+    /// Erases large solid blobs (dark screenshot borders, status bars, filled badges). Returns erased pixel count.
+    @discardableResult
+    static func removeSolidBlobs(_ bm: inout Bitmap) -> Int {
+        let lab = label(bm)
+        let minArea = max(2000, bm.w * bm.h / 120)
+        var erased = 0
+        for c in lab.comps where c.area >= minArea {
+            let boxArea = c.rect.w * c.rect.h
+            if Double(c.area) / Double(boxArea) < 0.5 && c.area < bm.w * bm.h / 20 { continue }
+            // solid fraction measured on a coarse grid (L-shaped frames have a big bbox)
+            var solid = 0, total = 0
+            var y = c.rect.y0
+            while y < c.rect.y1 { var x = c.rect.x0; while x < c.rect.x1 { if lab.labels[y * lab.w + x] == Int32(c.id + 1) { solid += 1 }; total += 1; x += 4 }; y += 4 }
+            // reject sparse comps (staff systems): count 4x4 blocks that are fully ink
+            var fullBlocks = 0, blocks = 0
+            y = c.rect.y0
+            while y + 4 <= c.rect.y1 {
+                var x = c.rect.x0
+                while x + 4 <= c.rect.x1 {
+                    var all = true
+                    for yy in y..<(y + 4) where all { for xx in x..<(x + 4) where lab.labels[yy * lab.w + xx] != Int32(c.id + 1) { all = false; break } }
+                    if all { fullBlocks += 1 }
+                    blocks += 1
+                    x += 4
+                }
+                y += 4
+            }
+            _ = (solid, total, blocks)
+            if fullBlocks * 16 < c.area / 2 { continue }   // less than half of its ink is in solid 4x4 blocks
+            for yy in c.rect.y0..<c.rect.y1 {
+                for xx in c.rect.x0..<c.rect.x1 where lab.labels[yy * lab.w + xx] == Int32(c.id + 1) {
+                    bm.d[yy * bm.w + xx] = 0; erased += 1
+                    for dy in -2...2 { for dx in -2...2 { let ny = yy + dy, nx = xx + dx; if nx >= 0 && ny >= 0 && nx < bm.w && ny < bm.h { bm.d[ny * bm.w + nx] = 0 } } }
+                }
+            }
+        }
+        return erased
+    }
+}

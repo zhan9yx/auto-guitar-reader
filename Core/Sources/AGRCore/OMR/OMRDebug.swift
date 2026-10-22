@@ -2,8 +2,11 @@ import Foundation
 
 public enum OMRDebug {
     public static func stages(_ img: GrayImage) -> String {
-        let (bm, t, bg, ink) = OMRVision.binarize(img)
+        let (bm0, t, bg, ink) = OMRVision.binarize(img)
         var s = "threshold \(t) bg \(bg) ink \(ink)\n"
+        let bm = OMRVision.binarize(img, threshold: Int(bg - 0.22 * (bg - ink))).bm
+        _ = bm0
+        s += "slope \(OMRDeskew.estimateSlope(bm))\n"
         let staves = OMRStaffDetector.detect(bm)
         for (i, st) in staves.enumerated() {
             s += "staff \(i): y \(st.lines.map { String(format: "%.1f", $0) }) u=\(String(format: "%.2f", st.u)) t=\(st.thickness) x \(st.x0)-\(st.x1)\n"

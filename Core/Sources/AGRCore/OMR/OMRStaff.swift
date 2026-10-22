@@ -80,6 +80,7 @@ enum OMRStaffDetector {
                 y = e
             } else { y += 1 }
         }
+        if ProcessInfo.processInfo.environment["OMR_DEBUG_STAFF"] != nil { FileHandle.standardError.write(Data("lines \(lines.map { String(format: "%.1f/%d", $0.y, $0.t) }) thr \(thr) maxSum \(maxSum) minRun \(minRun)\n".utf8)) }
         var staves: [TabStaff] = []
         var i = 0
         while i + 5 < lines.count {
@@ -148,23 +149,45 @@ enum OMRStaffDetector {
     }
 
     /// Full-height vertical lines across the staff -> barline structures (including edges).
-    static func barlines(_ bm: Bitmap, staff st: TabStaff) -> [BarlineStructure] {
+    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, staff st: TabStaff) -> [BarlineStructure] {
         let u = st.u
         let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
         var cols: [Int] = []
         for x in max(0, st.x0 - 3)..<min(bm.w, st.x1 + 3) {
             var gap = 0, maxGap = 0, n = 0
-            for y in (y0 - 1)...(y1 + 1) where y >= 0 && y < bm.h {
+            for y in y0...y1 where y >= 0 && y < bm.h {
                 if bm.d[y * bm.w + x] != 0 { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
             }
             maxGap = max(maxGap, gap)
-            let total = y1 - y0 + 3
-            if Double(n) >= 0.96 * Double(total) && maxGap <= 1 { cols.append(x) }
+            let total = y1 - y0 + 1
+            if Double(n) >= 0.95 * Double(total) && maxGap <= 2 { cols.append(x) }
         }
         // group columns into runs
         var runs: [(Int, Int)] = []
         for c in cols {
             if let l = runs.last, c <= l.1 + 1 { runs[runs.count - 1].1 = c } else { runs.append((c, c)) }
+        }
+        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil { FileHandle.standardError.write(Data("cols \(cols.suffix(8)) runs \(runs.suffix(5)) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1)\n".utf8)) }
+        // strum arrows: a vertical shaft with a wider arrow head at one end is not a barline
+        runs = runs.filter { r in
+            if r.1 - r.0 > 5 { return true }
+            let cx = (r.0 + r.1) / 2
+            func width(atY y: Int) -> Int {
+                var l = cx, rr = cx
+                while l > cx - Int(2 * u) && dkInk(bm, dark, l - 1, y) { l -= 1 }
+                while rr < cx + Int(2 * u) && dkInk(bm, dark, rr + 1, y) { rr += 1 }
+                return rr - l + 1
+            }
+            var headW = 0
+            func inBand(_ y: Int) -> Bool { st.bands.contains { y >= $0.0 && y <= $0.1 } }
+            for dy in Int(-0.45 * u)...Int(0.3 * u) {
+                if !inBand(y0 + dy) { headW = max(headW, width(atY: y0 + dy)) }
+                if !inBand(y1 - dy) { headW = max(headW, width(atY: y1 - dy)) }
+            }
+            var midY = (y0 + y1) / 2 + Int(0.5 * u)
+            while inBand(midY) { midY += 1 }
+            let midW = width(atY: midY)
+            return Double(headW) < Double(midW) + max(2.5, 0.17 * u)
         }
         // merge runs into structures when gap <= 0.9u
         var groups: [[(Int, Int)]] = []
@@ -172,11 +195,22 @@ enum OMRStaffDetector {
             if var g = groups.last, Double(r.0 - g.last!.1) <= max(3, 0.9 * u) { g.append(r); groups[groups.count - 1] = g } else { groups.append([r]) }
         }
         let thickPx = max(3, Int((u * 0.22).rounded()))
+        func darkWidth(_ r: (Int, Int)) -> Int {
+            guard let dk = dark else { return r.1 - r.0 + 1 }
+            var n = 0
+            for x in r.0...r.1 {
+                var c = 0
+                for y in y0...y1 where dk.ink(x, y) { c += 1 }
+                if Double(c) >= 0.9 * Double(y1 - y0 + 1) { n += 1 }
+            }
+            return n
+        }
         var out: [BarlineStructure] = []
         for g in groups {
             let x0 = g.first!.0, x1 = g.last!.1 + 1
             var bs = BarlineStructure(x0: x0, x1: x1, kind: .single, xAfter: Double(x1), xBefore: Double(x0))
-            for r in g { if r.1 - r.0 + 1 >= thickPx { bs.thickCount += 1 } else { bs.thinCount += 1 } }
+            var lastThick = false
+            for r in g { if darkWidth(r) >= thickPx { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false } }
             // repeat dots: small blobs between lines 2-3 and 3-4 adjacent to the group
             func dotsNear(_ xa: Int, _ xb: Int) -> Bool {
                 let ya = Int((st.lines[1] + st.lines[2]) / 2), yb = Int((st.lines[2] + st.lines[3]) / 2)
@@ -192,7 +226,7 @@ enum OMRStaffDetector {
             if bs.hasDotsRight && bs.hasDotsLeft { bs.kind = .startEndRepeat }
             else if bs.hasDotsRight { bs.kind = .startRepeat }
             else if bs.hasDotsLeft { bs.kind = .endRepeat }
-            else if g.count >= 2 { bs.kind = (bs.thickCount > 0 && bs.thinCount > 0 && g.last!.1 - g.last!.0 + 1 >= thickPx) ? .final : .double }
+            else if g.count >= 2 { bs.kind = (bs.thickCount > 0 && bs.thinCount > 0 && lastThick) ? .final : .double }
             else if bs.thickCount > 0 { bs.kind = .double }
             if bs.hasDotsRight { bs.xAfter = Double(x1 + dr) }
             if bs.hasDotsLeft { bs.xBefore = Double(x0 - dr) }
@@ -201,3 +235,5 @@ enum OMRStaffDetector {
         return out
     }
 }
+
+@inline(__always) private func dkInk(_ a: Bitmap, _ b: Bitmap?, _ x: Int, _ y: Int) -> Bool { (b ?? a).ink(x, y) }
