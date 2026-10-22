@@ -170,6 +170,40 @@ enum OMRStaffDetector {
         return out
     }
 
+    /// A blurred staff line keeps a row of ink just outside the detected band. Two strum
+    /// heads on that shoulder join into one component wider than a shaft and the strum is
+    /// dropped. A shoulder pixel with no stroke three rows further out is the line, not a glyph.
+    private static func clearLineShoulders(_ bm: inout Bitmap, _ st: TabStaff) {
+        let minRun = max(8, Int(0.7 * st.u))
+        let xLo = max(0, st.x0), xHi = min(bm.w, st.x1)
+        guard xHi > xLo else { return }
+        for band in st.bands {
+            let ya = band.0, yb = band.1
+            for (y, dir) in [(ya - 1, -1), (ya - 2, -1), (yb + 1, 1), (yb + 2, 1)] {
+                if y < 0 || y >= bm.h { continue }
+                if st.bands.contains(where: { y >= $0.0 && y <= $0.1 }) { continue }
+                var x = xLo
+                while x < xHi {
+                    if !bm.ink(x, y) { x += 1; continue }
+                    var e = x + 1
+                    var gap = 0
+                    while e < xHi {
+                        if bm.ink(e, y) { gap = 0; e += 1 }
+                        else if gap == 0 && e + 1 < xHi && bm.ink(e + 1, y) { gap = 1; e += 1 }
+                        else { break }
+                    }
+                    if e - x >= minRun {
+                        let probe = y + dir * 3
+                        for xx in x..<e where bm.ink(xx, y) {
+                            if !bm.ink(xx, probe) && !bm.ink(xx, probe + dir) { bm[xx, y] = 0 }
+                        }
+                    }
+                    x = e
+                }
+            }
+        }
+    }
+
     /// Removes staff lines from a copy of the bitmap (keeps glyph pixels that cross a line, heals thin crossings).
     static func removeLines(_ bm: Bitmap, staves: [TabStaff]) -> Bitmap {
         var out = bm
@@ -209,8 +243,32 @@ enum OMRStaffDetector {
                     }
                 }
             }
+            clearLineShoulders(&out, st)
         }
         return out
+    }
+
+    /// Rows of ink below the bottom staff line, walking the column. A barline ends on the
+    /// line. A full-staff strum shaft continues into its stem for about 2u and then stops.
+    /// The walk is capped so a system connector, which keeps going, is not a stem.
+    static func tailBelow(_ bm: Bitmap, run r: (Int, Int), staff st: TabStaff) -> Int {
+        let lim = Int(3.6 * st.u)
+        var y = (st.bands.last?.1 ?? Int(st.bottom.rounded())) + 1
+        var n = 0, gap = 0
+        while n < lim {
+            y += 1
+            if y >= bm.h { break }
+            var hit = false
+            for x in (r.0 - 1)...(r.1 + 1) where bm.ink(x, y) { hit = true; break }
+            if hit { n += 1; gap = 0 } else { gap += 1; if gap > 1 { break } }
+        }
+        return n
+    }
+
+    /// Stem-length continuation below the staff: a strum shaft, not a barline.
+    static func isStrumShaft(_ bm: Bitmap, run r: (Int, Int), staff st: TabStaff) -> Bool {
+        let n = tailBelow(bm, run: r, staff: st)
+        return n >= Int(0.75 * st.u) && n < Int(3.6 * st.u)
     }
 
     /// Full-height vertical lines across the staff -> barline structures (including edges).
@@ -266,7 +324,7 @@ enum OMRStaffDetector {
         for c in cols {
             if let l = runs.last, c <= l.1 + 1 { runs[runs.count - 1].1 = c } else { runs.append((c, c)) }
         }
-        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil { FileHandle.standardError.write(Data("cols \(cols.suffix(8)) runs \(runs.suffix(5)) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1)\n".utf8)) }
+        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil { FileHandle.standardError.write(Data("cols \(cols.count) runs \(runs) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1) bands \(st.bands)\n".utf8)) }
         // strum arrows: a vertical shaft with a wider arrow head at one end is not a barline
         runs = runs.filter { r in
             if r.1 - r.0 > 5 { return true }
@@ -287,7 +345,12 @@ enum OMRStaffDetector {
             var midY = (y0 + y1) / 2 + Int(0.5 * u)
             while inBand(midY) { midY += 1 }
             let midW = width(atY: midY)
-            return Double(headW) < Double(midW) + max(2.5, 0.17 * u)
+            let keep = Double(headW) < Double(midW) + max(2.5, 0.17 * u)
+            let shaft = isStrumShaft(bm, run: r, staff: st)
+            if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil {
+                FileHandle.standardError.write(Data(" run \(r.0)-\(r.1) head \(headW) mid \(midW) keep \(keep) shaft \(shaft) tailB \(tailBelow(bm, run: r, staff: st))\n".utf8))
+            }
+            return keep && !shaft
         }
         // merge runs into structures when gap <= 0.9u
         var groups: [[(Int, Int)]] = []

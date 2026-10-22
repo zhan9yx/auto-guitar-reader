@@ -337,7 +337,12 @@ enum OMRPage {
             return rr - l + 1
         }
         var out = bars
+        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil {
+            FileHandle.standardError.write(Data(" recover runs \(runs) y \(y0)-\(y1) in \(bars.map { $0.x0 })\n".utf8))
+        }
         for r in runs where r.1 - r.0 <= 5 {
+            // Same shafts barlines() drops. Recovering them splits a measure at every strum.
+            if OMRStaffDetector.isStrumShaft(bmLine, run: r, staff: st) { continue }
             let cx = (r.0 + r.1) / 2
             var midY = (y0 + y1) / 2 + Int(0.5 * u)
             while nearBand(midY) { midY += 1 }
