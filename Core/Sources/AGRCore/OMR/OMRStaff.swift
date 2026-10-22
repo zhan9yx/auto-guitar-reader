@@ -33,6 +33,7 @@ enum OMRStaffDetector {
         var rowSum = [Int](repeating: 0, count: h)
         var rowMin = [Int](repeating: Int.max, count: h)
         var rowMax = [Int](repeating: Int.min, count: h)
+        var rowLongest = [Int](repeating: 0, count: h)
         for y in 0..<h {
             var x = 0
             var sum = 0
@@ -51,6 +52,7 @@ enum OMRStaffDetector {
                     }
                     if e - x >= minRun {
                         sum += e - x
+                        rowLongest[y] = max(rowLongest[y], e - x)
                         rowMin[y] = min(rowMin[y], x)
                         rowMax[y] = max(rowMax[y], e)
                     }
@@ -58,11 +60,12 @@ enum OMRStaffDetector {
                 } else { x += 1 }
             }
             rowSum[y] = sum
+            if Double(rowLongest[y]) < 0.2 * Double(w) { rowSum[y] = 0 }
         }
         // candidate rows: at least 30% of the widest horizontal extent
         let maxSum = rowSum.max() ?? 0
         guard maxSum > 0 else { return [] }
-        let thr = max(Double(maxSum) * 0.45, Double(minRun))
+        let thr = max(Double(maxSum) * 0.22, Double(minRun) * 2)
         struct L { var y: Double; var t: Int; var x0: Int; var x1: Int; var ya: Int; var yb: Int }
         var lines: [L] = []
         var y = 0
@@ -155,12 +158,14 @@ enum OMRStaffDetector {
         var cols: [Int] = []
         for x in max(0, st.x0 - 3)..<min(bm.w, st.x1 + 3) {
             var gap = 0, maxGap = 0, n = 0
-            for y in y0...y1 where y >= 0 && y < bm.h {
+            for y in (y0 + 2)...(y1 - 2) where y >= 0 && y < bm.h {
                 if bm.d[y * bm.w + x] != 0 { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
             }
             maxGap = max(maxGap, gap)
-            let total = y1 - y0 + 1
-            if Double(n) >= 0.95 * Double(total) && maxGap <= 2 { cols.append(x) }
+            let total = y1 - y0 - 3
+            var edgeGaps = 0
+            for y in [y0, y0 + 1, y1 - 1, y1] where y >= 0 && y < bm.h && bm.d[y * bm.w + x] == 0 { edgeGaps += 1 }
+            if Double(n) >= 0.98 * Double(total) && maxGap <= 1 && edgeGaps <= 2 { cols.append(x) }
         }
         // group columns into runs
         var runs: [(Int, Int)] = []
