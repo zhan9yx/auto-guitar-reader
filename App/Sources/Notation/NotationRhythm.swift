@@ -85,7 +85,7 @@ struct NoteValue: Equatable {
 
 /// One horizontal beam (tab rhythm) or underline (简谱) piece: `level` is 1-based (1 = nearest the stem tip / digit),
 /// covering items `from...to` of the list that was grouped. `from == to` is a stub (single note with a flag).
-struct BeamSegment: Equatable {
+struct BeamSegment: Hashable {
     var level: Int
     var from: Int
     var to: Int
