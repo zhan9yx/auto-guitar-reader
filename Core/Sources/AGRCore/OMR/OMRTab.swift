@@ -100,15 +100,37 @@ enum OMRTabAnalyzer {
         let u = st.u
         let left = Int(stem.x - Double(stem.width) / 2 - 2.0), right = Int(stem.x + Double(stem.width) / 2 + 1.5)
         let yFrom = max(stem.y0, Int(st.bottom + 0.6 * u))
+        let close = min(clean.h, stem.y1 + 2)
+        let bands = sideBands(clean: clean, left: left, right: right, y0: yFrom, y1: close, minRun: 1)
+        if bands > 0 { return bands }
+        // The shaft often ends a few pixels above the beam (the bar is lighter off the stem).
+        // Only a horizontal run counts, so a quarter with nothing beside it stays unbeamed.
+        let yHi = min(clean.h, stem.y1 + max(6, Int((0.62 * u).rounded())))
+        let minRun = max(5, Int((0.45 * u).rounded()))
+        return sideBands(clean: clean, left: left, right: right, y0: close, y1: yHi, minRun: minRun)
+    }
+
+    /// Stacked side-ink bars between y0 and y1. `minRun` is the shortest horizontal run that counts.
+    private static func sideBands(clean: Bitmap, left: Int, right: Int, y0: Int, y1: Int, minRun: Int) -> Int {
+        guard y1 > y0 else { return 0 }
         var bands = 0
         var inBand = false
         var lastBandEnd = -10
-        for y in yFrom..<min(clean.h, stem.y1 + 2) {
-            let hit = clean.ink(left, y) || clean.ink(right, y) || clean.ink(left - 1, y) || clean.ink(right + 1, y)
+        let xs = [left, right, left - 1, right + 1]
+        for y in y0..<y1 {
+            let hit = xs.contains { clean.ink($0, y) && (minRun <= 1 || horizontalRun(clean, x: $0, y: y) >= minRun) }
             if hit && !inBand { if y - lastBandEnd >= 1 { bands += 1 }; inBand = true }
             if !hit && inBand { inBand = false; lastBandEnd = y }
         }
         return bands
+    }
+
+    private static func horizontalRun(_ bm: Bitmap, x: Int, y: Int) -> Int {
+        guard bm.ink(x, y) else { return 0 }
+        var x0 = x, x1 = x
+        while bm.ink(x0 - 1, y) { x0 -= 1 }
+        while bm.ink(x1 + 1, y) { x1 += 1 }
+        return x1 - x0 + 1
     }
 
     /// Augmentation dot just right of the stem end (a dotted quarter / eighth). 0 or 1.
