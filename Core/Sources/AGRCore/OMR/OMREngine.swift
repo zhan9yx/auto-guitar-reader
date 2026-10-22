@@ -339,7 +339,6 @@ enum OMRPage {
         var out = bars
         for r in runs where r.1 - r.0 <= 5 {
             let cx = (r.0 + r.1) / 2
-            if bars.contains(where: { cx >= $0.x0 - Int(0.45 * u) && cx <= $0.x1 + Int(0.45 * u) }) { continue }
             var midY = (y0 + y1) / 2 + Int(0.5 * u)
             while nearBand(midY) { midY += 1 }
             let midW = width(midY, cx)
@@ -348,6 +347,23 @@ enum OMRPage {
             let topOut = width((st.bands.first?.1 ?? y0) + 2, cx)
             let botOut = width((st.bands.last?.1 ?? y1) + 2, cx)
             guard topOut <= midW + 1, botOut <= midW + 1 else { continue }
+            // Same gap barlines() uses to join a double bar. Check `out`, not the input: both
+            // strokes of a system bar are often recovered in one pass, and a 0.45u test against
+            // the original list left them as two barlines (empty measure, melody shifted left).
+            let join = Int(max(3, 0.9 * u))
+            if let i = out.firstIndex(where: { cx >= $0.x0 - join && cx <= $0.x1 + join }) {
+                var b = out[i]
+                let nx0 = min(b.x0, r.0), nx1 = max(b.x1, r.1 + 1)
+                if nx0 != b.x0 || nx1 != b.x1 {
+                    b.x0 = nx0
+                    b.x1 = nx1
+                    if b.kind == .single { b.kind = .double }
+                    b.xBefore = min(b.xBefore, Double(nx0))
+                    b.xAfter = max(b.xAfter, Double(nx1))
+                    out[i] = b
+                }
+                continue
+            }
             let x1 = r.1 + 1
             out.append(BarlineStructure(x0: r.0, x1: x1, kind: .single, xAfter: Double(x1), xBefore: Double(r.0)))
         }
