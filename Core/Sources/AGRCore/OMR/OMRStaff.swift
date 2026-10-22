@@ -81,7 +81,16 @@ enum OMRStaffDetector {
                     if Double(rowSum[e]) >= thr { last = e; wsum += Double(rowSum[e]); wy += Double(rowSum[e]) * Double(e); x0 = min(x0, rowMin[e]); x1 = max(x1, rowMax[e]) }
                     e += 1
                 }
-                lines.append(L(y: wy / wsum, t: last - y + 1, x0: x0, x1: x1, ya: y, yb: last))
+                let thick = last - y + 1
+                if thick <= 8 {
+                    lines.append(L(y: wy / wsum, t: thick, x0: x0, x1: x1, ya: y, yb: last))
+                } else {
+                    // A gray watermark keeps the gaps between strings above `thr`, so one staff
+                    // becomes a single ~200px band. The strings are still the thin spikes.
+                    for p in thinStaffRows(y0: y, y1: last, rowSum: rowSum, rowMin: rowMin, rowMax: rowMax, maxSum: maxSum) {
+                        lines.append(L(y: p.y, t: p.t, x0: p.x0, x1: p.x1, ya: p.ya, yb: p.yb))
+                    }
+                }
                 y = e
             } else { y += 1 }
         }
@@ -128,6 +137,37 @@ enum OMRStaffDetector {
             } else { i += 1 }
         }
         return staves
+    }
+
+    /// Thin full-width spikes inside a band that the row threshold fused together.
+    /// Each spike is a staff line; a solid block (watermark fill, diagram) is not.
+    private static func thinStaffRows(y0: Int, y1: Int, rowSum: [Int], rowMin: [Int], rowMax: [Int], maxSum: Int) -> [(y: Double, t: Int, x0: Int, x1: Int, ya: Int, yb: Int)] {
+        let floor = Double(maxSum) * 0.62
+        var out: [(y: Double, t: Int, x0: Int, x1: Int, ya: Int, yb: Int)] = []
+        var i = y0
+        while i <= y1 {
+            if Double(rowSum[i]) < floor { i += 1; continue }
+            var e = i
+            var best = i
+            while e <= y1 && Double(rowSum[e]) >= floor {
+                if rowSum[e] > rowSum[best] { best = e }
+                e += 1
+            }
+            let peak = Double(rowSum[best])
+            let left = (y0..<best).last(where: { Double(rowSum[$0]) < peak * 0.55 })
+            let right = best < y1 ? ((best + 1)...y1).first(where: { Double(rowSum[$0]) < peak * 0.55 }) : nil
+            let thinLeft = left.map { best - $0 <= 4 } ?? true
+            let thinRight = right.map { $0 - best <= 4 } ?? (best == y1)
+            if e - i <= 3, thinLeft, thinRight {
+                var x0 = Int.max, x1 = Int.min
+                for r in i..<e where rowMin[r] != Int.max {
+                    x0 = min(x0, rowMin[r]); x1 = max(x1, rowMax[r])
+                }
+                if x1 > x0 { out.append((y: Double(best), t: e - i, x0: x0, x1: x1, ya: i, yb: e - 1)) }
+            }
+            i = e
+        }
+        return out
     }
 
     /// Removes staff lines from a copy of the bitmap (keeps glyph pixels that cross a line, heals thin crossings).
