@@ -361,7 +361,7 @@ enum OMRChordReader {
         var rel = [Int](repeating: 0, count: 6)
         var conf = 1.0
         for i in 0..<6 {
-            var found = 0
+            var hits: [(row: Int, wide: Bool)] = []
             let base = stringWidth(bm, x: xs[i], lineYs: lineYs, sp: sp)
             for j in 0..<n {
                 let yc = (lineYs[j] + lineYs[j + 1]) / 2
@@ -371,15 +371,23 @@ enum OMRChordReader {
                     for yy in Int(yc.rounded()) - 2...Int(yc.rounded()) + 2 { d += " \(rowSpan(bm, x: xs[i], y: yy, sp: sp))" }
                     FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) base \(base) spans\(d)\n".utf8))
                 }
-                if sc >= 0.9 { found = j + 1 }      // lowest flagged row: a barre bar sits above the finger dots of the same string
-                else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
+                if sc >= 0.9 {
+                    let wide = (Int(yc.rounded()) - 1...Int(yc.rounded()) + 1).contains { rowSpan(bm, x: xs[i], y: $0, sp: sp) >= 0.55 * sp }
+                    hits.append((j + 1, wide))
+                } else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
             }
-            rel[i] = found
+            // A barre is the wide mark nearest the nut. A finger dot is narrow; keep the nut-side one
+            // only when it is that bar, otherwise the furthest dot (a finger below a thin false mark).
+            if let barre = hits.first(where: { $0.wide }) { rel[i] = barre.row }
+            else if let last = hits.last { rel[i] = last.row }
         }
         let topEdge = min(yTop, Double(runs.first!.a)) - 1
         let markerBox = (a: topEdge - 1.45 * sp, b: topEdge - 1.5)
-        for i in 0..<6 where rel[i] == 0 {
-            if markerKind(bm, gray: gray, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp) == .muted { rel[i] = -1 }
+        for i in 0..<6 {
+            let mk = markerKind(bm, gray: gray, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp)
+            // An O or X that bled into the first frets is the marker, not a finger.
+            if mk == .muted, rel[i] <= 2 { rel[i] = -1 }
+            else if mk == .open, rel[i] <= 2 { rel[i] = 0 }
         }
         let grid = IRect(x0: Int(xs[0] - 0.3 * sp), y0: Int(yTop), x1: Int(xs[5] + 0.3 * sp) + 1, y1: Int(yBot) + 1)
         var d = OMRChordDiagram(rect: IRect(x0: grid.x0, y0: Int(markerBox.a), x1: grid.x1, y1: grid.y1),
