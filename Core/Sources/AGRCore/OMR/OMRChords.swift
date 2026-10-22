@@ -490,8 +490,12 @@ enum OMRChordReader {
             if cN > 0 && rN > 0 {
                 let cm = cSum / cN, rm = rSum / rN
                 let paper = 255.0
-                if cm - rm >= max(4.0, 0.04 * (paper - rm)) { return .open }
-                if cm - rm <= -8 && filled > 0 { return .muted }
+                if debugOn { FileHandle.standardError.write(Data("  marker x \(Int(x)) bbox \(w)x\(h) area \(c.area) filled \(filled)/\(tot) cm \(Int(cm)) rm \(Int(rm))\n".utf8)) }
+                let diff = cm - rm
+                if diff >= 30 { return .open }                         // clean ring: bright hole inside a dark ring
+                if diff <= -25 { return .muted }                       // cross: darkest at the crossing, blurred arms around
+                if cm >= 135 && filled > 0 { return .open }            // blurred ring: centre filled in but only mid-gray
+                if filled > 0 { return .muted }
             }
         }
         if filled == 0 && fill < 0.9 { return .open }
