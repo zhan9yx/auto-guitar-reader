@@ -491,7 +491,7 @@ class Renderer:
             mx0, mx1 = bounds[mi]
             L = m["beats"] if m["beats"] is not None else self.full_beats
             padL = 2.1 * u + (1.6 * u if m["leftBarline"] in ("startRepeat", "startEndRepeat") else 0)
-            padR = 0.9 * u + (1.6 * u if m["rightBarline"] in ("endRepeat", "startEndRepeat", "final") else 0)
+            padR = 1.3 * u + (1.6 * u if m["rightBarline"] in ("endRepeat", "startEndRepeat", "final") else 0)
             if mi + 1 < n and ms[mi + 1]["leftBarline"] in ("startRepeat", "startEndRepeat"):
                 padR += 1.4 * u
             if mi > 0 and ms[mi - 1]["rightBarline"] in ("endRepeat", "startEndRepeat"):
@@ -517,6 +517,12 @@ class Renderer:
                                   rows=(jp_yc - 0.4 * u, jp_yc + 0.4 * u), line_w=st["bar_w"], jp=True)
         if st["sys_line"]:
             cv.vline(x0, ly[5], jp_yc + 1.0 * u, st["bar_w"], label="system_line")
+        # jianpu font shrink so adjacent digits never touch
+        gap_min = 1e9
+        for mi, m in enumerate(ms):
+            for n in m["melody"]:
+                gap_min = min(gap_min, n["duration"] / geom[mi]["L"] * geom[mi]["iw"])
+        self.jp_fs_sys = max(1.5, min(st["jp"]["fs"], gap_min / (0.6 * 1.15 * u)))
         # chords, tab, jianpu, lyrics
         all_notes = []
         lyr_bottoms = []
@@ -915,7 +921,8 @@ class Renderer:
     def draw_jianpu(self, cv, m, g, yc, mi):
         st, u = self.st, self.u
         jp = st["jp"]
-        font = self.F("f_jp", jp["fs"])
+        fs_j = getattr(self, "jp_fs_sys", jp["fs"])
+        font = self.F("f_jp", fs_j)
         bb0 = cv.d.textbbox((0, 0), "0", font=font, anchor="ms")
         dh = (bb0[3] - bb0[1]) / SS
         dw = (bb0[2] - bb0[0]) / SS
@@ -931,10 +938,10 @@ class Renderer:
             notes.append(dict(x=x, q=q, idx=ni, lyr=n["lyrics"], n=n, dw=dw))
         # parens
         if "jianpu-paren-open" in m["marks"] and notes:
-            pf = get_font("sans_sc", jp["fs"] * u * SS * jp["paren_scale"], 300)
+            pf = get_font("sans_sc", fs_j * u * SS * jp["paren_scale"], 300)
             cv.text(notes[0]["x"] - dw / 2 - 0.9 * u, yc, "(", pf, anchor="mm", label="jianpu_paren", kind="open")
         if "jianpu-paren-close" in m["marks"] and notes:
-            pf = get_font("sans_sc", jp["fs"] * u * SS * jp["paren_scale"], 300)
+            pf = get_font("sans_sc", fs_j * u * SS * jp["paren_scale"], 300)
             cv.text(notes[-1]["x"] + dw / 2 + 0.9 * u, yc, ")", pf, anchor="mm", label="jianpu_paren", kind="close")
         ulw = jp["ul_w"] * self.k
         gap = jp["ul_gap"] * u
@@ -953,7 +960,7 @@ class Renderer:
             nul = 0 if q > 0.5 + 1e-9 else (1 if q > 0.25 + 1e-9 else 2)
             nt["nul"] = nul
             if n["accidental"]:
-                af = get_font("arimo", jp["fs"] * u * SS * 0.62, 600)
+                af = get_font("arimo", fs_j * u * SS * 0.62, 600)
                 cv.text(bb[0] - 0.12 * u, yc - dh * 0.15, "#" if n["accidental"] > 0 else "b", af, anchor="rm",
                         label="jianpu_accidental", value=n["accidental"], note=ni)
             # octave dots

@@ -178,7 +178,7 @@ class Degrader:
         op = rng.uniform(0.12, 0.35)
         name = rng.choice(SITE_NAMES)
         shape = rng.choice(["round", "rect", "circle"])
-        ww, hh = int(size * 2.4), int(size)
+        ww, hh = int(size * 2.4 + len(name) * size * 0.25), int(size)
         m = Image.new("L", (ww, hh), 0)
         d = ImageDraw.Draw(m)
         if shape == "circle":

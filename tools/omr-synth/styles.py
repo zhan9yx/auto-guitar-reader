@@ -14,7 +14,7 @@ DEFAULT = dict(
     per_system=[4, 4, 5],
     # fonts: (key, weight)
     f_title=("sans_sc", 500), f_artist=("sans_sc", 400), f_text=("sans_sc", 400), f_chord=("arimo", 500),
-    f_digit=("arimo", 500), f_jp=("arimo", 700), f_lyric=("sans_sc", 400), f_label=("sans_sc", 500),
+    f_digit=("arimo", 500), f_jp=("arimo", 600), f_lyric=("sans_sc", 400), f_label=("sans_sc", 500),
     f_clef=("arimo", 700), f_info=("sans_sc", 400),
     # line geometry (px at 1080)
     line_w=1.0, bar_w=1.2, thick_w=3.2, stem_w=1.1, beam_w=2.6, line_gray=0,
