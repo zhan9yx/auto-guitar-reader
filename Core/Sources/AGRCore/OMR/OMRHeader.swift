@@ -114,6 +114,16 @@ public enum OMRHeaderReader {
             if isMeta { metaRows.insert(i) }
             else if !SectionHeaderParser.isSectionLabel(r.folded), !looksLikeChordRow(r.tokens), OMRChordReader.cleanName(T) == nil || T.count > 6 { titleCandidates.append(i) }
         }
+        // "后来" sits on the same baseline as "1=C" / "原唱" / "变调夹", so that row is meta
+        // and the centered title token never becomes a candidate.
+        for i in metaRows {
+            for t in centeredTitleTokens(rs[i].tokens, pageWidth: W) {
+                let cx = (t.x + t.width / 2) * W
+                rs.append(Row(text: t.text, folded: ChordNameNormalizer.foldWidth(t.text),
+                              cy: (t.y + t.height / 2) * H, h: t.height * H, cx: cx, tokens: [t]))
+                titleCandidates.append(rs.count - 1)
+            }
+        }
         _ = priorityKey
 
         // key resolution: 选调 > shape key from "X调指法" (+capo) > 原调 (shifted down by capo)
@@ -151,13 +161,11 @@ public enum OMRHeaderReader {
                 if a.count <= 40 { res.meta.artist = a; res.found.insert("artist") }
             }
         }
-        // labelled artist overrides (演唱 / 原唱 / 歌手)
-        if res.meta.artist == nil || res.meta.artist?.isEmpty == true {
-            for i in creditRows {
-                if let g = Rx.firstMatch(#"(?:演唱者|演唱|原\s*唱|歌手|主唱|(?i:singer|artist))\s*[:：]?\s*(\S.*)$"#, in: rs[i].folded) {
-                    let v = (g[1] ?? "").agrTrimmed
-                    if !v.isEmpty { res.meta.artist = v; res.found.insert("artist"); break }
-                }
+        // labelled artist overrides a line picked up under the title (演唱 / 原唱 / 歌手)
+        for i in creditRows {
+            if let g = Rx.firstMatch(#"(?:演唱者|演唱|原\s*唱|歌手|主唱|(?i:singer|artist))\s*[:：]?\s*(\S.*)$"#, in: rs[i].folded) {
+                let v = (g[1] ?? "").agrTrimmed
+                if !v.isEmpty { res.meta.artist = v; res.found.insert("artist"); break }
             }
         }
         for i in creditRows { let t = rs[i].text.agrTrimmed; if !res.meta.credits.contains(t) { res.meta.credits.append(t) } }
@@ -202,6 +210,20 @@ public enum OMRHeaderReader {
     }
 
     // MARK: Helpers
+
+    /// Centered title words that share a header row with a key / credit label.
+    private static func centeredTitleTokens(_ tokens: [OCRToken], pageWidth W: Double) -> [OCRToken] {
+        tokens.filter { t in
+            let cx = (t.x + t.width / 2) * W
+            guard abs(cx - W / 2) <= 0.18 * W else { return false }
+            let label = cleanTitle(t.text)
+            guard (2...24).contains(label.count) else { return false }
+            let folded = ChordNameNormalizer.foldWidth(t.text)
+            if Rx.test(#"(?i)(1\s*=|原调|选调|变调|capo|原唱|演唱|作词|作曲|编配|制谱|编谱|bpm|速度|http|www\.|淘宝|微信|公众号)"#, folded) { return false }
+            if looksLikeChordRow([t]) { return false }
+            return true
+        }
+    }
 
     /// Trims spaces and quote marks, but keeps 《…》 that wrap only part of the title ("《不染》G调精华版").
     static func cleanTitle(_ s: String) -> String {
