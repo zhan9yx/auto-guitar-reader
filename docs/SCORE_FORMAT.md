@@ -1,4 +1,4 @@
-# AGR Score JSON v1 (`agr-score`)
+# AGR Score JSON (`agr-score`, v1 core + v2 notation systems)
 
 The standardized score format of Auto Guitar Reader. Every importer (ChordPro, chord-over-lyrics text,
 ASCII tab, MusicXML, OCR) produces it, and the timeline, playback, follower and UI consume it.
@@ -49,7 +49,7 @@ chord is the written chord transposed up by `capo` semitones; the app shows both
 
 ```
 Section { id, name, kind, lines[], strumPatternID? }
-Line    { id, kind, segments[], tab?, text?, anchor? }
+Line    { id, kind, segments[], tab?, text?, anchor?, system? }
 ```
 
 * `Section.name` is the display name as written (`"主歌 1"`, `"Chorus"`); `kind` ∈
@@ -61,6 +61,8 @@ Line    { id, kind, segments[], tab?, text?, anchor? }
   * `lyrics` — chords placed over lyric text (`segments`).
   * `chords` — chord-only line (intro/interlude), `segments` with empty `text`.
   * `tab` — one system of six-line tablature (`tab`).
+  * `system` — full notation system (v2, §9): measures with chord marks/diagrams, printed tab incl. "×" chord-tone
+    picks and strums, 简谱 melody and multi-verse lyrics (`system`).
   * `comment` — free text (`text`), never played. Image imports use `"[tab]"` comments as placeholders for tab systems
     that were detected but not transcribed.
 * `anchor` (`{page, y, height}`): region of the original page image (page index into `pages`, `y`/`height`
@@ -253,3 +255,87 @@ D|----------------|----------------|
 A|0---------------|----------------|
 E|----------------|0---------------|
 ```
+
+## 9. Notation systems (v2, `Line.kind = "system"`)
+
+The common Chinese 弹唱六线谱 layout: per system a row of measures, each with chord names (+ chord diagrams), a
+six-line tab (× / fret digits / strums), a numbered-notation (简谱) melody and 1..N verses of lyrics. Produced by the
+OMR engine (see `docs/OMR.md`); consumed by timeline, playback, follower and the OMR scorer. Decoding is lenient:
+every field below except those marked *required* has a default.
+
+```
+Line.system = NotationSystem { measures[] }
+NotationMeasure {
+  beats?        length in beats; nil = time-signature beats (pickup measures set it)
+  chords[]      ChordMark { name, beat, shape? }
+  tab[]         TabEvent  { beat, duration, notes[], chord?, stroke? }      (same type as v1 tab)
+  melody[]      MelodyNote { beat, duration, degree, accidental, octave, tieToNext, lyrics[] }
+  leftBarline, rightBarline   single | double | final | startRepeat | endRepeat | startEndRepeat   (default single)
+  volta[]       ending numbers this measure belongs to ([1], [2]); [] = every pass
+  marks[]       free text: "D.S.", "D.C.", "Segno", "Fine", "To Coda", "Coda", "rit.", section labels
+}
+```
+
+* `ChordMark.name` is kept **as printed** ("D7(5)", "G7(3)", "D(7)", full-width allowed). Harmony comes from
+  `ChordNameNormalizer`: a trailing `(n)` after a chord that already has its quality (D7(5), C(5)) is a string/fingering
+  variant and the chord is D7 / C; `(7)` / `(9)` after a plain triad is an optional extension (D(7) → D7, D(9) → Dadd9);
+  `(b5)`, `(add9)` etc. are folded into the name; full-width characters and ♯/♭ are folded; "N.C." has no harmony.
+  `ChordMark.shape` is the printed diagram: `ChordShape { frets[6] low E → high E, -1 = muted, 0 = open (absolute frets),
+  fingers?, baseFret }`. Shape priority for sound: `ChordMark.shape` → `Score.chordDefinitions[name]` → built-in library
+  (the library is used when the song is transposed).
+* A chord stays in effect until the next `ChordMark`, also across measures and systems.
+* `TabNote { string 1..6 (1 = high E), fret, technique?, chordTone }` — `chordTone: true` is the printed "×": play that
+  string as fretted by the chord in effect at that beat (fret taken from the shape; a string the shape mutes is skipped).
+  Digits are absolute frets as printed. `TabEvent.stroke` (`down`/`up`) marks a strum over the listed strings.
+  JSON of a × is `{"string": 5, "chordTone": true}` (no `fret`).
+* `MelodyNote.degree` 1…7 (0 = rest) in the key of `meta.key` ("C", "1=D", "Am" = relative major): `octave` = dots above (+)
+  / below (−), `accidental` ±1, `duration` in beats, `tieToNext` ties to the next note of the same pitch. `lyrics[v]` is the
+  syllable of verse v (`""` = none); `verseCount` of a measure is the longest `lyrics`.
+* Repeats: `startRepeat`/`endRepeat`/`startEndRepeat` and voltas apply across the systems of one section (each repeat plays
+  twice, `n` voltas play `n` passes); `D.S.`/`D.C.` (to "Segno"/start) with "Fine" and "To Coda"/"Coda" marks are honoured.
+  Verse of a pass: the repeat pass index (or the section's arrangement pass when the section has no repeats), clamped to the
+  verses the measure has. Implemented in `RepeatExpander`.
+* Playback: the printed tab is played (× via the chord shape, strokes strummed low→high / high→low); default strum patterns
+  only apply to measures without any tab. `PlaybackOptions.playMelody` adds the 简谱 melody as a soft voice.
+* Timeline: `TimelineOptions.granularity` — `.chord` (default for `strumSing`: one event per chord span with the verse's
+  syllables and the chord voicing) or `.tabEvent` (default for `fingerstyle`: one `.notes` event per tab event).
+  `progressInLine` is measured in beats over the printed system. `Timeline.systemMeasures` holds the play-order expansion.
+
+Example (two measures, key C, 4/4; chord diagrams for C and G7(3), × picks, 2 verses, start repeat):
+
+```json
+{
+  "id": "s0l0", "kind": "system", "segments": [],
+  "system": { "measures": [
+    { "leftBarline": "startRepeat",
+      "chords": [ { "name": "C", "beat": 0, "shape": { "frets": [-1, 3, 2, 0, 1, 0], "baseFret": 1 } } ],
+      "tab": [
+        { "beat": 0, "duration": 1, "stroke": "down", "notes": [ { "string": 5, "chordTone": true }, { "string": 3, "chordTone": true },
+                                                                  { "string": 2, "chordTone": true }, { "string": 1, "chordTone": true } ] },
+        { "beat": 1, "duration": 1, "notes": [ { "string": 4, "chordTone": true } ] },
+        { "beat": 2, "duration": 1, "notes": [ { "string": 3, "chordTone": true } ] },
+        { "beat": 3, "duration": 1, "notes": [ { "string": 2, "chordTone": true } ] } ],
+      "melody": [
+        { "beat": 0, "duration": 1, "degree": 3, "lyrics": ["小", "一"] },
+        { "beat": 1, "duration": 1, "degree": 3, "lyrics": ["星", "二"] },
+        { "beat": 2, "duration": 1, "degree": 5, "lyrics": ["星", "三"] },
+        { "beat": 3, "duration": 1, "degree": 1, "octave": 1, "lyrics": ["你", "四"] } ] },
+    { "rightBarline": "endRepeat",
+      "chords": [ { "name": "G7(3)", "beat": 0, "shape": { "frets": [3, 2, 0, 0, 0, 1], "baseFret": 1 } } ],
+      "tab": [
+        { "beat": 0, "duration": 2, "notes": [ { "string": 6, "chordTone": true }, { "string": 4, "chordTone": true } ] },
+        { "beat": 2, "duration": 2, "notes": [ { "string": 3, "chordTone": true }, { "string": 1, "fret": 1, "technique": "hammerOn" } ] } ],
+      "melody": [
+        { "beat": 0, "duration": 2, "degree": 2, "tieToNext": true, "lyrics": ["在", "五"] },
+        { "beat": 2, "duration": 1, "degree": 2, "lyrics": ["", ""] },
+        { "beat": 3, "duration": 1, "degree": 7, "octave": -1, "lyrics": ["哪", "六"] } ] }
+  ] }
+}
+```
+
+Tools: `NotationSystemFormatter.asciiTab(system)` renders the system as aligned text for diffing; `ChordProExporter` exports
+systems lossily (chords + verse-1 lyrics + `{c:}` notes); `agr-tool omr-score --gt a.agr.json --pred b.agr.json [--json]`
+scores a predicted score against a ground truth (`OMRScorer`: per-category tp/fp/fn and a weighted overall accuracy — tab 30%
+(tab notes + strokes), melody 20%, lyrics 20% (1 − CER), chords 15% (marks + diagrams), rhythm 5% (event/melody durations,
+measure lengths), barlines 5% (barlines/repeats/voltas/marks + measure alignment), header 5%; measures of GT and
+prediction are aligned by sequence alignment, empty categories are skipped; melody-note duration is scored under rhythm).

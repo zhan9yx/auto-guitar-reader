@@ -454,3 +454,11 @@ grid comparisons below had a noise floor of about ±3 points — the decisions w
   voice model assumes a single sung pitch class — harmonised backing vocals or a second instrument are not modelled.
 * `ScoreFollower` is not thread-safe (one analysis queue); feed frames in order; the `FeatureFrame.time` of a live
   frame is 93 ms older than the audio it was computed from (add it when comparing with a playback clock).
+
+### v2 notation systems
+
+`.system` lines yield `TimelineEvent`s with `fromSystem == true` (see `docs/SCORE_FORMAT.md` §9): `strumSing` scores follow
+chord events (voicing from the printed diagram; `lyric` = syllables of the verse sung in that repeat pass), `fingerstyle`
+scores follow `.notes` events (× resolved through the chord shape, so `midiNotes` skips muted strings and is not index-aligned
+with `TabEvent.notes`; use `noteStrings`). Expanded repeats give repeated chord events with different `lyric`, which is exactly
+what `LyricsAligner` uses to tell verse 1 from verse 2. Covered by `SystemFollowTests`.
