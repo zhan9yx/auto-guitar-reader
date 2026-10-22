@@ -5,6 +5,11 @@ public struct AIAssistProgress: Sendable, Equatable {
     public var totalBatches: Int
     public var message: String
     public var fraction: Double { totalBatches == 0 ? 1 : Double(completedBatches) / Double(totalBatches) }
+    public init(completedBatches: Int, totalBatches: Int, message: String) {
+        self.completedBatches = completedBatches
+        self.totalBatches = totalBatches
+        self.message = message
+    }
 }
 
 public struct AIAssistReport: Sendable {
@@ -17,6 +22,15 @@ public struct AIAssistReport: Sendable {
     /// Set when a fatal error (401, network, timeout, …) stopped the run early.
     public var fatalError: AIError?
     public var requestCount: Int
+    public init(score: Score, applied: [AppliedFix] = [], rejected: [RejectedFix] = [], unresolvedIssueIDs: [String] = [],
+                fatalError: AIError? = nil, requestCount: Int = 0) {
+        self.score = score
+        self.applied = applied
+        self.rejected = rejected
+        self.unresolvedIssueIDs = unresolvedIssueIDs
+        self.fatalError = fatalError
+        self.requestCount = requestCount
+    }
 }
 
 /// Runs the AI correction loop: batches issues, asks the model for patches, validates and applies
