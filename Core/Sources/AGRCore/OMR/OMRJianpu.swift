@@ -125,7 +125,10 @@ enum OMRJianpuReader {
             let r = offsetRect(c.rect)
             let h = Double(r.h), w = Double(r.w)
             let overlap = Double(min(r.y1, Int(rowBottom + 0.15 * Hd)) - max(r.y0, Int(rowTop - 0.15 * Hd)))
-            if overlap >= 0.6 * Hd && h / w >= 5 && h <= 6 * u && w <= 0.3 * Hd && (h >= 1.08 * Hd || w <= 2.5) && Double(c.area) >= 0.72 * w * h { barXs.append(r.cx) }
+            // a deskewed barline is often 3px wide and a pixel short of the digit row; a stem is not this tall
+            let thinW = max(3.5, 0.16 * Hd)
+            let tallEnough = h >= 1.08 * Hd || (w <= thinW && overlap >= 0.85 * Hd)
+            if overlap >= 0.6 * Hd && h / max(w, 0.5) >= 5 && h <= 6 * u && w <= 0.3 * Hd && tallEnough && Double(c.area) >= 0.72 * w * h { barXs.append(r.cx) }
         }
         let barSet = barXs
         for c in lab.comps {
@@ -221,16 +224,23 @@ enum OMRJianpuReader {
                     guard r.cy >= rowTop - 1.5 * u - 0.3 * Hd else { continue }
                     if let i = nearestNote(r.cx, maxDist: max(0.45 * Hd, 0.6 * (notes[0].x1 - notes[0].x0) + 2)),
                        abs(notes[i].cx - r.cx) <= 0.5 * (notes[i].x1 - notes[i].x0) + 2.5 { notes[i].above += 1; claimed = true }
-                } else if r.cy >= rowTop + 0.3 * Hd && r.cy <= rowBottom + 0.1 * Hd {
-                    // augmentation dot hugs the previous digit; a sharp sitting on the next digit does not
+                } else if r.cy >= rowTop + 0.2 * Hd && r.cy <= rowBottom + 0.7 * Hd {
+                    // augmentation dot sits ~0.55*u past the em-box, not the ink. A narrow "1" leaves a wider gap.
                     var bi = -1, bd = Double.infinity
                     for (i, n) in notes.enumerated() where r.cx > n.x1 - 1.0 {
                         let d = r.cx - n.x1
                         if d < bd { bd = d; bi = i }
                     }
                     if bi >= 0 {
+                        let n = notes[bi]
                         let nextLeft = bi + 1 < notes.count ? notes[bi + 1].x0 : Double.infinity
-                        if bd <= min(0.80 * u, 0.55 * Hd + 3), nextLeft - r.cx > bd + 0.2 * u,
+                        let glyphW = n.x1 - n.x0
+                        let half = max(glyphW, medW) / 2
+                        let expect = n.cx + half + 0.52 * u
+                        let inGlyphY = r.cy >= n.top + 0.12 * Hd && r.cy <= n.bottom + 2
+                        let nearEdge = bd <= min(0.80 * u, 0.55 * Hd + 3)
+                        let nearExpect = abs(r.cx - expect) <= 0.42 * u && bd <= min(1.15 * u, 0.75 * Hd)
+                        if inGlyphY, nearEdge || nearExpect, nextLeft - r.cx > bd + 0.2 * u,
                            !nearBar(r.cx, 0.9 * u) || bd < 0.45 * u { notes[bi].dots += 1; claimed = true }
                     }
                 }
@@ -252,51 +262,118 @@ enum OMRJianpuReader {
             }
         }
         if dbg { for n in notes { print("   note x\(Int(n.cx)) y\(Int(n.top))-\(Int(n.bottom)) deg \(n.degree) above \(n.above) below \(n.below) dots \(n.dots)") } }
-        // underline levels per note: vertical scan below each digit; a run counts when it spans the digit width
-        // (octave dots are narrower). A run thicker than a single line (merged double underline) counts several levels.
+        // Underlines and octave dots below each digit. A run that spans the digit is an underline; a thicker
+        // run is a merged double underline. Split a tall run whose top is that line and whose bottom is a dot,
+        // and keep only the compact top when a dot's stem joins the lyric (the lyric stroke is not an underline).
         var runsPerNote = [[(Int, Int)]](repeating: [], count: notes.count)
-        let scanEnd = min(H - 1, Int(min(rowBottom + 1.9 * u, lyricTop - 1)))
         let dotLimit1 = min(rowBottom + 1.35 * u, lyricTop - 1)
-        var dotsBelow = [Int](repeating: 0, count: notes.count)
+        struct DotCand { var mid: Int, top: Int, th: Double, wd: Double, tailed: Bool }
+        var dotCands = [[DotCand]](repeating: [], count: notes.count)
         for i in notes.indices {
             let n = notes[i]
             let c0 = Int(n.cx.rounded())
             let xs0 = Int(n.x0.rounded(.up)) + 1, xs1 = Int(n.x1.rounded(.down)) - 1
             guard xs1 > xs0 else { continue }
-            func inkRow(_ y: Int) -> Bool { bm.ink(c0 - 1, y) || bm.ink(c0, y) || bm.ink(c0 + 1, y) }
-            var y = Int(rowBottom.rounded()) + 1
-            var lastDotMid = 0
-            while y <= scanEnd {
-                if inkRow(y) {
-                    let st = y
-                    while y <= scanEnd && inkRow(y) { y += 1 }
-                    let en = y - 1
-                    let mid = (st + en) / 2
-                    var cover = 0
-                    for x in xs0...xs1 where bm.ink(x, mid) || bm.ink(x, st) || bm.ink(x, en) { cover += 1 }
-                    if Double(cover) >= 0.8 * Double(xs1 - xs0 + 1) { if Double(st) <= rowBottom + 0.9 * u + 2 { runsPerNote[i].append((st, en)) } }
-                    else if Double(en - st + 1) <= 0.6 * Hd && Double(en - st + 1) >= 0.12 * Hd && cover <= xs1 - xs0 {
-                        // a dot is a compact blob: its horizontal extent is about its height
-                        var l = c0, rr = c0
-                        while bm.ink(l - 1, mid) && c0 - l < 40 { l -= 1 }
-                        while bm.ink(rr + 1, mid) && rr - c0 < 40 { rr += 1 }
-                        let th = Double(en - st + 1), wd = Double(rr - l + 1)
-                        // first dot must lie within the normal zone, a second (octave -2) may sit further down
-                        if wd <= max(1.8 * th, th + 4) && wd >= 0.6 * th && (Double(mid) <= dotLimit1 || (dotsBelow[i] > 0 && Double(mid) <= dotLimit1 + 0.8 * u && Double(mid - lastDotMid) >= 0.35 * u && Double(mid - lastDotMid) <= 0.85 * u)) { dotsBelow[i] += 1; lastDotMid = mid }
+            let span = xs1 - xs0 + 1
+            let yStart = max(Int(rowBottom.rounded()) + 1, Int(n.bottom.rounded()) + 1)
+            let yEnd = min(H - 1, Int(min(n.bottom + 2.15 * u, lyricTop - 1)))
+            guard yEnd >= yStart else { continue }
+            func centerInk(_ y: Int) -> Bool { bm.ink(c0 - 1, y) || bm.ink(c0, y) || bm.ink(c0 + 1, y) }
+            func rowCover(_ y: Int) -> Int {
+                var c = 0
+                for x in xs0...xs1 where bm.ink(x, y) { c += 1 }
+                return c
+            }
+            func rowWidth(_ y: Int) -> Int {
+                var c = c0
+                if !bm.ink(c, y) {
+                    if bm.ink(c0 - 1, y) { c = c0 - 1 }
+                    else if bm.ink(c0 + 1, y) { c = c0 + 1 }
+                    else { return 0 }
+                }
+                var l = c, r = c
+                while bm.ink(l - 1, y) && c0 - l < 40 { l -= 1 }
+                while bm.ink(r + 1, y) && r - c0 < 40 { r += 1 }
+                return r - l + 1
+            }
+            // 0.72, not lower: on a narrow digit a below-dot covers half the span and must stay a dot
+            func lineLike(_ y: Int) -> Bool { rowCover(y) * 25 >= span * 18 }
+            var y = yStart
+            while y <= yEnd {
+                if !centerInk(y) { y += 1; continue }
+                let st = y
+                while y <= yEnd && centerInk(y) { y += 1 }
+                let en = y - 1
+                var yy = st
+                while yy <= en {
+                    let wide = lineLike(yy)
+                    let k0 = yy
+                    yy += 1
+                    while yy <= en && lineLike(yy) == wide { yy += 1 }
+                    let k1 = yy - 1
+                    if wide {
+                        var union = 0
+                        for x in xs0...xs1 {
+                            var hit = false
+                            for t in k0...k1 where bm.ink(x, t) { hit = true; break }
+                            if hit { union += 1 }
+                        }
+                        if union * 5 >= span * 4 && Double(k0) <= n.bottom + 0.9 * u + 2 { runsPerNote[i].append((k0, k1)) }
+                        continue
                     }
-                } else { y += 1 }
+                    var maxW = 0, best = k0 - 1, seen = false
+                    var t = k0
+                    while t <= k1 {
+                        let w = rowWidth(t)
+                        if w > maxW { maxW = w }
+                        if maxW >= 3 && w >= max(2, (maxW + 1) / 2) { seen = true; best = t }
+                        else if seen && w < max(2, (maxW + 1) / 2) { break }
+                        t += 1
+                    }
+                    if !seen || best < k0 { continue }
+                    let th = Double(best - k0 + 1)
+                    var wd = 0
+                    var s = k0
+                    while s <= best { wd = max(wd, rowWidth(s)); s += 1 }
+                    let wdD = Double(wd)
+                    if th < 3 || wdD < 3 || th > 0.55 * Hd || th < 0.15 * Hd { continue }
+                    if wdD < 0.6 * th || wdD > max(1.8 * th, th + 4) { continue }
+                    let tailed = k1 > best + max(2, Int((0.25 * u).rounded()))
+                    dotCands[i].append(DotCand(mid: (k0 + best) / 2, top: k0, th: th, wd: wdD, tailed: tailed))
+                }
             }
         }
-        if dbg { for i in notes.indices { print("   scan note x\(Int(notes[i].cx)) deg \(notes[i].degree) x0 \(Int(notes[i].x0)) x1 \(Int(notes[i].x1)) runs \(runsPerNote[i]) dotsBelow \(dotsBelow[i]) scanEnd \(scanEnd) rowBottom \(Int(rowBottom))") } }
         let ths = runsPerNote.flatMap { $0.map { Double($0.1 - $0.0 + 1) } }.sorted()
         let t1 = ths.isEmpty ? 2.0 : ths[ths.count / 4]
         let gUL = max(1.0, t1)
+        var dotsBelow = [Int](repeating: 0, count: notes.count)
         for i in notes.indices {
             var lv = 0
             for r in runsPerNote[i] { lv += max(1, Int((((Double(r.1 - r.0 + 1)) + gUL) / (t1 + gUL)).rounded())) }
             notes[i].levels = min(lv, 3)
+            // a second underline lowers the dot; do not extend the window for a single underline (that marks lyric ink)
+            let extra = notes[i].levels >= 2 ? 0.8 * u : 0
+            let lim = min(max(dotLimit1, notes[i].bottom + 1.35 * u) + extra, lyricTop - 1)
+            let tailTop = notes[i].bottom + (notes[i].levels >= 2 ? 1.75 * u : 1.30 * u)
+            var lastMid = 0
+            var firstTh = 0.0, firstWd = 0.0
+            for d in dotCands[i] {
+                let mid = Double(d.mid)
+                let placed = mid <= lim && (!d.tailed || Double(d.top) <= tailTop)
+                if dotsBelow[i] == 0 {
+                    if placed { dotsBelow[i] = 1; lastMid = d.mid; firstTh = d.th; firstWd = d.wd }
+                    continue
+                }
+                // octave -2: a second disk the same size, not the lyric the first dot's stem runs into
+                let gapOk = mid - Double(lastMid) >= 0.35 * u && mid - Double(lastMid) <= 0.85 * u
+                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim + 0.8 * u {
+                    dotsBelow[i] = 2
+                    break
+                }
+            }
             notes[i].below += dotsBelow[i]
         }
+        if dbg { for i in notes.indices { print("   scan note x\(Int(notes[i].cx)) deg \(notes[i].degree) x0 \(Int(notes[i].x0)) x1 \(Int(notes[i].x1)) runs \(runsPerNote[i]) dotsBelow \(dotsBelow[i]) levels \(notes[i].levels) bottom \(Int(notes[i].bottom))") } }
         // dashes extend the note on their left
         for dx in dashes {
             var bi = -1
@@ -323,6 +400,20 @@ enum OMRJianpuReader {
         if !jb.isEmpty {
             if abs(jb.first! - edgeL) > 1.5 * u { jb.insert(edgeL, at: 0) }
             if abs(jb.last! - edgeR) > 1.5 * u { jb.append(edgeR) }
+        }
+        // one missed jianpu barline doubles a gap; take the single tab bar that splits that gap
+        if jb.count >= 3 {
+            var gaps: [Double] = []
+            for k in 1..<jb.count { gaps.append(jb[k] - jb[k - 1]) }
+            let medGap = median(gaps)
+            if medGap > 8 {
+                var add: [Double] = []
+                for k in 0..<(jb.count - 1) where jb[k + 1] - jb[k] >= medGap * 1.7 {
+                    let inside = tabCenters.filter { t in t > jb[k] + 0.55 * medGap && t < jb[k + 1] - 0.55 * medGap && !jb.contains { abs($0 - t) <= 0.7 * u } }
+                    if inside.count == 1 { add.append(inside[0]) }
+                }
+                if !add.isEmpty { jb.append(contentsOf: add); jb.sort() }
+            }
         }
         let bc: [Double] = jb.count >= 2 ? jb : tabCenters
         res.boundaries = bc
