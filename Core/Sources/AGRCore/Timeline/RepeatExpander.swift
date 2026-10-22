@@ -30,7 +30,7 @@ public enum RepeatExpander {
         func has(_ i: Int, _ pred: (String) -> Bool) -> Bool { marks(i).contains(where: pred) }
 
         let segno = (0..<n).first { has($0) { $0.contains("segno") || $0 == "𝄋" || $0 == "%" } }
-        let coda = (0..<n).first { i in has(i) { ($0.contains("coda") && !$0.contains("to coda")) || $0 == "𝄌" } }
+        let coda = (0..<n).first { i in has(i) { ($0.contains("coda") && !$0.contains("to coda") && !$0.hasPrefix("d.")) || $0 == "𝄌" } }
 
         var out: [Step] = []
         var i = 0, start = 0, pass = 0
