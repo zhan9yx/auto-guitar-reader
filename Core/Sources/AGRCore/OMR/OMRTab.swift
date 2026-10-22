@@ -133,6 +133,77 @@ enum OMRTabAnalyzer {
         return x1 - x0 + 1
     }
 
+    /// A column of ink running most of the component's height (strum shaft, not a fret).
+    private static func verticalShaft(_ b: Bitmap) -> Bool {
+        guard b.h >= 6, b.w >= 1 else { return false }
+        let need = max(4, Int((0.62 * Double(b.h)).rounded()))
+        for x in 0..<b.w {
+            var n = 0
+            for y in 0..<b.h where b.d[y * b.w + x] != 0 { n += 1 }
+            if n >= need { return true }
+        }
+        return false
+    }
+
+    /// One-pixel bridge between a slur (or H/P) and the fret under it.
+    /// Returns tight pieces, or empty when the glyph should stay whole.
+    /// A hollow digit has two walls, not one short run, so it is not cut.
+    /// A strum shaft is taller than a fret, so the long side is left intact.
+    private static func glyphParts(_ b: Bitmap, rect r: IRect, u: Double) -> [(Bitmap, IRect)] {
+        guard b.h >= 8, b.w >= 2 else { return [] }
+        let rows = inkRows(b)
+        func runs(_ y: Int) -> [(Int, Int)] {
+            var out: [(Int, Int)] = []
+            var x = 0
+            while x < b.w {
+                if b.d[y * b.w + x] != 0 {
+                    var e = x
+                    while e < b.w && b.d[y * b.w + e] != 0 { e += 1 }
+                    out.append((x, e - 1)); x = e
+                } else { x += 1 }
+            }
+            return out
+        }
+        func maxWidth(_ y0: Int, _ y1: Int) -> Int {
+            var m = 0
+            for y in y0..<y1 where y >= 0 && y < rows.count { m = max(m, rows[y]) }
+            return m
+        }
+        var cut = -1
+        for y in 1..<(b.h - 1) {
+            let rs = runs(y)
+            let bridge = rows[y] == 0 || (rs.count == 1 && rs[0].1 - rs[0].0 <= 1)
+            guard bridge else { continue }
+            guard let yA = (0..<y).last(where: { rows[$0] > 0 }),
+                  let yB = ((y + 1)..<b.h).first(where: { rows[$0] > 0 }) else { continue }
+            let topH = yA + 1, botH = b.h - yB
+            let short = min(topH, botH), tall = max(topH, botH)
+            guard short >= 3, tall >= 5,
+                  Double(short) <= 0.70 * u,
+                  Double(tall) >= 0.50 * u,
+                  Double(tall) <= 1.45 * u else { continue }
+            // The bridge is thinner than both the cap and the body. A stem that
+            // simply continues a letter is not thinner than the side below it.
+            let neck = max(rows[y], 1)
+            guard neck + 2 <= min(maxWidth(0, y), maxWidth(y + 1, b.h)) else { continue }
+            cut = y
+            break
+        }
+        guard cut > 0 else { return [] }
+        func piece(_ y0: Int, _ y1: Int) -> (Bitmap, IRect)? {
+            guard y1 > y0 else { return nil }
+            var x0 = b.w, x1 = -1
+            for y in y0..<y1 { for x in 0..<b.w where b.d[y * b.w + x] != 0 { x0 = min(x0, x); x1 = max(x1, x) } }
+            guard x1 >= x0 else { return nil }
+            var nb = Bitmap(w: x1 - x0 + 1, h: y1 - y0)
+            for y in y0..<y1 { for x in x0...x1 where b.d[y * b.w + x] != 0 { nb.d[(y - y0) * nb.w + (x - x0)] = 1 } }
+            let nr = IRect(x0: r.x0 + x0, y0: r.y0 + y0, x1: r.x0 + x1 + 1, y1: r.y0 + y1)
+            return (nb, nr)
+        }
+        guard let a = piece(0, cut), let c = piece(cut + 1, b.h) else { return [] }
+        return [a, c]
+    }
+
     /// Augmentation dot just right of the stem end (a dotted quarter / eighth). 0 or 1.
     static func augmentationDots(clean: Bitmap, stem: Stem, staff st: TabStaff) -> Int {
         let u = st.u
@@ -230,11 +301,21 @@ enum OMRTabAnalyzer {
             let i = min(5, max(0, Int(off.rounded())))
             return (i, abs(off - Double(i)))
         }
-        for c in lab.comps {
-            let r = c.rect
-            let w = Double(r.w), h = Double(r.h)
-            if c.area < 4 { continue }
+        var techs: [(x: Double, y: Double, tech: Technique)] = []
+        var glyphs: [(Bitmap, IRect, Int)] = []
+        for c in lab.comps where c.area >= 4 {
             let bmp = OMRVision.extract(lab, c)
+            let parts = glyphParts(bmp, rect: c.rect, u: u)
+            if parts.isEmpty { glyphs.append((bmp, c.rect, c.area)) }
+            else {
+                for p in parts {
+                    let ink = p.0.d.reduce(0) { $0 + Int($1) }
+                    if ink >= 4 { glyphs.append((p.0, p.1, ink)) }
+                }
+            }
+        }
+        for (bmp, r, area) in glyphs {
+            let w = Double(r.w), h = Double(r.h)
             // ---- tall comps: strum shafts / x columns / x with arrow head
             if h >= 1.25 * u {
                 // string windows containing a cross
@@ -257,7 +338,11 @@ enum OMRTabAnalyzer {
                     let rows = inkRows(bmp)
                     for y in 0..<r.h { if y < topEdge - 1 { topInk += rows[y] }; if y > botEdge + 1 { botInk += rows[y] } }
                     let thr = max(8, Int(0.08 * u * u))
-                    if topInk >= thr && topInk > botInk { dir = .up } else if botInk >= thr { dir = .down }
+                    // A slur sitting on the string above a fret also leaves ink outside the
+                    // crosses. A stacked-x strum is a shaft at least two strings tall.
+                    if verticalShaft(bmp) && h >= 2.0 * u {
+                        if topInk >= thr && topInk > botInk { dir = .up } else if botInk >= thr { dir = .down }
+                    }
                     let strs = wins.map { $0.0 + 1 }
                     for (k, wn) in wins.enumerated() {
                         var it = Item(x: r.cx, kind: .cross, string: wn.0 + 1, conf: min(1, wn.1 + 0.3), rect: r)
@@ -297,19 +382,41 @@ enum OMRTabAnalyzer {
                 rests.append(r); continue
             }
             if h < 0.3 * u && w < 0.4 * u { continue }
-            if w < 0.3 * u || Double(c.area) < 0.1 * u * u { continue }
+            // A slur fragment left after the neck split: flat, not a fret or an ×.
+            if h <= 0.50 * u && w >= 1.25 * h { continue }
+            if w < 0.3 * u || Double(area) < 0.1 * u * u { continue }
+            // H/P sits between the strings, or just above the staff on the top string.
+            let offString = so > 0.30 || r.cy < st.top - 0.12 * u
+            if offString, let (lab, tc) = classifier.classify(bmp, role: .tabDigit, allowed: ["H", "P"]), tc >= 0.18 {
+                techs.append((r.cx, r.cy, lab == "H" ? .hammerOn : .pullOff))
+                continue
+            }
+            if r.cy < st.top - 0.12 * u { continue }
             let cs = crossScore(bmp)
             let cl = classifier.classify(bmp, role: .tabDigit)
             if let (label, conf) = cl, conf >= 0.25 {
-                if label == "x" { items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: conf, rect: r)); items[items.count - 1].strumStrings = []; if so > 0.4 { others.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.1, string: sIdx + 1, stringOffset: so)) }; continue }
-                if ProcessInfo.processInfo.environment["OMR_DEBUG_GLYPH"] != nil, Int(label) != nil { FileHandle.standardError.write(Data("digit \(label) conf \(conf) rect \(r.x0),\(r.y0) \(r.w)x\(r.h) area \(c.area)\n".utf8)) }
-                if let d = Int(label) { items.append(Item(x: r.cx, kind: .digit(d), string: sIdx + 1, conf: conf, rect: r)); continue }
-                if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" || label == "(" || label == ")" { others.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
+                if label == "x" {
+                    if so <= 0.24 { items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: conf, rect: r)); items[items.count - 1].strumStrings = [] }
+                    else if so > 0.4 { others.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.1, string: sIdx + 1, stringOffset: so)) }
+                    continue
+                }
+                if ProcessInfo.processInfo.environment["OMR_DEBUG_GLYPH"] != nil, Int(label) != nil { FileHandle.standardError.write(Data("digit \(label) conf \(conf) rect \(r.x0),\(r.y0) \(r.w)x\(r.h) area \(area)\n".utf8)) }
+                if let d = Int(label) {
+                    // A fret is centred on its string. An H/P or a slur tail sits between strings
+                    // and is an "8" only by accident.
+                    if so <= 0.24 { items.append(Item(x: r.cx, kind: .digit(d), string: sIdx + 1, conf: conf, rect: r)) }
+                    continue
+                }
+                if label == "H" || label == "P" {
+                    techs.append((r.cx, r.cy, label == "H" ? .hammerOn : .pullOff))
+                    continue
+                }
+                if label == "clef" || label == "cjk" || label == "S" || label == "(" || label == ")" { others.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
             }
-            if cs > 0.5 && w >= 0.3 * u && h >= 0.3 * u {
+            if cs > 0.5 && w >= 0.3 * u && h >= 0.3 * u && so <= 0.24 {
                 items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: cs * 0.8, rect: r)); continue
             }
-            others.append(TabGlyph(rect: r, kind: w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 ? .arc : .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))
+            others.append(TabGlyph(rect: r, kind: w >= 0.6 * u && h <= 0.9 * u && Double(area) / (w * h) < 0.5 ? .arc : .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))
         }
         for it in items { trace?.add(it.rect, it.isShaft ? (255, 0, 255) : (it.kind == .cross ? (0, 0, 255) : (200, 0, 200))) }
         for r in rests { trace?.add(r, (255, 128, 0)) }
@@ -415,6 +522,44 @@ enum OMRTabAnalyzer {
                     xs.append(sl.x)
                 }
                 t += sl.dur
+            }
+            // H/P is printed between the two frets, above the string. It belongs on the right-hand note.
+            for tech in techs where tech.x >= rg.0 && tech.x < rg.1 {
+                guard let ri = xs.indices.filter({ xs[$0] >= tech.x - 0.2 * u }).min(by: { xs[$0] < xs[$1] }),
+                      xs[ri] - tech.x < 1.5 * u,
+                      let li = xs.indices.filter({ xs[$0] < tech.x - 0.05 * u }).max(by: { xs[$0] < xs[$1] }),
+                      tech.x - xs[li] < 1.5 * u,
+                      !events[ri].notes.isEmpty else { continue }
+                let targetY = tech.y + 1.15 * u
+                let k = events[ri].notes.indices.min {
+                    abs(st.lines[events[ri].notes[$0].string - 1] - targetY) < abs(st.lines[events[ri].notes[$1].string - 1] - targetY)
+                } ?? events[ri].notes.startIndex
+                guard !events[ri].notes[k].chordTone else { continue }
+                events[ri].notes[k].technique = tech.tech
+            }
+            // The H/P often melts into the slur. The arc still joins two frets on one string;
+            // a lower destination is a pull-off, a higher one a hammer-on.
+            if events.count >= 2 {
+                for i in 0..<(events.count - 1) {
+                    guard events[i].notes.count == 1, events[i + 1].notes.count == 1 else { continue }
+                    let a = events[i].notes[0], b = events[i + 1].notes[0]
+                    guard !a.chordTone, !b.chordTone, a.string == b.string, a.fret != b.fret else { continue }
+                    guard events[i + 1].notes[0].technique == nil else { continue }
+                    let gap = xs[i + 1] - xs[i]
+                    guard gap > 0.55 * u, gap < 2.6 * u else { continue }
+                    let yLine = st.lines[a.string - 1]
+                    let y0 = Int((yLine - 1.20 * u).rounded()), y1 = Int((yLine - 0.38 * u).rounded())
+                    let xa = Int((xs[i] + 0.22 * u).rounded()), xb = Int((xs[i + 1] - 0.22 * u).rounded())
+                    guard xb - xa >= 3, y1 > y0 else { continue }
+                    var hit = 0
+                    for x in xa...xb {
+                        var col = false
+                        for y in y0...y1 where clean.ink(x, y) { col = true; break }
+                        if col { hit += 1 }
+                    }
+                    guard Double(hit) >= 0.38 * Double(xb - xa + 1) else { continue }
+                    events[i + 1].notes[0].technique = b.fret < a.fret ? .pullOff : .hammerOn
+                }
             }
             let mg = others.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
             out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }))

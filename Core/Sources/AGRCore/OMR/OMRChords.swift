@@ -65,6 +65,11 @@ struct ChordLibrary {
     func bestShape(for name: String) -> [Int]? {
         shapesByName[ChordNameNormalizer.key(name)]?.max { $0.value < $1.value }?.key
     }
+    /// Every fretting learned for `name` (a repeated chord is often read once well and twice badly).
+    func shapes(for name: String) -> [[Int]] {
+        guard let m = shapesByName[ChordNameNormalizer.key(name)] else { return [] }
+        return Array(m.keys)
+    }
     func name(for frets: [Int]) -> String? { namesByShape[frets]?.max { $0.value < $1.value }?.key }
 }
 
@@ -145,10 +150,21 @@ enum OMRChordReader {
             }
             if let ni = nameOfDiagram[di] {
                 var shape = d.shape
-                if let sym = ChordNameNormalizer.symbol(names[ni].text), shapeFit(sym, shape.frets) < 0.95,
-                   let lib = library.bestShape(for: names[ni].text), shapeFit(sym, lib) >= 0.95 {
-                    shape = ChordShape(frets: lib, baseFret: shape.baseFret)      // repeated chord: trust the page's majority reading
-                } else { learned.add(name: names[ni].text, frets: shape.frets) }
+                if let sym = ChordNameNormalizer.symbol(names[ni].text) {
+                    let readFit = shapeFit(sym, shape.frets)
+                    // A repeated name keeps the fretting that matches the symbol, not the most common misread.
+                    if readFit < 0.95 {
+                        var bestF = readFit, bestFr = shape.frets
+                        for alt in library.shapes(for: names[ni].text) where alt != shape.frets {
+                            let s = shapeFit(sym, alt)
+                            if s > bestF { bestF = s; bestFr = alt }
+                        }
+                        if bestF >= 0.95 || bestF > readFit + 0.04 {
+                            shape = ChordShape(frets: bestFr, baseFret: shape.baseFret)
+                        }
+                    }
+                }
+                if shape.frets == d.frets { learned.add(name: names[ni].text, frets: shape.frets) }
                 entries.append((d.cx, names[ni].text, shape, di, min(d.confidence, names[ni].confidence), 0.05))
             } else if let known = library.name(for: d.frets) {
                 entries.append((d.cx, known, d.shape, di, 0.6 * d.confidence, 0.05))
