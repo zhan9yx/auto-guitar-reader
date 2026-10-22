@@ -180,13 +180,13 @@ public struct AIAssistService: Sendable {
         var seen = Set<[PathToken]>()
         for op in ops {
             guard let tokens = try? ScorePath.parse(op.path) else { continue }
-            switch op.op {
-            case .insert:
+            let key = containerKey(tokens)
+            let insideMeasure = key.count < tokens.count
+            if !insideMeasure && op.op == .insert {
                 result.append(AIChange(path: op.path, before: "（新增）", after: render(value: op.value, tokens: tokens)))
-            case .delete:
+            } else if !insideMeasure && op.op == .delete {
                 result.append(AIChange(path: op.path, before: AICompactRenderer.describe(path: op.path, in: before), after: "（删除）"))
-            case .set:
-                let key = containerKey(tokens)
+            } else {
                 guard seen.insert(key).inserted else { continue }
                 let p = ScorePath.render(key)
                 result.append(AIChange(path: p, before: AICompactRenderer.describe(path: p, in: before),
