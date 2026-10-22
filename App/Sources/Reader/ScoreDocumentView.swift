@@ -139,6 +139,9 @@ struct ScoreDocumentView: View {
                 Text(line.text ?? "")
                     .font(.system(size: fontSize * 0.85).italic())
                     .foregroundStyle(.secondary)
+            case .system:
+                // TODO(v2): NotationSystemView (tab + 简谱 + lyrics)
+                EmptyView()
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)

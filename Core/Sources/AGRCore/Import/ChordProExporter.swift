@@ -80,6 +80,8 @@ public enum ChordProExporter {
         case .chords:
             let text = line.segments.compactMap { $0.chord.map { "[\($0)]" } }.joined(separator: " ")
             return text.isEmpty ? [] : [text]
+        case .system:
+            return []  // TODO(v2): export NotationSystem
         case .comment:
             guard let t = line.text, !t.isEmpty else { return [] }
             return ["{comment: \(sanitize(t))}"]

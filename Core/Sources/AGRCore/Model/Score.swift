@@ -8,7 +8,7 @@ import Foundation
 
 public struct Score: Codable, Identifiable, Hashable, Sendable {
     public static let formatID = "agr-score"
-    public static let currentVersion = 1
+    public static let currentVersion = 2
 
     public var format: String
     public var version: Int
@@ -117,6 +117,9 @@ public struct ScoreMeta: Codable, Hashable, Sendable {
     public var mode: PlayMode
     public var source: ScoreSource?
     public var tags: [String]
+    /// Non-musical text found on the page and kept for reference (credits like "制谱：…").
+    /// Watermarks / site ads are dropped by importers, not stored here.
+    public var credits: [String]
 
     public static let standardTuning = [40, 45, 50, 55, 59, 64]
 
@@ -133,7 +136,8 @@ public struct ScoreMeta: Codable, Hashable, Sendable {
         tuning: [Int] = ScoreMeta.standardTuning,
         mode: PlayMode = .strumSing,
         source: ScoreSource? = nil,
-        tags: [String] = []
+        tags: [String] = [],
+        credits: [String] = []
     ) {
         self.title = title
         self.artist = artist
@@ -148,10 +152,11 @@ public struct ScoreMeta: Codable, Hashable, Sendable {
         self.mode = mode
         self.source = source
         self.tags = tags
+        self.credits = credits
     }
 
     enum CodingKeys: String, CodingKey {
-        case title, artist, composer, lyricist, arranger, key, capo, tempo, timeSignature, tuning, mode, source, tags
+        case title, artist, composer, lyricist, arranger, key, capo, tempo, timeSignature, tuning, mode, source, tags, credits
     }
 
     public init(from decoder: Decoder) throws {
@@ -169,6 +174,7 @@ public struct ScoreMeta: Codable, Hashable, Sendable {
         mode = try c.decodeIfPresent(PlayMode.self, forKey: .mode) ?? .strumSing
         source = try c.decodeIfPresent(ScoreSource.self, forKey: .source)
         tags = try c.decodeIfPresent([String].self, forKey: .tags) ?? []
+        credits = try c.decodeIfPresent([String].self, forKey: .credits) ?? []
     }
 }
 
@@ -204,6 +210,10 @@ public enum LineKind: String, Codable, Sendable {
     case tab
     /// Free text / annotation, not played.
     case comment
+    /// Full notation system (v2): measures with chord diagrams, tablature
+    /// (incl. chord-tone "×" picks and strums), numbered-notation melody and
+    /// multi-verse lyrics — the common Chinese 弹唱六线谱 layout. Uses `system`.
+    case system
 }
 
 public struct Line: Codable, Identifiable, Hashable, Sendable {
@@ -217,18 +227,22 @@ public struct Line: Codable, Identifiable, Hashable, Sendable {
     public var text: String?
     /// Region of the original page image this line came from (image imports).
     public var anchor: PageAnchor?
+    /// For .system.
+    public var system: NotationSystem?
 
     public init(id: String = UUID().uuidString, kind: LineKind, segments: [ChordSegment] = [],
-                tab: TabBlock? = nil, text: String? = nil, anchor: PageAnchor? = nil) {
+                tab: TabBlock? = nil, text: String? = nil, anchor: PageAnchor? = nil,
+                system: NotationSystem? = nil) {
         self.id = id
         self.kind = kind
         self.segments = segments
         self.tab = tab
         self.text = text
         self.anchor = anchor
+        self.system = system
     }
 
-    enum CodingKeys: String, CodingKey { case id, kind, segments, tab, text, anchor }
+    enum CodingKeys: String, CodingKey { case id, kind, segments, tab, text, anchor, system }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -238,6 +252,7 @@ public struct Line: Codable, Identifiable, Hashable, Sendable {
         tab = try c.decodeIfPresent(TabBlock.self, forKey: .tab)
         text = try c.decodeIfPresent(String.self, forKey: .text)
         anchor = try c.decodeIfPresent(PageAnchor.self, forKey: .anchor)
+        system = try c.decodeIfPresent(NotationSystem.self, forKey: .system)
     }
 
     /// Lyrics text of the line (segments concatenated).
@@ -314,13 +329,160 @@ public enum Technique: String, Codable, Sendable {
 public struct TabNote: Codable, Hashable, Sendable {
     /// 1 = high E (1st string) ... 6 = low E (6th string).
     public var string: Int
+    /// Absolute fret. Ignored when `chordTone` is true.
     public var fret: Int
     public var technique: Technique?
+    /// "×" on a string in 弹唱谱: play this string as fretted by the current chord
+    /// shape (`NotationMeasure.chords` / `Score.chordDefinitions`).
+    public var chordTone: Bool
 
-    public init(string: Int, fret: Int, technique: Technique? = nil) {
+    public init(string: Int, fret: Int, technique: Technique? = nil, chordTone: Bool = false) {
         self.string = string
         self.fret = fret
         self.technique = technique
+        self.chordTone = chordTone
+    }
+
+    /// A "×" chord-tone pick on `string`.
+    public static func chordTone(string: Int) -> TabNote { TabNote(string: string, fret: 0, chordTone: true) }
+
+    enum CodingKeys: String, CodingKey { case string, fret, technique, chordTone }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        string = try c.decode(Int.self, forKey: .string)
+        chordTone = try c.decodeIfPresent(Bool.self, forKey: .chordTone) ?? false
+        fret = try c.decodeIfPresent(Int.self, forKey: .fret) ?? 0
+        technique = try c.decodeIfPresent(Technique.self, forKey: .technique)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(string, forKey: .string)
+        if chordTone { try c.encode(true, forKey: .chordTone) } else { try c.encode(fret, forKey: .fret) }
+        try c.encodeIfPresent(technique, forKey: .technique)
+    }
+}
+
+// MARK: - Notation system (v2)
+
+/// One printed system (a row of measures spanning the page width).
+public struct NotationSystem: Codable, Hashable, Sendable {
+    public var measures: [NotationMeasure]
+    /// Number of lyric verses printed under this system (max over measures).
+    public var verseCount: Int { measures.map(\.verseCount).max() ?? 0 }
+    public init(measures: [NotationMeasure] = []) { self.measures = measures }
+}
+
+public enum BarlineKind: String, Codable, Sendable { case single, double, final, startRepeat, endRepeat, startEndRepeat }
+
+public struct NotationMeasure: Codable, Hashable, Sendable {
+    /// Length in beats. nil = time signature beats (pickup measures set this).
+    public var beats: Double?
+    /// Chord changes inside the measure (usually one at beat 0).
+    public var chords: [ChordMark]
+    /// Tablature events (onsets in beats from measure start).
+    public var tab: [TabEvent]
+    /// Numbered-notation (简谱) melody.
+    public var melody: [MelodyNote]
+    public var leftBarline: BarlineKind
+    public var rightBarline: BarlineKind
+    /// Volta (ending) numbers this measure belongs to, e.g. [1] or [2]. Empty = all passes.
+    public var volta: [Int]
+    /// Free annotations attached to the measure (e.g. "D.S.", "Fine", "rit.", section label).
+    public var marks: [String]
+
+    public init(beats: Double? = nil, chords: [ChordMark] = [], tab: [TabEvent] = [], melody: [MelodyNote] = [],
+                leftBarline: BarlineKind = .single, rightBarline: BarlineKind = .single,
+                volta: [Int] = [], marks: [String] = []) {
+        self.beats = beats
+        self.chords = chords
+        self.tab = tab
+        self.melody = melody
+        self.leftBarline = leftBarline
+        self.rightBarline = rightBarline
+        self.volta = volta
+        self.marks = marks
+    }
+
+    enum CodingKeys: String, CodingKey { case beats, chords, tab, melody, leftBarline, rightBarline, volta, marks }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        beats = try c.decodeIfPresent(Double.self, forKey: .beats)
+        chords = try c.decodeIfPresent([ChordMark].self, forKey: .chords) ?? []
+        tab = try c.decodeIfPresent([TabEvent].self, forKey: .tab) ?? []
+        melody = try c.decodeIfPresent([MelodyNote].self, forKey: .melody) ?? []
+        leftBarline = try c.decodeIfPresent(BarlineKind.self, forKey: .leftBarline) ?? .single
+        rightBarline = try c.decodeIfPresent(BarlineKind.self, forKey: .rightBarline) ?? .single
+        volta = try c.decodeIfPresent([Int].self, forKey: .volta) ?? []
+        marks = try c.decodeIfPresent([String].self, forKey: .marks) ?? []
+    }
+
+    public var verseCount: Int { melody.map(\.lyrics.count).max() ?? 0 }
+}
+
+/// Chord name (+ optional diagram read from the page) placed at a beat.
+public struct ChordMark: Codable, Hashable, Sendable {
+    /// Chord symbol as written, e.g. "D7(5)" is kept verbatim; parse with `ChordSymbol(normalizing:)` helpers.
+    public var name: String
+    public var beat: Double
+    /// Fingering read from the printed chord diagram, if any.
+    public var shape: ChordShape?
+    public init(name: String, beat: Double = 0, shape: ChordShape? = nil) {
+        self.name = name
+        self.beat = beat
+        self.shape = shape
+    }
+}
+
+/// One 简谱 note or rest.
+public struct MelodyNote: Codable, Hashable, Sendable {
+    public var beat: Double
+    public var duration: Double
+    /// 1...7 scale degree in the key of `ScoreMeta.key` (1 = do); 0 = rest.
+    public var degree: Int
+    /// -1 flat, 0 natural, +1 sharp.
+    public var accidental: Int
+    /// Octave dots: +1 = one dot above, -1 = one dot below.
+    public var octave: Int
+    /// Tie/slur to the next note (no new attack when it's a tie of the same pitch).
+    public var tieToNext: Bool
+    /// Lyric syllable per verse ("" = none for that verse). Index 0 = first verse line.
+    public var lyrics: [String]
+
+    public init(beat: Double, duration: Double, degree: Int, accidental: Int = 0, octave: Int = 0,
+                tieToNext: Bool = false, lyrics: [String] = []) {
+        self.beat = beat
+        self.duration = duration
+        self.degree = degree
+        self.accidental = accidental
+        self.octave = octave
+        self.tieToNext = tieToNext
+        self.lyrics = lyrics
+    }
+
+    enum CodingKeys: String, CodingKey { case beat, duration, degree, accidental, octave, tieToNext, lyrics }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        beat = try c.decode(Double.self, forKey: .beat)
+        duration = try c.decode(Double.self, forKey: .duration)
+        degree = try c.decode(Int.self, forKey: .degree)
+        accidental = try c.decodeIfPresent(Int.self, forKey: .accidental) ?? 0
+        octave = try c.decodeIfPresent(Int.self, forKey: .octave) ?? 0
+        tieToNext = try c.decodeIfPresent(Bool.self, forKey: .tieToNext) ?? false
+        lyrics = try c.decodeIfPresent([String].self, forKey: .lyrics) ?? []
+    }
+
+    public var isRest: Bool { degree == 0 }
+
+    /// Sounding MIDI pitch given the key tonic pitch class (1=C → 0) and a reference octave
+    /// (degree 1 with no dots = `tonicMidi`, default C4 = 60 + pc).
+    public func midi(tonicPitchClass: Int, tonicMidiBase: Int = 60) -> Int? {
+        guard degree >= 1 && degree <= 7 else { return nil }
+        let major = [0, 2, 4, 5, 7, 9, 11]
+        return tonicMidiBase + tonicPitchClass + major[degree - 1] + accidental + 12 * octave
     }
 }
 

@@ -199,6 +199,7 @@ private struct TimelineBuilder {
                 case .lyrics, .chords: chordLine(line, ref, pass)
                 case .tab: tabLine(line, ref, pass)
                 case .comment: break
+                case .system: break  // TODO(v2): expand NotationSystem measures
                 }
             }
             if events.count > first {
