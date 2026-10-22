@@ -72,6 +72,16 @@ enum OMRChordsCommand {
         return out
     }
 
+    /// y bands (pixels) of the GT system lines on a page of the given height.
+    static func bandsFromScore(_ path: String, height: Int) -> [(Double, Double)] {
+        guard let d = try? Data(contentsOf: URL(fileURLWithPath: path)), let s = try? ScoreCoding.decode(d) else { return [] }
+        var out: [(Double, Double)] = []
+        for sec in s.sections { for l in sec.lines where l.system != nil {
+            if let a = l.anchor { out.append((a.y * Double(height) - 0.01 * Double(height), (a.y + a.height) * Double(height))) }
+        } }
+        return out
+    }
+
     static func gtFromScore(_ path: String) -> [GTChord] {
         guard let d = try? Data(contentsOf: URL(fileURLWithPath: path)), let s = try? ScoreCoding.decode(d) else { return [] }
         var out: [GTChord] = []
@@ -86,6 +96,39 @@ enum OMRChordsCommand {
             }
         }
         return out
+    }
+
+    /// Measure-independent score: chords of a system compared as ordered name sequences (LCS); shapes of matched pairs.
+    static func seqScore(gt: [GTChord], pred: OMRPageChords, verbose: Bool, label: String) -> Counts {
+        var c = Counts()
+        let nSys = max(pred.systems.count, (gt.map { $0.sys }.max() ?? -1) + 1)
+        for si in 0..<nSys {
+            let g = gt.filter { $0.sys == si }.sorted { ($0.m, $0.beat) < ($1.m, $1.beat) }
+            var p: [ChordMark] = []
+            if si < pred.systems.count { for ms in pred.systems[si].measures { p += ms } }
+            c.gt += g.count; c.pred += p.count
+            let gk = g.map { ChordNameNormalizer.key($0.name) }, pk = p.map { ChordNameNormalizer.key($0.name) }
+            var L = [[Int]](repeating: [Int](repeating: 0, count: pk.count + 1), count: gk.count + 1)
+            for i in stride(from: gk.count - 1, through: 0, by: -1) { for j in stride(from: pk.count - 1, through: 0, by: -1) {
+                L[i][j] = gk[i] == pk[j] ? L[i + 1][j + 1] + 1 : max(L[i + 1][j], L[i][j + 1])
+            } }
+            var i = 0, j = 0
+            var matchedG = Set<Int>()
+            while i < gk.count && j < pk.count {
+                if gk[i] == pk[j] {
+                    c.tp += 1; matchedG.insert(i)
+                    if let f = g[i].frets { c.shapeGT += 1; if p[j].shape?.frets == f { c.shapeOK += 1 } else { c.shapePredWrong += 1
+                        if verbose { print("  [\(label)] sys\(si) #\(i) \(g[i].name) shape gt \(f) pred \(p[j].shape?.frets ?? [])") } } }
+                    i += 1; j += 1
+                } else if L[i + 1][j] >= L[i][j + 1] { i += 1 } else { j += 1 }
+            }
+            for (k, gc) in g.enumerated() where !matchedG.contains(k) {
+                if gc.frets != nil { c.shapeGT += 1 }
+                if verbose { print("  [\(label)] sys\(si) #\(k) MISSING \(gc.name) (m\(gc.m) @\(gc.beat))") }
+            }
+            if verbose && p.count != c.tp { print("  [\(label)] sys\(si) pred names \(p.map { $0.name })  gt \(g.map { $0.name })") }
+        }
+        return c
     }
 
     static func score(gt: [GTChord], pred: OMRPageChords, verbose: Bool, label: String) -> Counts {
@@ -362,7 +405,7 @@ enum OMRChordsCommand {
         }
         var input: String?, ocr: String?, gt: String?, boxes: String?, meta: String?
         var synth: String?, real: String?, ids: Set<String>?
-        var maxN = Int.max, stride = 1, verbose = false, worst = 6, useOracle = false, useClean = false
+        var maxN = Int.max, stride = 1, verbose = false, worst = 6, useOracle = false, useClean = false, useBands = false, seqMode = false
         var i = 0
         while i < args.count {
             let a = args[i]
@@ -381,22 +424,25 @@ enum OMRChordsCommand {
             case "-v": verbose = true
             case "--oracle": useOracle = true
             case "--clean": useClean = true
+            case "--bands": useBands = true
+            case "--seq": seqMode = true
             default: input = a
             }
             i += 1
         }
         _ = meta
         let fm = FileManager.default
-        var total = Counts()
+        var total = Counts(), totalSeq = Counts()
         var perPage: [(String, Counts)] = []
         var byStyle: [String: Counts] = [:]
         var ms = 0.0
-        func evalPage(_ pgm: String, _ ocrPath: String?, _ g: [GTChord], style: String, label: String, boxesPath: String? = nil) {
+        func evalPage(_ pgm: String, _ ocrPath: String?, _ g: [GTChord], style: String, label: String, boxesPath: String? = nil, bands: [(Double, Double)]? = nil) {
             guard let img = try? GrayImage.readPGM(path: pgm) else { print("cannot read \(pgm)"); return }
             let t0 = Date()
-            let r = OMRChordsDebug.readChords(image: img, ocr: loadOCR(ocrPath), oracle: useOracle ? boxesPath.map(oracleFromBoxes) : nil, clean: useClean)
+            let r = OMRChordsDebug.readChords(image: img, ocr: loadOCR(ocrPath), oracle: useOracle ? boxesPath.map(oracleFromBoxes) : nil, clean: useClean, bands: bands)
             ms += Date().timeIntervalSince(t0) * 1000
-            let c = score(gt: g, pred: r, verbose: verbose, label: label)
+            let c = score(gt: g, pred: r, verbose: verbose && !seqMode, label: label)
+            totalSeq.add(seqScore(gt: g, pred: r, verbose: verbose && seqMode, label: label))
             total.add(c); perPage.append((label, c)); byStyle[style, default: Counts()].add(c)
         }
         if let synth {
@@ -416,13 +462,16 @@ enum OMRChordsCommand {
                 let id = String(f.dropLast(4))
                 if let ids, !ids.contains(id) { continue }
                 guard fm.fileExists(atPath: "\(gt)/\(id).agr.json") else { continue }
-                evalPage("\(real)/\(f)", "\(ocrDir)/\(id).ocr.json", gtFromScore("\(gt)/\(id).agr.json"), style: "real", label: id)
+                var bands: [(Double, Double)]?
+                if useBands, let img = try? GrayImage.readPGM(path: "\(real)/\(f)") { bands = bandsFromScore("\(gt)/\(id).agr.json", height: img.height) }
+                evalPage("\(real)/\(f)", "\(ocrDir)/\(id).ocr.json", gtFromScore("\(gt)/\(id).agr.json"), style: "real", label: id, bands: bands)
             }
         } else if let input {
             let g = boxes.map(gtFromBoxes) ?? gt.map(gtFromScore) ?? []
             evalPage(input, ocr, g, style: "page", label: (input as NSString).lastPathComponent, boxesPath: boxes)
         } else { print("usage: agr-tool omr-chords page.pgm --ocr f.json [--gt gt.agr.json|--boxes b.json] | --synth dir | --real dir --gt dir"); return 2 }
         print("TOTAL  " + total.line)
+        print("SEQ    " + totalSeq.line + "   (measure/beat-independent, ordered per system)")
         for (s, c) in byStyle.sorted(by: { $0.key < $1.key }) { print(String(format: "  %-14@ ", s as NSString) + c.line) }
         let bad = perPage.filter { $0.1.tp < $0.1.gt || $0.1.pred > $0.1.tp || $0.1.shapeOK < $0.1.shapeGT }.sorted { ($0.1.gt - $0.1.tp) + ($0.1.pred - $0.1.tp) > ($1.1.gt - $1.1.tp) + ($1.1.pred - $1.1.tp) }
         for (l, c) in bad.prefix(worst) { print("  worst \(l): " + c.line) }

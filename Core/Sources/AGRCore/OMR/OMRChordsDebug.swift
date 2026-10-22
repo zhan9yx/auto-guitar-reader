@@ -45,7 +45,28 @@ public enum OMRChordsDebug {
         }
     }
 
-    public static func readChords(image rawImage: GrayImage, ocr: [OCRToken], beats: Double = 4, oracle: [OracleSystem]? = nil, clean: Bool = false) -> OMRPageChords {
+    /// Whole-page detection plus overlapping strips: a large logo / QR code can make the page-wide ink-run statistics miss staves.
+    static func robustStaves(_ bm: Bitmap) -> [TabStaff] {
+        var found = OMRStaffDetector.detect(bm)
+        for stripH in [140, 220, 320] {
+            let step = stripH / 2
+            var y = 0
+            while y < bm.h {
+                let y1 = min(bm.h, y + stripH)
+                let crop = OMRVision.crop(bm, IRect(x0: 0, y0: y, x1: bm.w, y1: y1))
+                for var st in OMRStaffDetector.detect(crop) {
+                    st.lines = st.lines.map { $0 + Double(y) }
+                    st.bands = st.bands.map { ($0.0 + y, $0.1 + y) }
+                    if !found.contains(where: { abs($0.top - st.top) < 0.8 * st.u && abs($0.u - st.u) < 0.25 * st.u }) { found.append(st) }
+                }
+                if y1 == bm.h { break }
+                y += step
+            }
+        }
+        return found.sorted { $0.top < $1.top }
+    }
+
+    public static func readChords(image rawImage: GrayImage, ocr: [OCRToken], beats: Double = 4, oracle: [OracleSystem]? = nil, clean: Bool = false, bands: [(Double, Double)]? = nil) -> OMRPageChords {
         let image = clean ? OMRWatermark.clean(rawImage).image : rawImage
         if let oracle {
             var out = OMRPageChords()
@@ -64,7 +85,22 @@ public enum OMRChordsDebug {
             }
             return out
         }
-        let p = prepare(image, ocr)
+        var p = prepare(image, ocr)
+        if let bands {
+            // evaluation aid: staff detection inside each ground-truth system band (page-wide detection can miss staves under logos)
+            var staves: [TabStaff] = []
+            for b in bands {
+                let y0 = max(0, Int(b.0)), y1 = min(p.bm.h, Int(b.1))
+                guard y1 - y0 > 40 else { continue }
+                let crop = OMRVision.crop(p.bm, IRect(x0: 0, y0: y0, x1: p.bm.w, y1: y1))
+                if var st = OMRStaffDetector.detect(crop).first {
+                    st.lines = st.lines.map { $0 + Double(y0) }
+                    st.bands = st.bands.map { ($0.0 + y0, $0.1 + y0) }
+                    staves.append(st)
+                }
+            }
+            p.staves = staves
+        }
         var out = OMRPageChords()
         out.width = p.img.width; out.height = p.img.height
         let inputs = p.staves.enumerated().map { (si, st) -> ChordSystemInput in

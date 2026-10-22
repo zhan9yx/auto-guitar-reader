@@ -124,10 +124,25 @@ enum OMRChordReader {
             else if diagrams[di].baseDigitPresent, diagrams[di].baseFret < 2 { diagrams[di].baseFret = 2 }
         }
 
+        if debugOn {
+            for (di, d) in diagrams.enumerated() {
+                FileHandle.standardError.write(Data("pair diag\(di) x \(Int(d.left)) name \(nameOfDiagram[di].map { names[$0].text } ?? "-") digit \(d.baseDigitPresent) base \(d.baseFret) frets \(d.frets)\n".utf8))
+            }
+            FileHandle.standardError.write(Data("names \(names.map { $0.text })\n".utf8))
+        }
         var entries: [(x: Double, name: String, shape: ChordShape?, di: Int?, conf: Double, p0: Double)] = []
         var issues: [OMRIssue] = []
         var learned = ChordLibrary()
         for (di, d) in diagrams.enumerated() {
+            if let ni = nameOfDiagram[di], let sym = ChordNameNormalizer.symbol(names[ni].text), shapeFit(sym, d.frets) < 0.62,
+               let alt = library.name(for: d.frets) ?? identify(frets: d.frets), let altSym = ChordNameNormalizer.symbol(alt), shapeFit(altSym, d.frets) >= 0.95,
+               names[ni].confidence < 0.995 {
+                // OCR misread (G/D, C/E ...): the diagram identifies another chord exactly
+                entries.append((d.left, alt, d.shape, di, 0.5 * d.confidence, 0.05))
+                issues.append(OMRIssue(kind: .unknownChord, path: "sections[0].lines[{L}].system.measures[0].chords",
+                                       message: "printed name \(names[ni].text) contradicts the diagram; used \(alt)", context: "\(systemIndex)", ocrSnippets: [names[ni].text], confidence: 0.5))
+                continue
+            }
             if let ni = nameOfDiagram[di] {
                 var shape = d.shape
                 if let sym = ChordNameNormalizer.symbol(names[ni].text), shapeFit(sym, shape.frets) < 0.95,
@@ -356,13 +371,13 @@ enum OMRChordReader {
                     for yy in Int(yc.rounded()) - 2...Int(yc.rounded()) + 2 { d += " \(rowSpan(bm, x: xs[i], y: yy, sp: sp))" }
                     FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) base \(base) spans\(d)\n".utf8))
                 }
-                if sc >= 0.9 && found == 0 { found = j + 1 }
+                if sc >= 0.9 { found = j + 1 }      // lowest flagged row: a barre bar sits above the finger dots of the same string
                 else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
             }
             rel[i] = found
         }
         let topEdge = min(yTop, Double(runs.first!.a)) - 1
-        let markerBox = (a: topEdge - 1.7 * sp, b: topEdge - 1.5)
+        let markerBox = (a: topEdge - 1.45 * sp, b: topEdge - 1.5)
         for i in 0..<6 where rel[i] == 0 {
             if markerKind(bm, gray: gray, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp) == .muted { rel[i] = -1 }
         }
@@ -445,7 +460,11 @@ enum OMRChordReader {
                         }
                     } }
                 }
-                if best == nil || pts.count > best!.area { best = (pts.count, x0, x1, y0, y1, pts) }
+                // ignore components cut by the top of the window (descenders of the chord name above)
+                if y0 == ya && yy == ya && pts.count < 40 && ya > 0 { continue }
+                let cxm = Double(x0 + x1) / 2
+                let score = Double(pts.count) - 3.0 * abs(cxm - x)
+                if best == nil || score > Double(best!.area) - 3.0 * abs(Double(best!.x0 + best!.x1) / 2 - x) { best = (pts.count, x0, x1, y0, y1, pts) }
             }
         }
         guard let c = best, c.area >= 3 else { return .none }
@@ -471,8 +490,8 @@ enum OMRChordReader {
             if cN > 0 && rN > 0 {
                 let cm = cSum / cN, rm = rSum / rN
                 let paper = 255.0
-                if cm - rm >= 0.2 * (paper - rm) { return .open }
-                if cm - rm <= 0.05 * (paper - rm) && filled > 0 { return .muted }
+                if cm - rm >= max(4.0, 0.04 * (paper - rm)) { return .open }
+                if cm - rm <= -8 && filled > 0 { return .muted }
             }
         }
         if filled == 0 && fill < 0.9 { return .open }
