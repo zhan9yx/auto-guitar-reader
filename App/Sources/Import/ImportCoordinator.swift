@@ -301,7 +301,8 @@ final class ImportCoordinator {
         )
     }
 
-    /// OCR every prepared page, then reconstruct the score from the recognized tokens.
+    /// OCR every prepared page, then read a six-line tab staff with the OMR engine.
+    /// No staff (or an image that cannot be decoded) keeps the text reconstructor.
     private func buildImageDraft(
         prepared: [PreparedPage],
         title: String,
@@ -333,12 +334,37 @@ final class ImportCoordinator {
             }
         }
 
-        progress = ImportProgress(message: "正在重建谱面…", fraction: nil)
+        progress = ImportProgress(message: "正在识别谱面…", fraction: nil)
         let pagesForReconstruction = ocrPages
         let fallbackTitle = title
-        var score: Score = await Task.detached(priority: .userInitiated) {
-            OCRScoreReconstructor.reconstruct(pages: pagesForReconstruction, fallbackTitle: fallbackTitle)
+        let preparedPages = prepared
+        // One full-page Vision pass. `OMREngine.ocrRegions` (zoomed chord-name crops) is not re-read.
+        let recognized: (score: Score, report: OMRReport)? = await Task.detached(priority: .userInitiated) {
+            () -> (score: Score, report: OMRReport)? in
+            guard preparedPages.count == pagesForReconstruction.count, !preparedPages.isEmpty else { return nil }
+            var inputs: [OMREngine.PageInput] = []
+            inputs.reserveCapacity(preparedPages.count)
+            for (page, ocr) in zip(preparedPages, pagesForReconstruction) {
+                guard let image = OMRPageAdapter.grayImage(jpegData: page.jpeg) else { return nil }
+                inputs.append((
+                    image: image,
+                    ocr: OMRPageAdapter.tokens(ocr.tokens),
+                    fileName: page.fileName
+                ))
+            }
+            return OMREngine.recognize(pages: inputs)
         }.value
+
+        var score: Score
+        if let recognized, recognized.report.systemCount > 0 {
+            score = recognized.score
+            warnings.append(contentsOf: recognized.report.issues.map { "识别问题：\($0.message)" })
+        } else {
+            progress = ImportProgress(message: "正在重建谱面…", fraction: nil)
+            score = await Task.detached(priority: .userInitiated) {
+                OCRScoreReconstructor.reconstruct(pages: pagesForReconstruction, fallbackTitle: fallbackTitle)
+            }.value
+        }
 
         score.id = UUID()
         if score.meta.title.trimmed.isEmpty {
