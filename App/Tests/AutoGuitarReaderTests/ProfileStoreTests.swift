@@ -375,4 +375,21 @@ final class ProfileStoreTests: XCTestCase {
         let json = String(data: try! JSONEncoder().encode(update), encoding: .utf8)!
         XCTAssertTrue(json.contains("\"level\":null"), json)
     }
+
+    // MARK: favorites (optimistic UI)
+
+    func testFavoriteSnapshotOptimisticToggle() {
+        let off = FavoriteSnapshot(favorited: false, count: 0)
+        XCTAssertEqual(off.toggled(), FavoriteSnapshot(favorited: true, count: 1))
+        XCTAssertEqual(off.toggled().toggled(), off)
+        XCTAssertEqual(FavoriteSnapshot(favorited: true, count: 0).toggled().count, 0, "never negative")
+        XCTAssertEqual(FavoriteSnapshot(favorited: true, count: -4).count, 0)
+
+        let summary = CommunityScoreSummary(id: "x", title: "T", favorites: 3, favoritedByMe: false)
+        let flipped = summary.applying(FavoriteSnapshot(summary: summary).toggled())
+        XCTAssertTrue(flipped.favoritedByMe)
+        XCTAssertEqual(flipped.favorites, 4)
+        let confirmed = flipped.applying(FavoriteSnapshot(state: CommunityFavoriteState(favorited: true, favorites: 9)))
+        XCTAssertEqual(confirmed.favorites, 9, "server answer is authoritative")
+    }
 }

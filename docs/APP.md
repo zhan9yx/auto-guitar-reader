@@ -143,6 +143,32 @@ root view update, and `ScrollDriver.requestRelayout()`).
 `UploadSheet` (nickname, include-original-images toggle → `upload(score:assets:)`). The server URL, nickname and
 the generated device id live in `SettingsStore`.
 
+### Profile ("我的" tab / iPad sidebar item)
+
+`App/Sources/Profile/` + `Storage/PracticeLog.swift`. Server API: see `server/README.md` ("Profiles, favorites, my uploads").
+
+- `ProfileStore.shared` (`@Observable @MainActor`) is **offline-first**: edits go to `LocalProfile` (`Application Support/Profile/profile.json`,
+  avatar image in `avatar.jpg`) immediately and are marked *dirty* per field (`nickname, bio, level, genres, avatar`). `sync()` runs on every edit,
+  on appear / pull-to-refresh and when the server URL changes: it `PUT /me` with only the dirty fields, uploads / removes the avatar, then merges the
+  server profile - **dirty fields always win, clean fields follow the server**. Network errors keep edits pending; 4xx (except 429) drops the rejected edits
+  with a message. The last server profile (stats, public `user_id`) is cached for offline display. Pure logic (`LocalProfile`, `ProfileRules`,
+  `FavoriteSnapshot`) is unit-tested; the server is replaced by a fake `ProfileRemote` in `ProfileStoreTests`.
+- `ProfileView`: header (avatar, nickname, level, bio, genre chips), stats row (本地曲谱 / 我的上传 / 被下载 / 被收藏), 练习记录 (totals, 7-day minutes
+  bar chart with Swift Charts, per-score history), 我的上传 (tap -> detail, swipe to delete on the server), 我的收藏 (swipe to unfavorite),
+  最近打开. `ProfileEditSheet`: emoji grid or `PhotosPicker` photo (`AvatarImageProcessor`: centered square crop, 512 px, JPEG <= 1 MB), nickname (<= 24),
+  bio (<= 200), level, genres (<= 5).
+- `PublicProfileView` / `PublicProfileSheet`: another user's avatar, nickname, bio, stats and uploads. Reached by tapping the uploader name in the
+  community list (`CommunityRow`). The heart in list rows and in `CommunityDetailView` toggles a favorite optimistically (`FavoriteSnapshot`),
+  the server answer is authoritative and failures roll back.
+- `PracticeStore.shared` / `PracticeLog` (`Application Support/practice.json`): `ReaderConductor` calls `begin` when playback / follow actually starts,
+  `end` in `stopActivity()` (so also on finish, interruptions, background stop) and `noteOpened` in `bind`. Sessions < 5 s are dropped; the duration is
+  wall-clock time of the activity (pauses inside a playback session are included). Aggregation (`perScore`, `dailyMinutes`) is pure and tested.
+- Navigation: `AppTab.profile` / `SidebarItem.profile` (`AppModel.swift`) + a tab / sidebar entry in `RootView`.
+
+**TODO for the Settings owner:** the nickname now lives in the profile screen (`ProfileStore` mirrors it into `SettingsStore.nickname`, which still
+feeds the `X-Nickname` header). Remove the `TextField("昵称", text: $s.nickname)` row (and its section footer, if any) from `SettingsView.swift`
+(line ~19). Keep `SettingsStore.nickname` and `deviceID` - they are still used by `communityClient()` and `UploadSheet`.
+
 ## Playback, following and auto-scroll (workstream F)
 
 ### Threading model

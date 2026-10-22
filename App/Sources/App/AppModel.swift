@@ -4,12 +4,14 @@ import Observation
 enum AppTab: Hashable {
     case library
     case community
+    case profile
     case settings
 }
 
 enum SidebarItem: Hashable, Identifiable, CaseIterable {
     case library
     case community
+    case profile
     case settings
 
     var id: SidebarItem { self }
@@ -18,6 +20,7 @@ enum SidebarItem: Hashable, Identifiable, CaseIterable {
         switch self {
         case .library: return "曲库"
         case .community: return "社区"
+        case .profile: return "我的"
         case .settings: return "设置"
         }
     }
@@ -26,6 +29,7 @@ enum SidebarItem: Hashable, Identifiable, CaseIterable {
         switch self {
         case .library: return "music.note.list"
         case .community: return "person.3"
+        case .profile: return "person.crop.circle"
         case .settings: return "gearshape"
         }
     }

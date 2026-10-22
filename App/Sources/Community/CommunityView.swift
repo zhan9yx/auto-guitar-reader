@@ -7,6 +7,7 @@ struct CommunityView: View {
     @Environment(SettingsStore.self) private var settings
     @State private var viewModel = CommunityViewModel()
     @State private var selected: CommunityScoreSummary?
+    @State private var profileTarget: ProfileTarget?
 
     var body: some View {
         content
@@ -24,7 +25,20 @@ struct CommunityView: View {
                 }
             }
             .sheet(item: $selected) { summary in
-                CommunityDetailView(summary: summary)
+                CommunityDetailView(summary: summary) { state in
+                    viewModel.applyFavorite(scoreID: summary.id, state: state)
+                }
+            }
+            .sheet(item: $profileTarget) { target in
+                PublicProfileSheet(target: target)
+            }
+            .alert("操作失败", isPresented: Binding(
+                get: { viewModel.actionMessage != nil },
+                set: { if !$0 { viewModel.actionMessage = nil } }
+            )) {
+                Button("好", role: .cancel) {}
+            } message: {
+                Text(viewModel.actionMessage ?? "")
             }
             .task {
                 viewModel.attach(settings: settings)
@@ -75,12 +89,17 @@ struct CommunityView: View {
         } else {
             List {
                 ForEach(viewModel.items) { item in
-                    Button {
-                        selected = item
-                    } label: {
-                        CommunityRow(summary: item)
-                    }
-                    .buttonStyle(.plain)
+                    CommunityRow(
+                        summary: item,
+                        onOpenUploader: item.uploaderID.map { id in
+                            { profileTarget = ProfileTarget(userID: id, nickname: item.uploader) }
+                        },
+                        onToggleFavorite: {
+                            Task { await viewModel.toggleFavorite(item) }
+                        }
+                    )
+                    .onTapGesture { selected = item }
+                    .accessibilityAddTraits(.isButton)
                     .task {
                         await viewModel.loadMoreIfNeeded(current: item)
                     }
@@ -101,6 +120,10 @@ struct CommunityView: View {
 
 struct CommunityRow: View {
     let summary: CommunityScoreSummary
+    /// Tapping the uploader name (nil = plain label).
+    var onOpenUploader: (() -> Void)?
+    /// Tapping the heart (nil = read-only count).
+    var onToggleFavorite: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -127,8 +150,18 @@ struct CommunityRow: View {
             .foregroundStyle(.secondary)
             .lineLimit(1)
             HStack(spacing: 12) {
-                Label(summary.uploader, systemImage: "person.circle")
+                if let onOpenUploader {
+                    Button(action: onOpenUploader) {
+                        Label(summary.uploader, systemImage: "person.circle")
+                    }
+                    .buttonStyle(.borderless)
+                    .accessibilityHint("查看用户资料")
+                } else {
+                    Label(summary.uploader, systemImage: "person.circle")
+                }
                 Label("\(summary.downloads)", systemImage: "arrow.down.circle")
+                Spacer(minLength: 0)
+                heart
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -136,5 +169,20 @@ struct CommunityRow: View {
         }
         .padding(.vertical, 3)
         .contentShape(Rectangle())
+    }
+}
+
+extension CommunityRow {
+    @ViewBuilder
+    var heart: some View {
+        let label = Label("\(summary.favorites)", systemImage: summary.favoritedByMe ? "heart.fill" : "heart")
+            .foregroundStyle(summary.favoritedByMe ? Color.red : Color.secondary)
+        if let onToggleFavorite {
+            Button(action: onToggleFavorite) { label }
+                .buttonStyle(.borderless)
+                .accessibilityLabel(summary.favoritedByMe ? "取消收藏" : "收藏")
+        } else {
+            label
+        }
     }
 }

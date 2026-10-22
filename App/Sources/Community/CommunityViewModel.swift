@@ -38,6 +38,8 @@ final class CommunityViewModel {
     private(set) var isLoadingMore = false
     private(set) var errorMessage: String?
     private(set) var hasLoadedOnce = false
+    /// Transient error of a row action (e.g. favoriting failed); shown in an alert.
+    var actionMessage: String?
 
     @ObservationIgnored private var page = 1
     @ObservationIgnored private var generation = 0
@@ -127,5 +129,37 @@ final class CommunityViewModel {
             isLoadingMore = false
             errorMessage = describeError(error)
         }
+    }
+
+    // MARK: Favorites
+
+    /// Optimistic heart toggle: the row flips at once, the server's answer is authoritative, failure rolls back.
+    func toggleFavorite(_ item: CommunityScoreSummary) async {
+        guard let client = settings?.communityClient() else { return }
+        guard let current = items.first(where: { $0.id == item.id }) else { return }
+        let before = FavoriteSnapshot(summary: current)
+        applyFavorite(scoreID: item.id, snapshot: before.toggled())
+        do {
+            let state: CommunityFavoriteState
+            if before.favorited {
+                state = try await client.unfavorite(scoreID: item.id)
+            } else {
+                state = try await client.favorite(scoreID: item.id)
+            }
+            applyFavorite(scoreID: item.id, snapshot: FavoriteSnapshot(state: state))
+        } catch {
+            applyFavorite(scoreID: item.id, snapshot: before)
+            actionMessage = "收藏操作失败：\(describeError(error))"
+        }
+    }
+
+    /// Applies a server-confirmed state (e.g. from the detail sheet) to the list row.
+    func applyFavorite(scoreID: String, state: CommunityFavoriteState) {
+        applyFavorite(scoreID: scoreID, snapshot: FavoriteSnapshot(state: state))
+    }
+
+    private func applyFavorite(scoreID: String, snapshot: FavoriteSnapshot) {
+        guard let index = items.firstIndex(where: { $0.id == scoreID }) else { return }
+        items[index] = items[index].applying(snapshot)
     }
 }
