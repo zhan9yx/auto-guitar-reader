@@ -87,7 +87,7 @@ enum OMRPage {
         // time signature from the first staff's clef area
         do {
             let st = staves[0]
-            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, staff: st)
+            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st)
             let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared)
             if let ts = mts.first?.timeSig, ts.beats > 0, ts.beats <= 12, [2, 4, 8].contains(ts.unit) {
                 beats = Double(ts.beats) * (ts.unit == 8 ? 1 : 1); unit = ts.unit
@@ -95,15 +95,22 @@ enum OMRPage {
             }
         }
         for (si, st) in staves.enumerated() {
-            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, staff: st)
+            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st)
             trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
             for b in bars { trace?.add(IRect(x0: b.x0 - 1, y0: Int(st.top) - 4, x1: b.x1 + 1, y1: Int(st.bottom) + 4), (0, 160, 0)) }
             let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared, trace: trace)
             var measures: [NotationMeasure] = []
             for (mi, mt) in mts.enumerated() {
                 var m = NotationMeasure(tab: mt.events)
-                m.leftBarline = bars.indices.contains(mi) ? simple(bars[mi].kind) : .single
-                m.rightBarline = bars.indices.contains(mi + 1) ? simple(bars[mi + 1].kind) : .single
+                if bars.indices.contains(mi) {
+                    let k = bars[mi].kind
+                    if k == .startRepeat || k == .startEndRepeat { m.leftBarline = .startRepeat }
+                }
+                if bars.indices.contains(mi + 1) {
+                    let k = bars[mi + 1].kind
+                    if k == .double || k == .final { m.rightBarline = k }
+                    if k == .endRepeat || k == .startEndRepeat { m.rightBarline = .endRepeat }
+                }
                 if abs(mt.beatSum - beats) > 1e-6 {
                     res.issues.append(OMRIssue(kind: .beatSumMismatch, path: "sections[0].lines[{L}].system.measures[\(mi)]",
                                                message: "tab beats sum \(mt.beatSum) != \(beats)", context: "\(res.lines.count)"))

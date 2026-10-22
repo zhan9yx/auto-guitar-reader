@@ -156,19 +156,21 @@ enum OMRStaffDetector {
     }
 
     /// Full-height vertical lines across the staff -> barline structures (including edges).
-    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, staff st: TabStaff) -> [BarlineStructure] {
+    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, clean: Bitmap? = nil, staff st: TabStaff) -> [BarlineStructure] {
         let u = st.u
         let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
         var cols: [Int] = []
         for x in max(0, st.x0 - 3)..<min(bm.w, st.x1 + 3) {
             var gap = 0, maxGap = 0, n = 0
             for y in (y0 + 2)...(y1 - 2) where y >= 0 && y < bm.h {
-                if bm.d[y * bm.w + x] != 0 { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
+                let hit = bm.d[y * bm.w + x] != 0 || (x > 0 && bm.d[y * bm.w + x - 1] != 0 && x + 1 < bm.w && bm.d[y * bm.w + x + 1] != 0)
+                if hit { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
             }
             maxGap = max(maxGap, gap)
             let total = y1 - y0 - 3
             var edgeGaps = 0
             for y in [y0, y0 + 1, y1 - 1, y1] where y >= 0 && y < bm.h && bm.d[y * bm.w + x] == 0 { edgeGaps += 1 }
+            if ProcessInfo.processInfo.environment["OMR_DEBUG_COL"] != nil, let t = Int(ProcessInfo.processInfo.environment["OMR_DEBUG_COL"]!), abs(t - x) <= 1 { FileHandle.standardError.write(Data("col \(x) n \(n) total \(total) maxGap \(maxGap) edge \(edgeGaps) y \(y0)-\(y1)\n".utf8)) }
             if Double(n) >= 0.98 * Double(total) && maxGap <= 1 && edgeGaps <= 2 { cols.append(x) }
         }
         // group columns into runs
@@ -214,29 +216,37 @@ enum OMRStaffDetector {
             }
             return n
         }
+        let widths = runs.map { darkWidth($0) }.sorted()
+        let medW = widths.isEmpty ? 1 : widths[widths.count / 2]
+        func isThick(_ w: Int) -> Bool { w >= max(3, Int((Double(medW) * 1.5).rounded(.up)), medW + 1) }
         var out: [BarlineStructure] = []
         for g in groups {
             let x0 = g.first!.0, x1 = g.last!.1 + 1
             var bs = BarlineStructure(x0: x0, x1: x1, kind: .single, xAfter: Double(x1), xBefore: Double(x0))
             var lastThick = false
-            for r in g { if darkWidth(r) >= thickPx { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false } }
+            for r in g { if isThick(darkWidth(r)) { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false } }
             // repeat dots: small blobs between lines 2-3 and 3-4 adjacent to the group
             func dotsNear(_ xa: Int, _ xb: Int) -> Bool {
-                let ya = Int((st.lines[1] + st.lines[2]) / 2), yb = Int((st.lines[2] + st.lines[3]) / 2)
-                // dots may straddle the gap between lines; count ink in boxes
-                let n1 = bm.count(x0: xa, y0: ya - Int(u * 0.25), x1: xb, y1: ya + Int(u * 0.25) + 1)
-                let n2 = bm.count(x0: xa, y0: yb - Int(u * 0.25), x1: xb, y1: yb + Int(u * 0.25) + 1)
-                let minInk = max(3, Int(u * u * 0.04))
-                return n1 >= minInk && n2 >= minInk
+                let cb = clean ?? bm
+                let c1 = ((st.lines[1] + st.lines[2]) / 2), c2 = ((st.lines[3] + st.lines[4]) / 2)
+                let r = Int((0.3 * u).rounded())
+                func dot(_ cy: Double) -> Bool {
+                    var x0 = Int.max, x1 = -1, y0 = Int.max, y1 = -1, n = 0
+                    for y in (Int(cy.rounded()) - r)...(Int(cy.rounded()) + r) { for x in max(0, xa)..<max(max(0, xa), min(cb.w, xb)) where cb.ink(x, y) { n += 1; x0 = min(x0, x); x1 = max(x1, x); y0 = min(y0, y); y1 = max(y1, y) } }
+                    if ProcessInfo.processInfo.environment["OMR_DEBUG_DOT"] != nil { FileHandle.standardError.write(Data("dot cy \(cy) x \(xa)-\(xb) n \(n) bbox \(x0),\(y0)-\(x1),\(y1)\n".utf8)) }
+                    if n < max(4, Int(u * u * 0.05)) { return false }
+                    let bw = Double(x1 - x0 + 1), bh = Double(y1 - y0 + 1)
+                    return bw <= 0.75 * u && bh <= 0.75 * u && abs(Double(y0 + y1) / 2 - cy) <= 0.25 * u && Double(n) >= 0.58 * bw * bh && bw / bh >= 0.65 && bw / bh <= 1.55 && bw >= 0.25 * u
+                }
+                return dot(c1) && dot(c2)
             }
-            let dr = Int(u * 1.3)
+            let dr = Int(u * 1.0)
             bs.hasDotsRight = dotsNear(x1 + 1, x1 + dr)
             bs.hasDotsLeft = dotsNear(x0 - dr, x0 - 1)
             if bs.hasDotsRight && bs.hasDotsLeft { bs.kind = .startEndRepeat }
             else if bs.hasDotsRight { bs.kind = .startRepeat }
             else if bs.hasDotsLeft { bs.kind = .endRepeat }
             else if g.count >= 2 { bs.kind = (bs.thickCount > 0 && bs.thinCount > 0 && lastThick) ? .final : .double }
-            else if bs.thickCount > 0 { bs.kind = .double }
             if bs.hasDotsRight { bs.xAfter = Double(x1 + dr) }
             if bs.hasDotsLeft { bs.xBefore = Double(x0 - dr) }
             out.append(bs)
