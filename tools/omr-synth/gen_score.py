@@ -434,7 +434,7 @@ class Gen:
         loops["intro"] = loops["verse"]
         loops["interlude"] = loops["chorus"] if rng.random() < 0.5 else loops["verse"]
         loops["outro"] = loops["verse"]
-        tab_kind_pref = rng.choice(["arp", "arp", "strum", "mixed"])
+        tab_kind_pref = opts.get("tab_pref") or rng.choice(["arp", "arp", "strum", "mixed"])
         chord_defs = {}
         sections = []
         verse_no = 0
