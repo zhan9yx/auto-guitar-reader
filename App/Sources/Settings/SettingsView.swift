@@ -16,7 +16,6 @@ struct SettingsView: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .keyboardType(.URL)
-                TextField("昵称", text: $s.nickname)
                 LabeledContent("设备 ID") {
                     Text(settings.deviceID)
                         .font(.caption.monospaced())
