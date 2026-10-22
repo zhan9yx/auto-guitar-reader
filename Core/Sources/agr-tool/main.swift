@@ -11,6 +11,8 @@ case "import":
     exit(runImportCommand(Array(args.dropFirst())))
 case "follow-eval":
     exit(FollowEvalCommand.run(Array(args.dropFirst())))
+case "omr":
+    exit(OMRCommand.run(Array(args.dropFirst())))
 default:
-    print("usage: agr-tool <import|render|follow-eval> [options]")
+    print("usage: agr-tool <import|render|follow-eval|omr> [options]")
 }
