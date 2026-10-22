@@ -123,10 +123,246 @@ enum OMRChordsCommand {
         return c
     }
 
+    // MARK: header / watermark evaluation
+
+    static func norm(_ s: String?) -> String {
+        ChordNameNormalizer.foldWidth(s ?? "").lowercased().filter { !$0.isWhitespace }
+    }
+
+    static func headerTokens(_ m: ScoreMeta) -> [String: String] {
+        var t: [String: String] = ["title": norm(m.title), "artist": norm(m.artist)]
+        t["key"] = norm(m.key).replacingOccurrences(of: "1=", with: "")
+        t["capo"] = "\(m.capo)"
+        t["tempo"] = "\(Int(m.tempo.rounded()))"
+        t["time"] = "\(m.timeSignature.beats)/\(m.timeSignature.unit)"
+        return t
+    }
+
+    struct HeaderCounts {
+        var ok: [String: Int] = [:], n: [String: Int] = [:]
+        mutating func add(gt: ScoreMeta, pred: ScoreMeta, label: String, verbose: Bool) {
+            let g = headerTokens(gt), p = headerTokens(pred)
+            for (k, v) in g {
+                n[k, default: 0] += 1
+                if p[k] == v { ok[k, default: 0] += 1 } else if verbose { print("  [\(label)] header \(k): gt '\(v)' pred '\(p[k] ?? "")'") }
+            }
+        }
+        var line: String {
+            let keys = ["title", "artist", "key", "time", "capo", "tempo"]
+            let all = keys.map { "\($0) \(ok[$0] ?? 0)/\(n[$0] ?? 0)" }.joined(separator: "  ")
+            let tot = keys.reduce(0) { $0 + (ok[$1] ?? 0) }, den = keys.reduce(0) { $0 + (n[$1] ?? 0) }
+            return all + String(format: "  | fields %.4f", den == 0 ? 1 : Double(tot) / Double(den))
+        }
+    }
+
+    struct WMCounts {
+        var tp = 0, fp = 0, fn = 0, tn = 0
+        var missed: [String] = [], falsePos: [String] = []
+        var recall: Double { tp + fn == 0 ? 1 : Double(tp) / Double(tp + fn) }
+        var precision: Double { tp + fp == 0 ? 1 : Double(tp) / Double(tp + fp) }
+    }
+
+    struct PixelCounts {
+        var glyphBefore = 0, glyphKept = 0, residueBefore = 0, residueAfter = 0, pages = 0
+        var wmBefore = 0, wmAfter = 0
+        var kindBefore: [String: Int] = [:], kindKept: [String: Int] = [:]
+        var qrGT = 0, qrHit = 0, qrFalse = 0
+    }
+
+    static func boxesDoc(_ path: String) -> (els: [[String: Any]], w: Int, h: Int)? {
+        guard let d = try? Data(contentsOf: URL(fileURLWithPath: path)),
+              let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+              let els = o["elements"] as? [[String: Any]] else { return nil }
+        return (els, o["width"] as? Int ?? 0, o["height"] as? Int ?? 0)
+    }
+
+    /// Synth: header + text classification + pixel cleaning over a split directory.
+    static func runWatermarkSynth(_ synth: String, maxN: Int, stride: Int, verbose: Bool) -> Int32 {
+        let fm = FileManager.default
+        var hc = HeaderCounts()
+        var wm = WMCounts()
+        var px = PixelCounts()
+        var n = 0
+        for (k, s) in ((try? fm.contentsOfDirectory(atPath: synth)) ?? []).sorted().filter({ $0.hasPrefix("s") }).enumerated() where k % stride == 0 && n < maxN {
+            n += 1
+            let dir = "\(synth)/\(s)"
+            var pages: [(img: GrayImage, ocr: [OCRToken], boxes: (els: [[String: Any]], w: Int, h: Int))] = []
+            for p in 0..<12 where fm.fileExists(atPath: "\(dir)/page-\(p).pgm") {
+                guard let img = try? GrayImage.readPGM(path: "\(dir)/page-\(p).pgm"), let b = boxesDoc("\(dir)/page-\(p).boxes.json") else { continue }
+                pages.append((img, loadOCR("\(dir)/ocr/page-\(p).ocr.json"), b))
+            }
+            let repeated = OMRWatermark.repeatedTexts(pages: pages.map { $0.ocr })
+            for (pi, pg) in pages.enumerated() {
+                let W = Double(pg.img.width), H = Double(pg.img.height)
+                var layout = OMRChordsDebug.detectLayout(image: pg.img, ocr: pg.ocr)
+                // staff detection may fail on blurry pages: fall back to the ground-truth layout so the text rules are judged on their own
+                if layout.firstStaffTop == nil {
+                    let sl = pg.boxes.els.filter { $0["label"] as? String == "staff_line" }.compactMap { ($0["bbox"] as? [Double]).map { ($0[1] + $0[3]) / 2 } }.sorted()
+                    if sl.count >= 6 { layout = .init(firstStaffTop: sl[0], staffSpacing: sl[1] - sl[0], lastSystemBottom: sl.last! + 12 * (sl[1] - sl[0])) }
+                }
+                let reasons = OMRChordsDebug.classifyText(width: pg.img.width, height: pg.img.height, ocr: pg.ocr, layout: layout, pageIndex: pi, repeated: repeated[pi])
+                let nonScoreBoxes: [(bbox: [Double], text: String, page: Bool)] = pg.boxes.els.compactMap { e in
+                    guard (e["nonScore"] as? Bool) == true, let t = e["text"] as? String, let b = e["bbox"] as? [Double] else { return nil }
+                    return (b, norm(t), (e["label"] as? String) == "page_number")
+                }
+                for (ti, t) in pg.ocr.enumerated() {
+                    let cx = (t.x + t.width / 2) * W, cy = (t.y + t.height / 2) * H
+                    let tn = norm(t.text)
+                    // a token is a watermark when it lies in a non-score element box AND its text is part of that element's text
+                    let inWM = tn.count >= 1 && nonScoreBoxes.contains { e in
+                        if tn.count < 2 && !e.page { return false }
+                        guard cx >= e.bbox[0] - 4 && cx <= e.bbox[2] + 4 && cy >= e.bbox[1] - 4 && cy <= e.bbox[3] + 4 else { return false }
+                        if e.text.contains(tn) || tn.contains(e.text) { return true }
+                        let hits = tn.filter { e.text.contains($0) }.count      // OCR garbles diagonal text: fuzzy character overlap
+                        return tn.count >= 3 && Double(hits) >= 0.6 * Double(tn.count)
+                    }
+                    // tokens that only contain notation glyphs (x, digits) are never watermarks in the GT sense
+                    let flagged = reasons[ti] != nil
+                    if inWM && flagged { wm.tp += 1 } else if inWM { wm.fn += 1; wm.missed.append("\(s)/p\(pi): \(t.text)") }
+                    else if flagged { wm.fp += 1; wm.falsePos.append("\(s)/p\(pi): \(t.text) [\(reasons[ti]!.rawValue)]") } else { wm.tn += 1 }
+                }
+                // header (page 0 only)
+                if pi == 0, let gt = try? ScoreCoding.decode(Data(contentsOf: URL(fileURLWithPath: "\(dir)/score.agr.json"))) {
+                    let hr = OMRChordsDebug.readHeader(width: pg.img.width, height: pg.img.height, ocr: pg.ocr, layout: layout)
+                    hc.add(gt: gt.meta, pred: hr.meta, label: s, verbose: verbose)
+                }
+                // pixels
+                let before = OMRChordsDebug.inkMask(pg.img, loose: true)
+                let (cleaned, rep) = OMRWatermark.clean(pg.img)
+                let after = OMRChordsDebug.inkMask(cleaned, loose: true)
+                let beforeStd = OMRChordsDebug.inkMask(pg.img), afterStd = OMRChordsDebug.inkMask(cleaned)
+                let w = pg.img.width, h = pg.img.height
+                var cover = [Bool](repeating: false, count: w * h)
+                var glyph = [Bool](repeating: false, count: w * h)
+                var glyphKind = [UInt8](repeating: 0, count: w * h)
+                var wmBox = [Bool](repeating: false, count: w * h)
+                let kinds = ["tab_cross", "tab_fret", "chord_dot", "jianpu_digit", "lyric_char", "tab_clef"]
+                for e in pg.boxes.els {
+                    if (e["nonScore"] as? Bool) == true, let b = e["bbox"] as? [Double], b.count == 4, (e["label"] as? String) != "page_number", (e["label"] as? String) != "wm_qr" {
+                        for y in max(0, Int(b[1]))..<min(h, Int(b[3]) + 1) { for x in max(0, Int(b[0]))..<min(w, Int(b[2]) + 1) { wmBox[y * w + x] = true } }
+                    }
+                    guard (e["nonScore"] as? Bool) != true, let b = e["bbox"] as? [Double], b.count == 4 else { continue }
+                    let lab = e["label"] as? String ?? ""
+                    let pad = lab == "staff_line" || lab == "barline" ? 3 : 2
+                    for y in max(0, Int(b[1]) - pad)..<min(h, Int(b[3]) + pad + 1) { for x in max(0, Int(b[0]) - pad)..<min(w, Int(b[2]) + pad + 1) {
+                        cover[y * w + x] = true
+                        if let ki = kinds.firstIndex(of: lab) { glyph[y * w + x] = true; glyphKind[y * w + x] = UInt8(ki + 1) }
+                    } }
+                }
+                for i in 0..<(w * h) {
+                    if glyph[i] && beforeStd[i] != 0 {
+                        px.glyphBefore += 1; let k = kinds[Int(glyphKind[i]) - 1]; px.kindBefore[k, default: 0] += 1
+                        if afterStd[i] != 0 { px.glyphKept += 1; px.kindKept[k, default: 0] += 1 }
+                    }
+                    if wmBox[i] && !cover[i] { if before[i] != 0 { px.wmBefore += 1 }; if after[i] != 0 { px.wmAfter += 1 } }
+                    if !cover[i] { if before[i] != 0 { px.residueBefore += 1 }; if after[i] != 0 { px.residueAfter += 1 } }
+                }
+                px.pages += 1
+                let qrs = pg.boxes.els.filter { $0["label"] as? String == "wm_qr" }.compactMap { $0["bbox"] as? [Double] }
+                px.qrGT += qrs.count
+                for q in qrs where rep.qrBoxes.contains(where: { r in
+                    let ix = max(Double(r[0]), q[0]), iy = max(Double(r[1]), q[1]), ix2 = min(Double(r[2]), q[2]), iy2 = min(Double(r[3]), q[3])
+                    return ix2 > ix && iy2 > iy && (ix2 - ix) * (iy2 - iy) >= 0.4 * (q[2] - q[0]) * (q[3] - q[1]) }) { px.qrHit += 1 }
+                for r in rep.qrBoxes where verbose { print("   [\(s)/p\(pi)] qr box \(r) gt \(qrs.map { $0.map { Int($0) } })") }
+                for r in rep.qrBoxes where !qrs.contains(where: { q in
+                    max(Double(r[0]), q[0]) < min(Double(r[2]), q[2]) && max(Double(r[1]), q[1]) < min(Double(r[3]), q[3]) }) { px.qrFalse += 1 }
+            }
+        }
+        print("HEADER (synth page 0, \(n) scores): " + hc.line)
+        print(String(format: "WATERMARK TEXT (OCR tokens): tp %d fp %d fn %d tn %d  recall %.4f precision %.4f", wm.tp, wm.fp, wm.fn, wm.tn, wm.recall, wm.precision))
+        for m in wm.missed.prefix(verbose ? 60 : 12) { print("   missed: \(m)") }
+        for m in wm.falsePos.prefix(verbose ? 60 : 12) { print("   false+: \(m)") }
+        print(String(format: "PIXELS (%d pages): notation glyph ink kept %.4f (%d/%d); non-notation residue ink %d -> %d (%.1f%% removed); QR %d/%d found, %d false",
+                     px.pages, px.glyphBefore == 0 ? 1 : Double(px.glyphKept) / Double(px.glyphBefore), px.glyphKept, px.glyphBefore,
+                     px.residueBefore, px.residueAfter, px.residueBefore == 0 ? 0 : 100 * Double(px.residueBefore - px.residueAfter) / Double(px.residueBefore),
+                     px.qrHit, px.qrGT, px.qrFalse))
+        print("   notation kept per kind: " + px.kindBefore.sorted { $0.key < $1.key }.map { String(format: "%@ %.3f", $0.key, Double(px.kindKept[$0.key] ?? 0) / Double($0.value)) }.joined(separator: "  "))
+        print(String(format: "   ink inside watermark boxes (outside notation boxes, loose threshold): %d -> %d (%.1f%% removed)", px.wmBefore, px.wmAfter, px.wmBefore == 0 ? 0 : 100 * Double(px.wmBefore - px.wmAfter) / Double(px.wmBefore)))
+        return 0
+    }
+
+    /// Real pages: header vs GT meta, watermark text recall vs meta.json lists, false positives against GT score text.
+    static func runWatermarkReal(images: String, gt: String, ids: Set<String>?, ocrDir: String, verbose: Bool) -> Int32 {
+        let fm = FileManager.default
+        var hc = HeaderCounts()
+        var hit = 0, total = 0, fpTok = 0, flaggedTok = 0, tokens = 0
+        for f in ((try? fm.contentsOfDirectory(atPath: images)) ?? []).sorted() where f.hasSuffix(".pgm") {
+            let id = String(f.dropLast(4))
+            if let ids, !ids.contains(id) { continue }
+            guard let score = try? ScoreCoding.decode(Data(contentsOf: URL(fileURLWithPath: "\(gt)/\(id).agr.json"))),
+                  let img = try? GrayImage.readPGM(path: "\(images)/\(f)") else { continue }
+            let ocr = loadOCR("\(ocrDir)/\(id).ocr.json")
+            let layout = OMRChordsDebug.detectLayout(image: img, ocr: ocr)
+            let hr = OMRChordsDebug.readHeader(width: img.width, height: img.height, ocr: ocr, layout: layout)
+            hc.add(gt: score.meta, pred: hr.meta, label: id, verbose: verbose)
+            let reasons = OMRChordsDebug.classifyText(width: img.width, height: img.height, ocr: ocr, layout: layout)
+            // GT score text (title, artist, lyrics, chord names)
+            var scoreText = score.meta.title + (score.meta.artist ?? "")
+            for sec in score.sections { for l in sec.lines { for m in l.system?.measures ?? [] { for n in m.melody { for v in n.lyrics { scoreText += v } } } } }
+            var wmStrings: [String] = []
+            if let d = try? Data(contentsOf: URL(fileURLWithPath: "\(gt)/\(id).meta.json")), let o = try? JSONSerialization.jsonObject(with: d) as? [String: Any],
+               let l = o["watermarks"] as? [String] { wmStrings = l }
+            let descriptive = ["QR code", "logo", "watermark", "banner", "icon", "decoration", "ornament", "photo", "noise", "fragments", "marks", "box", "analysis", "parenthes", "page number", "(page number)", "cropped", "circle"]
+            for ws in wmStrings where !descriptive.contains(where: { ws.lowercased().contains($0.lowercased()) }) && ws.count >= 3 {
+                let wn = norm(ws)
+                total += 1
+                var found = false
+                for (i, t) in ocr.enumerated() {
+                    let tn = norm(t.text)
+                    guard tn.count >= 2 else { continue }
+                    if (wn.contains(tn) || tn.contains(wn)) && reasons[i] != nil { found = true }
+                }
+                if found { hit += 1 } else if verbose { print("  [\(id)] watermark text not flagged: \(ws)") }
+            }
+            for (i, t) in ocr.enumerated() {
+                tokens += 1
+                guard let r = reasons[i] else { continue }
+                flaggedTok += 1
+                let tn = norm(t.text)
+                if tn.count >= 2, norm(scoreText).contains(tn) { fpTok += 1; if verbose { print("  [\(id)] FALSE+ \(t.text) [\(r.rawValue)]") } }
+            }
+        }
+        print("HEADER (real): " + hc.line)
+        print(String(format: "WATERMARK TEXT (real): GT text watermarks flagged %d/%d = %.4f; flagged tokens %d/%d, of which overlapping GT score text %d", hit, total, total == 0 ? 1 : Double(hit) / Double(total), flaggedTok, tokens, fpTok))
+        return 0
+    }
+
     static func run(_ args: [String]) -> Int32 {
+        if args.first == "clean", args.count >= 3 {
+            // agr-tool omr-chords clean in.pgm out.pgm [--no-qr]
+            guard let img = try? GrayImage.readPGM(path: args[1]) else { print("cannot read"); return 1 }
+            let (out, rep) = OMRWatermark.clean(img, removeQR: !args.contains("--no-qr"))
+            try? out.writePGM(path: args[2])
+            print("bg \(rep.background) ink \(rep.ink) overlay px \(rep.overlayPixels) color px \(rep.colorPixels) qr \(rep.qrBoxes)")
+            return 0
+        }
+        if args.first == "watermark" {
+            var synth: String?, images: String?, gt: String?, ids: Set<String>?, ocrDir: String?
+            var maxN = Int.max, stride = 1, verbose = false
+            var i = 1
+            while i < args.count {
+                func val() -> String { i += 1; return i < args.count ? args[i] : "" }
+                switch args[i] {
+                case "--synth": synth = val()
+                case "--real": images = val()
+                case "--gt": gt = val()
+                case "--ocr": ocrDir = val()
+                case "--ids": ids = Set(val().split(separator: ",").map(String.init))
+                case "--max": maxN = Int(val()) ?? maxN
+                case "--stride": stride = Int(val()) ?? 1
+                case "-v": verbose = true
+                default: break
+                }
+                i += 1
+            }
+            if let synth { return runWatermarkSynth(synth, maxN: maxN, stride: stride, verbose: verbose) }
+            if let images, let gt { return runWatermarkReal(images: images, gt: gt, ids: ids, ocrDir: ocrDir ?? "\(images)/ocr", verbose: verbose) }
+            print("usage: agr-tool omr-chords watermark --synth dir | --real images --gt gtdir [--ids a,b] [-v]")
+            return 2
+        }
         var input: String?, ocr: String?, gt: String?, boxes: String?, meta: String?
         var synth: String?, real: String?, ids: Set<String>?
-        var maxN = Int.max, stride = 1, verbose = false, worst = 6, useOracle = false
+        var maxN = Int.max, stride = 1, verbose = false, worst = 6, useOracle = false, useClean = false
         var i = 0
         while i < args.count {
             let a = args[i]
@@ -144,6 +380,7 @@ enum OMRChordsCommand {
             case "--worst": worst = Int(val()) ?? 6
             case "-v": verbose = true
             case "--oracle": useOracle = true
+            case "--clean": useClean = true
             default: input = a
             }
             i += 1
@@ -157,7 +394,7 @@ enum OMRChordsCommand {
         func evalPage(_ pgm: String, _ ocrPath: String?, _ g: [GTChord], style: String, label: String, boxesPath: String? = nil) {
             guard let img = try? GrayImage.readPGM(path: pgm) else { print("cannot read \(pgm)"); return }
             let t0 = Date()
-            let r = OMRChordsDebug.readChords(image: img, ocr: loadOCR(ocrPath), oracle: useOracle ? boxesPath.map(oracleFromBoxes) : nil)
+            let r = OMRChordsDebug.readChords(image: img, ocr: loadOCR(ocrPath), oracle: useOracle ? boxesPath.map(oracleFromBoxes) : nil, clean: useClean)
             ms += Date().timeIntervalSince(t0) * 1000
             let c = score(gt: g, pred: r, verbose: verbose, label: label)
             total.add(c); perPage.append((label, c)); byStyle[style, default: Counts()].add(c)

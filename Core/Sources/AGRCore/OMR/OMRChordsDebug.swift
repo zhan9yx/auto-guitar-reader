@@ -45,7 +45,8 @@ public enum OMRChordsDebug {
         }
     }
 
-    public static func readChords(image: GrayImage, ocr: [OCRToken], beats: Double = 4, oracle: [OracleSystem]? = nil) -> OMRPageChords {
+    public static func readChords(image rawImage: GrayImage, ocr: [OCRToken], beats: Double = 4, oracle: [OracleSystem]? = nil, clean: Bool = false) -> OMRPageChords {
+        let image = clean ? OMRWatermark.clean(rawImage).image : rawImage
         if let oracle {
             var out = OMRPageChords()
             out.width = image.width; out.height = image.height
@@ -77,5 +78,47 @@ public enum OMRChordsDebug {
             out.issues += r.issues
         }
         return out
+    }
+}
+
+// MARK: Header / watermark wrappers
+
+extension OMRChordsDebug {
+    /// Layout used for header + text classification: first staff top, spacing and last system bottom (pixels).
+    public struct PageLayout {
+        public var firstStaffTop: Double?
+        public var staffSpacing: Double?
+        public var lastSystemBottom: Double?
+        public var timeSignature: (beats: Int, unit: Int)?
+        public init(firstStaffTop: Double? = nil, staffSpacing: Double? = nil, lastSystemBottom: Double? = nil, timeSignature: (beats: Int, unit: Int)? = nil) {
+            self.firstStaffTop = firstStaffTop; self.staffSpacing = staffSpacing; self.lastSystemBottom = lastSystemBottom; self.timeSignature = timeSignature
+        }
+    }
+
+    public static func detectLayout(image: GrayImage, ocr: [OCRToken]) -> PageLayout {
+        let p = prepare(image, ocr)
+        guard let f = p.staves.first, let l = p.staves.last else { return PageLayout() }
+        return PageLayout(firstStaffTop: f.top, staffSpacing: f.u, lastSystemBottom: l.bottom + 12 * l.u, timeSignature: OMRHeaderReader.readTimeSignature(bm: p.bm, staff: f))
+    }
+
+    public static func readHeader(width: Int, height: Int, ocr: [OCRToken], layout: PageLayout, pageIndex: Int = 0,
+                                  repeated: Set<String> = []) -> OMRHeaderResult {
+        OMRHeaderReader.read(ocr: ocr, pageWidth: width, pageHeight: height, firstStaffTop: layout.firstStaffTop, staffSpacing: layout.staffSpacing, timeSignature: layout.timeSignature,
+                             pageIndex: pageIndex, lastSystemBottom: layout.lastSystemBottom, repeatedElsewhere: repeated)
+    }
+
+    public static func classifyText(width: Int, height: Int, ocr: [OCRToken], layout: PageLayout, pageIndex: Int = 0,
+                                    repeated: Set<String> = []) -> [OMRNonScoreReason?] {
+        var c = OMRTextContext()
+        c.pageIndex = pageIndex; c.pageWidth = Double(width); c.pageHeight = Double(height)
+        c.staffSpacing = layout.staffSpacing ?? 0.0075 * Double(height)
+        c.firstSystemTop = layout.firstStaffTop; c.lastSystemBottom = layout.lastSystemBottom; c.repeatedElsewhere = repeated
+        return ocr.map { OMRWatermark.isNonScoreText($0, context: c) }
+    }
+
+    /// Binarized ink pixels (global threshold of the engine) as a flat 0/1 array.
+    public static func inkMask(_ image: GrayImage, loose: Bool = false) -> [UInt8] {
+        let (bg, ink) = OMRVision.levels(image)
+        return OMRVision.binarize(image, threshold: loose ? Int(ink + 0.8 * (bg - ink)) : nil).bm.d
     }
 }

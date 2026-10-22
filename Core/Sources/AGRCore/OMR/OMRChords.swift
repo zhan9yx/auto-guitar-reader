@@ -101,7 +101,7 @@ enum OMRChordReader {
         let top = max(0, bandTop ?? (staff.top - 10.5 * u))
         // thin / pale / coloured strokes need a more inclusive local threshold than the page-wide one
         let bm = gray.map { localBitmap($0, y0: Int(top), y1: Int(bottom) + 2) } ?? bmGlobal
-        var diagrams = findDiagrams(bm, top: top, bottom: bottom, u: u, xMin: max(0, staff.x0 - 4 * Int(u)), xMax: min(bm.w, staff.x1 + 4 * Int(u)))
+        var diagrams = findDiagrams(bm, gray: gray, top: top, bottom: bottom, u: u, xMin: max(0, staff.x0 - 4 * Int(u)), xMax: min(bm.w, staff.x1 + 4 * Int(u)))
         let names = chordNames(ocr: ocr, W: bm.w, H: bm.h, top: top, bottom: bottom, u: u)
         for i in diagrams.indices { readBaseDigit(bm, &diagrams[i], ocr: ocr) }
 
@@ -240,7 +240,7 @@ enum OMRChordReader {
 
     // MARK: Diagram detection
 
-    static func findDiagrams(_ bm: Bitmap, top: Double, bottom: Double, u: Double, xMin: Int, xMax: Int) -> [OMRChordDiagram] {
+    static func findDiagrams(_ bm: Bitmap, gray: GrayImage? = nil, top: Double, bottom: Double, u: Double, xMin: Int, xMax: Int) -> [OMRChordDiagram] {
         let y0 = max(0, Int(top)), y1 = min(bm.h, Int(bottom))
         guard y1 - y0 > 8, xMax > xMin else { return [] }
         let band = OMRVision.crop(bm, IRect(x0: xMin, y0: y0, x1: xMax, y1: y1))
@@ -251,13 +251,13 @@ enum OMRChordReader {
             guard w >= 1.6 * u, w <= 7 * u, h >= 1.3 * u, h <= 7.5 * u, w / h >= 0.5, w / h <= 2.2 else { continue }
             guard Double(c.area) >= 0.18 * w * h else { continue }
             let r = IRect(x0: c.rect.x0 + xMin, y0: c.rect.y0 + y0, x1: c.rect.x1 + xMin, y1: c.rect.y1 + y0)
-            if let d = analyze(bm, rect: r, u: u) { out.append(d) }
+            if let d = analyze(bm, gray: gray, rect: r, u: u) { out.append(d) }
         }
         return out.sorted { $0.left < $1.left }
     }
 
     /// Fits the lattice inside the grid component and reads dots / markers.
-    static func analyze(_ bm: Bitmap, rect r: IRect, u: Double) -> OMRChordDiagram? {
+    static func analyze(_ bm: Bitmap, gray: GrayImage? = nil, rect r: IRect, u: Double) -> OMRChordDiagram? {
         let rw = r.w, rh = r.h
         var v = [Double](repeating: 0, count: rw + 6)
         for x in 0..<rw {
@@ -364,7 +364,7 @@ enum OMRChordReader {
         let topEdge = min(yTop, Double(runs.first!.a)) - 1
         let markerBox = (a: topEdge - 1.7 * sp, b: topEdge - 1.5)
         for i in 0..<6 where rel[i] == 0 {
-            if markerKind(bm, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp) == .muted { rel[i] = -1 }
+            if markerKind(bm, gray: gray, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp) == .muted { rel[i] = -1 }
         }
         let grid = IRect(x0: Int(xs[0] - 0.3 * sp), y0: Int(yTop), x1: Int(xs[5] + 0.3 * sp) + 1, y1: Int(yBot) + 1)
         var d = OMRChordDiagram(rect: IRect(x0: grid.x0, y0: Int(markerBox.a), x1: grid.x1, y1: grid.y1),
@@ -421,7 +421,7 @@ enum OMRChordReader {
 
     enum Marker { case muted, open, none }
 
-    static func markerKind(_ bm: Bitmap, x: Double, yA: Double, yB: Double, sp: Double) -> Marker {
+    static func markerKind(_ bm: Bitmap, gray: GrayImage? = nil, x: Double, yA: Double, yB: Double, sp: Double) -> Marker {
         let xa = Int((x - 0.62 * sp).rounded()), xb = Int((x + 0.62 * sp).rounded())
         let ya = max(0, Int(yA.rounded())), yb = min(bm.h - 1, Int(yB.rounded()))
         guard yb > ya, xb > xa else { return .none }
@@ -458,6 +458,23 @@ enum OMRChordReader {
         var filled = 0, tot = 0
         for cx in cxs { for cy in cys { tot += 1; if set.contains(cy * 100_000 + cx) { filled += 1 } } }
         let fill = Double(c.area) / Double(w * h)
+        // gray evidence (blurred / JPEG rings are rarely clean holes): the centre of an 'o' is lighter than its ring, an 'x' is darkest at the crossing
+        if let g = gray, w >= 3, h >= 3 {
+            var cSum = 0.0, cN = 0.0, rSum = 0.0, rN = 0.0
+            let ccx = Double(c.x0) + Double(w - 1) / 2, ccy = Double(c.y0) + Double(h - 1) / 2
+            for (px, py) in c.pts {
+                let v = Double(g.pixels[py * g.width + px])
+                if abs(Double(px) - ccx) <= 0.75 && abs(Double(py) - ccy) <= 0.75 { cSum += v; cN += 1 } else { rSum += v; rN += 1 }
+            }
+            // centre pixels that are not ink (holes) are part of the ring's inside: sample them directly
+            for cy in cys { for cx in cxs where !set.contains(cy * 100_000 + cx) { cSum += Double(g.pixels[cy * g.width + cx]); cN += 1 } }
+            if cN > 0 && rN > 0 {
+                let cm = cSum / cN, rm = rSum / rN
+                let paper = 255.0
+                if cm - rm >= 0.2 * (paper - rm) { return .open }
+                if cm - rm <= 0.05 * (paper - rm) && filled > 0 { return .muted }
+            }
+        }
         if filled == 0 && fill < 0.9 { return .open }
         if filled == tot { return .muted }
         return fill < 0.62 ? .muted : .open
