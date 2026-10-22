@@ -1,4 +1,5 @@
 # Ground-truth transcription conventions (real dataset)
+(Beat unit: see the last section - beat = denominator unit, so 6/8 has 6 beats per measure.)
 
 Output per page `<id>`: `gt/<id>.agr.json` (AGR v2 Score) and `gt/<id>.meta.json` (sidecar). Accuracy is paramount: transcribe what is PRINTED, never what you expect musically.
 
@@ -38,3 +39,6 @@ Python venv: `<R>/.venv/bin/python -I`; crop+zoom: `OMR_REAL_ROOT=<R> <py> <T>/c
 
 ## Worked example (reference page real-000, system 1, measures 1-2)
 Chord C diagram (x o o above strings 6,... read from image) etc. Tab m1: × s5 beat0 (d .5), × s3 beat .5 (d .5), × s1 beat 1 (d .5), × s5 beat 1.5 (d .5), × s3 beat 2 (d 1), rest beat 3 (no event); melody "(0 0 0 0" = four rests d 1 (the "(" is not stored; add marks:["("]? no: ignore bracket). Chord names verbatim; page-number "1" and nothing else is non-score.
+
+## Beat unit (IMPORTANT)
+A "beat" = one unit of the time-signature DENOMINATOR (AGR/Timeline convention): in 4/4 a beat is a quarter note; in 6/8 a beat is an EIGHTH note (6 beats per measure, quarter = 2 beats, 0.5 = sixteenth); in 3/4 a beat is a quarter. All `beat`, `duration` and chord-mark beats use that unit; do not set `beats` on a measure unless it is a pickup/irregular measure. Melody underline rule in 6/8: plain digit = 2 beats (a quarter), one underline = 1 beat.

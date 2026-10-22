@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """check_gt.py <file.agr.json>... : structural + musical-consistency lint for real-dataset ground truth (AGR v2).
-Exit 1 on errors. Warnings (not errors) for beat-sum mismatches, which may be genuine (pickups, printed rests)."""
+Beat = one unit of the time-signature denominator (6/8 -> 6 beats). Exit 1 on errors. Warnings (not errors) for beat-sum mismatches, which may be genuine (pickups, printed rests)."""
 import json, sys
 def main():
     bad = 0
