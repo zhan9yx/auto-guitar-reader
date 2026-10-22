@@ -11,6 +11,8 @@ import AGRCore
 final class ReaderSession {
     /// Line / segment currently highlighted by playback or follow.
     var highlight: (line: LineRef, segmentIndex: Int?)?
+    /// Measure / beat inside the highlighted `.system` line (notation scores only; nil otherwise).
+    var notationHighlight: NotationHighlight?
     /// True while a play / follow session is active (the reader keeps the screen awake).
     var isSessionActive: Bool = false
     var isPlaying: Bool = false

@@ -205,6 +205,7 @@ final class ReaderConductor {
         isManuallyScrolled = false
         highlight = HighlightTracker()
         if session.highlight != nil { session.highlight = nil }
+        if session.notationHighlight != nil { session.notationHighlight = nil }
         refreshSessionFlags()
     }
 
@@ -268,6 +269,12 @@ final class ReaderConductor {
     }
 
     private func applyHighlight(eventIndex: Int) {
+        // Notation systems: (measure, beat) of the current event; changes at every event, not only per segment.
+        var notation: NotationHighlight?
+        if let score = score, structure.events.indices.contains(eventIndex) {
+            notation = NotationHighlightMapper.highlight(for: structure.events[eventIndex], in: score)
+        }
+        if session.notationHighlight != notation { session.notationHighlight = notation }
         switch highlight.update(eventIndex: eventIndex, timeline: structure) {
         case .unchanged:
             break

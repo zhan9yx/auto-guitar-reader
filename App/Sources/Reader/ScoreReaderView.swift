@@ -22,6 +22,11 @@ struct ScoreReaderView: View {
     @State private var displayMode: ScoreDisplayMode = .text
     @State private var didApplyDefaults = false
     @State private var showEditor = false
+    @AppStorage("notation.showJianpu") private var showJianpu = true
+    @AppStorage("notation.showTab") private var showTab = true
+    @AppStorage("notation.showDiagrams") private var showDiagrams = true
+    /// Verse shown under notation systems (-1 = all).
+    @AppStorage("notation.verse") private var verseStorage = -1
 
     init(scoreID: UUID, session: ReaderSession? = nil) {
         self.scoreID = scoreID
@@ -70,6 +75,10 @@ struct ScoreReaderView: View {
                         Label("编辑谱面", systemImage: "square.and.pencil")
                     }
                     .disabled(score == nil)
+
+                    if hasNotation {
+                        notationMenu
+                    }
 
                     if let summary = store.summary(for: scoreID) {
                         ShareLink(
@@ -135,7 +144,7 @@ struct ScoreReaderView: View {
         .sheet(isPresented: $showEditor) {
             if let score = score {
                 NavigationStack {
-                    ScoreTextEditorView(score: score) { updated in
+                    ScoreEditorEntry(score: score) { updated in
                         saveEdited(updated)
                     }
                 }
@@ -165,6 +174,37 @@ struct ScoreReaderView: View {
     }
 
     // MARK: Derived state
+
+    private var hasNotation: Bool {
+        guard let score = score else { return false }
+        return NotationScore.hasSystemLines(score)
+    }
+
+    private var notationOptions: NotationOptions {
+        NotationOptions(showJianpu: showJianpu, showTab: showTab, showDiagrams: showDiagrams,
+                        verses: NotationOptions.VerseSelection(storage: verseStorage))
+    }
+
+    /// 显示简谱 / 六线谱 / 和弦图 / 歌词段落 (only for scores with notation systems).
+    @ViewBuilder
+    private var notationMenu: some View {
+        Divider()
+        Toggle(isOn: $showJianpu) { Label("显示简谱", systemImage: "music.note.list") }
+        Toggle(isOn: $showTab) { Label("显示六线谱", systemImage: "line.3.horizontal") }
+        Toggle(isOn: $showDiagrams) { Label("显示和弦图", systemImage: "square.grid.3x3") }
+        let verseCount = score.map { NotationScore.verseCount($0) } ?? 0
+        if verseCount > 0 {
+            Picker(selection: $verseStorage) {
+                Text("全部").tag(-1)
+                ForEach(0..<verseCount, id: \.self) { index in
+                    Text("第\(index + 1)段歌词").tag(index)
+                }
+            } label: {
+                Label("显示歌词", systemImage: "text.quote")
+            }
+        }
+        Divider()
+    }
 
     private var hasPages: Bool { !(score?.pages.isEmpty ?? true) }
 
@@ -228,6 +268,8 @@ struct ScoreReaderView: View {
                 fontSize: fontSize,
                 transpose: transpose,
                 highlightedEvent: session.highlight,
+                notationOptions: notationOptions,
+                notationHighlight: session.notationHighlight,
                 onLineFrames: { frames in handleLineFrames(frames) },
                 onContentSizeChange: { size in handleContentSize(size) }
             )

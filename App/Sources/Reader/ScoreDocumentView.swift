@@ -9,6 +9,13 @@ struct ScoreDocumentView: View {
     var transpose: Int = 0
     var showsTitleHeader: Bool = true
     var highlightedEvent: (line: LineRef, segmentIndex: Int?)? = nil
+    /// Notation (`.system`) display options, current playback position and review helpers.
+    var notationOptions = NotationOptions()
+    var notationHighlight: NotationHighlight? = nil
+    var flashMeasure: NotationMeasureRef? = nil
+    var notationBackground: Color = Color(uiColor: .systemBackground)
+    var onMeasureFrames: (([NotationMeasureRef: CGRect]) -> Void)? = nil
+    var onTapMeasure: ((NotationMeasureRef, NotationHit) -> Void)? = nil
     var onLineFrames: (([LineRef: CGRect]) -> Void)? = nil
     var onContentSizeChange: ((CGSize) -> Void)? = nil
 
@@ -30,6 +37,12 @@ struct ScoreDocumentView: View {
         .reportsContentSize()
         .onPreferenceChange(LineFramePreferenceKey.self) { frames in
             let callback = onLineFrames
+            Task { @MainActor in
+                callback?(frames)
+            }
+        }
+        .onPreferenceChange(NotationMeasureFramesKey.self) { frames in
+            let callback = onMeasureFrames
             Task { @MainActor in
                 callback?(frames)
             }
@@ -140,20 +153,64 @@ struct ScoreDocumentView: View {
                     .font(.system(size: fontSize * 0.85).italic())
                     .foregroundStyle(.secondary)
             case .system:
-                // TODO(v2): NotationSystemView (tab + 简谱 + lyrics)
-                EmptyView()
+                if let system = line.system {
+                    VStack(alignment: .leading, spacing: 2) {
+                        if isFirstSystem(ref) {
+                            Text(keyTimeHeader)
+                                .font(.system(size: fontSize * 0.85, weight: .medium))
+                                .foregroundStyle(.secondary)
+                        }
+                        NotationSystemView(
+                            line: ref,
+                            system: system,
+                            chordDefinitions: score.chordDefinitions,
+                            defaultBeats: Double(max(score.meta.timeSignature.beats, 1)),
+                            fontSize: fontSize,
+                            transpose: transpose,
+                            preferFlats: flats,
+                            options: notationOptions,
+                            highlight: notationHighlight,
+                            flashMeasure: flashMeasure?.line == ref ? flashMeasure?.measure : nil,
+                            background: notationBackground,
+                            onTapMeasure: onTapMeasure
+                        )
+                    }
+                } else {
+                    EmptyView()
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 3)
         .padding(.horizontal, 6)
         .background {
-            if isCurrent {
+            if isCurrent && line.kind != .system {
                 RoundedRectangle(cornerRadius: 8, style: .continuous)
                     .fill(Color.accentColor.opacity(0.14))
             }
         }
         .reportsLineFrame(ref)
+        .id(NotationLineID(line: ref))
+    }
+
+    // MARK: Notation helpers
+
+    private func isFirstSystem(_ ref: LineRef) -> Bool {
+        for (si, section) in score.sections.enumerated() {
+            for (li, line) in section.lines.enumerated() where line.kind == .system {
+                return ref == LineRef(sectionIndex: si, lineIndex: li)
+            }
+        }
+        return false
+    }
+
+    /// "1=C  4/4" above the first notation system (key follows the transposition).
+    private var keyTimeHeader: String {
+        let time = "\(score.meta.timeSignature.beats)/\(score.meta.timeSignature.unit)"
+        guard let key = score.meta.key, !key.isEmpty else { return time }
+        let flats = TransposeHelper.preferFlats(forKey: key, semitones: transpose)
+        let shown = TransposeHelper.displayName(for: key, semitones: transpose, preferFlats: flats)
+        return "1=\(shown)  \(time)"
     }
 }
 
