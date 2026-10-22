@@ -101,7 +101,13 @@ enum OMRJianpuReader {
         let lyricRows = OMRLyrics.rows(ocr: ocr, width: gray.width, height: gray.height, bm: bm, yFrom: rowBottom,
                                        yTo: limit, xRange: Double(xa)...Double(xb), digitH: Hd, u: u)
         res.lyricRows = lyricRows
-        let lyricTop = lyricRows.first.map { $0.top + 0.35 * ($0.bottom - $0.top) } ?? Double.infinity
+        // A dot below the digit must sit above the lyric ink. The old cutoff (35% into the
+        // OCR box) still covered character tops. Scanning only to that line also chopped a
+        // lyric stroke into a dot-sized stub, so the scan runs through the lyric body.
+        let lyricInk = lyricRows.first?.inkTop ?? Double.infinity
+        let lyricFrac = lyricRows.first.map { $0.top + 0.35 * ($0.bottom - $0.top) } ?? Double.infinity
+        let lyricTop = min(lyricInk, lyricFrac)
+        let lyricScan = lyricRows.first?.bottom ?? lyricTop
         if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil { for lr in lyricRows { print("   lyricRow \(Int(lr.top))-\(Int(lr.bottom)) inkTop \(Int(lr.inkTop)) \(lr.syllables.map { $0.text }.joined())") } }
 
         // ---- split the region at the digit baseline: upper part (digits, dots above, arcs, dashes, accidentals),
@@ -276,7 +282,7 @@ enum OMRJianpuReader {
             guard xs1 > xs0 else { continue }
             let span = xs1 - xs0 + 1
             let yStart = max(Int(rowBottom.rounded()) + 1, Int(n.bottom.rounded()) + 1)
-            let yEnd = min(H - 1, Int(min(n.bottom + 2.15 * u, lyricTop - 1)))
+            let yEnd = min(H - 1, Int(min(n.bottom + 2.15 * u, lyricScan)))
             guard yEnd >= yStart else { continue }
             func centerInk(_ y: Int) -> Bool { bm.ink(c0 - 1, y) || bm.ink(c0, y) || bm.ink(c0 + 1, y) }
             func rowCover(_ y: Int) -> Int {
@@ -366,7 +372,7 @@ enum OMRJianpuReader {
                 }
                 // octave -2: a second disk the same size, not the lyric the first dot's stem runs into
                 let gapOk = mid - Double(lastMid) >= 0.35 * u && mid - Double(lastMid) <= 0.85 * u
-                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim + 0.8 * u {
+                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim {
                     dotsBelow[i] = 2
                     break
                 }

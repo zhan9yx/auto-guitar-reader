@@ -133,7 +133,21 @@ enum OMRLyrics {
             if py1 > py0 { for y in py0...py1 { prof.append(bm.count(x0: rx0, y0: y, x1: rx1 + 1, y1: y + 1)) } }
             let pk = prof.max() ?? 0
             var inkTop = rowTop
-            if pk > 0, let k = prof.firstIndex(where: { Double($0) >= 0.3 * Double(pk) }) { inkTop = rowTop + Double(k) }
+            if pk > 0, let k = prof.firstIndex(where: { Double($0) >= 0.3 * Double(pk) }) {
+                inkTop = rowTop + Double(k)
+                // A loose OCR box often starts on the jianpu underline. That spike is only a few
+                // rows and is followed by a gap; the character ink is the next solid band.
+                var i = k
+                while i < prof.count && Double(prof[i]) >= 0.3 * Double(pk) { i += 1 }
+                let underlineMax = max(3, Int((0.28 * digitH).rounded()))
+                if i - k <= underlineMax {
+                    var g = i
+                    while g < prof.count && Double(prof[g]) < 0.15 * Double(pk) { g += 1 }
+                    if g >= i + 2, g < prof.count, let n = (g..<prof.count).first(where: { Double(prof[$0]) >= 0.3 * Double(pk) }) {
+                        inkTop = rowTop + Double(n)
+                    }
+                }
+            }
             out.append(LyricRow(syllables: syl, top: rowTop, bottom: rowBottom, inkTop: inkTop))
         }
         return out
