@@ -13,6 +13,8 @@ case "follow-eval":
     exit(FollowEvalCommand.run(Array(args.dropFirst())))
 case "omr":
     exit(OMRCommand.run(Array(args.dropFirst())))
+case "omr-chords":
+    exit(OMRChordsCommand.run(Array(args.dropFirst())))
 case "omr-score":
     exit(OMRScoreCommand.run(Array(args.dropFirst())))
 default:
