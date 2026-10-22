@@ -84,6 +84,7 @@ enum OMRPage {
         let H = Double(image.height), W = Double(image.width)
         var beats = 4.0
         var unit = 4
+        var timeFromClef = false
         // time signature from the first staff's clef area
         do {
             let st = staves[0]
@@ -92,8 +93,17 @@ enum OMRPage {
             if let ts = mts.first?.timeSig, ts.beats > 0, ts.beats <= 12, [2, 4, 8].contains(ts.unit) {
                 beats = Double(ts.beats) * (ts.unit == 8 ? 1 : 1); unit = ts.unit
                 res.meta.timeSignature = TimeSignature(beats: ts.beats, unit: ts.unit)
+                timeFromClef = true
             }
         }
+        struct BuiltSystem {
+            var staff: TabStaff
+            var bars: [BarlineStructure]
+            var measures: [NotationMeasure]
+            /// Pixel x of each tab event (`TabEvent` itself has no x). Parallel to `measures`.
+            var eventX: [[Double]]
+        }
+        var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
             let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st)
             trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
@@ -113,16 +123,129 @@ enum OMRPage {
                 }
                 if abs(mt.beatSum - beats) > 1e-6 {
                     res.issues.append(OMRIssue(kind: .beatSumMismatch, path: "sections[0].lines[{L}].system.measures[\(mi)]",
-                                               message: "tab beats sum \(mt.beatSum) != \(beats)", context: "\(res.lines.count)"))
+                                               message: "tab beats sum \(mt.beatSum) != \(beats)", context: "\(si)"))
                 }
                 measures.append(m)
             }
-            let top = st.top - 10 * st.u, bottom = st.bottom + 12 * st.u
-            _ = (top, bottom, W, si)
-            let anchor = PageAnchor(page: page, y: max(0, top / H), height: min(1, (bottom - top) / H))
-            res.lines.append(Line.system(NotationSystem(measures: measures), anchor: anchor))
+            built.append(BuiltSystem(staff: st, bars: bars, measures: measures, eventX: mts.map(\.eventX)))
+        }
+
+        var ctx = OMRTextContext()
+        ctx.pageIndex = page
+        ctx.pageWidth = W
+        ctx.pageHeight = H
+        ctx.staffSpacing = staves[0].u
+        ctx.firstSystemTop = staves[0].top
+        ctx.lastSystemBottom = staves.last.map { $0.bottom + 12 * $0.u }
+        var kept: [OCRToken] = []
+        if options.removeWatermarkText {
+            for t in ocr {
+                if let why = OMRWatermark.isNonScoreText(t, context: ctx) {
+                    res.removedText.append(t.text)
+                    res.issues.append(OMRIssue(kind: .suspectedWatermark, path: "pages[\(page)]",
+                                               message: "non-score text (\(why.rawValue))", ocrSnippets: [t.text]))
+                } else {
+                    kept.append(t)
+                }
+            }
+        } else {
+            kept = ocr
+        }
+
+        var clefTS: (beats: Int, unit: Int)?
+        if timeFromClef { clefTS = (beats: res.meta.timeSignature.beats, unit: res.meta.timeSignature.unit) }
+        let header = OMRHeaderReader.read(ocr: kept, pageWidth: image.width, pageHeight: image.height,
+                                           firstStaffTop: staves[0].top, staffSpacing: staves[0].u,
+                                           timeSignature: clefTS, pageIndex: page, lastSystemBottom: ctx.lastSystemBottom)
+        mergeHeader(header, into: &res.meta, keepClefTime: timeFromClef)
+        res.issues.append(contentsOf: header.issues)
+        for s in header.nonScoreText where !res.removedText.contains(s) { res.removedText.append(s) }
+
+        let pageBeats = res.meta.timeSignature.beats > 0 ? Double(res.meta.timeSignature.beats) : beats
+        let inputs: [ChordSystemInput] = built.enumerated().map { si, sys in
+            let band: Double? = si > 0 ? max(built[si - 1].staff.bottom + 2 * sys.staff.u, sys.staff.top - 10.5 * sys.staff.u) : nil
+            let spans = measureSpans(staff: sys.staff, bars: sys.bars, eventX: sys.eventX, events: sys.measures.map(\.tab), beats: pageBeats)
+            return ChordSystemInput(staff: sys.staff, bandTop: band, spans: spans)
+        }
+        let chordRs = OMRChordReader.readPage(bm: bm, gray: image, systems: inputs, ocr: kept)
+        for si in built.indices {
+            let chordTop: Double? = chordRs.indices.contains(si) ? chordRs[si].bandTop : nil
+            if chordRs.indices.contains(si) {
+                let cr = chordRs[si]
+                res.issues.append(contentsOf: cr.issues)
+                for (mi, marks) in cr.measures.enumerated() where mi < built[si].measures.count {
+                    built[si].measures[mi].chords = marks
+                    for mark in marks {
+                        guard let shape = mark.shape, !mark.name.isEmpty, res.chordDefinitions[mark.name] == nil else { continue }
+                        res.chordDefinitions[mark.name] = shape
+                    }
+                }
+            }
+            let nextTop = si + 1 < built.count ? built[si + 1].staff.top : nil
+            let jr = OMRJianpuReader.read(gray: image, bitmap: bm, staff: built[si].staff, nextStaffTop: nextTop,
+                                          bars: built[si].bars, ocr: kept, timeSignature: res.meta.timeSignature,
+                                          lineIndex: res.lines.count)
+            res.issues.append(contentsOf: jr.issues)
+            for (mi, mel) in jr.measures.enumerated() where mi < built[si].measures.count {
+                built[si].measures[mi].melody = mel
+            }
+            var contentBottom: Double?
+            if jr.rowBottom > jr.rowTop { contentBottom = jr.rowBottom }
+            if let lb = jr.lyricRows.map(\.bottom).max() { contentBottom = max(contentBottom ?? lb, lb) }
+            let anchor = systemAnchor(page: page, staff: built[si].staff, chordTop: chordTop, contentBottom: contentBottom, pageHeight: H)
+            res.lines.append(Line.system(NotationSystem(measures: built[si].measures), anchor: anchor))
         }
         return res
+    }
+
+    /// Measure gaps from barline `x0`/`x1` (`xAfter` / `xBefore` include repeat dots).
+    /// `TabEvent` has no x; `eventX` is the analyzer's pixel anchor for each event.
+    static func measureSpans(staff: TabStaff, bars: [BarlineStructure], eventX: [[Double]], events: [[TabEvent]], beats: Double) -> [MeasureSpan] {
+        let n = max(0, bars.count - 1)
+        let fitted = OMRChordReader.spans(bars: bars, staff: staff, beats: beats)
+        let edges: [(Double, Double)]
+        if fitted.count == n, n == events.count {
+            edges = fitted.map { ($0.x0, $0.x1) }
+        } else if n > 0 {
+            edges = (0..<n).map { (bars[$0].xAfter, bars[$0 + 1].xBefore) }
+        } else {
+            return []
+        }
+        return edges.enumerated().map { i, e in
+            var anchors: [(x: Double, beat: Double)] = []
+            if eventX.indices.contains(i), events.indices.contains(i) {
+                for pair in zip(eventX[i], events[i]) { anchors.append((x: pair.0, beat: pair.1.beat)) }
+            }
+            return MeasureSpan(x0: e.0, x1: e.1, beats: beats, anchors: anchors)
+        }
+    }
+
+    static func mergeHeader(_ header: OMRHeaderResult, into meta: inout ScoreMeta, keepClefTime: Bool) {
+        let h = header.meta
+        if !h.title.isEmpty { meta.title = h.title }
+        if let v = h.artist, !v.isEmpty { meta.artist = v }
+        if let v = h.composer { meta.composer = v }
+        if let v = h.lyricist { meta.lyricist = v }
+        if let v = h.arranger { meta.arranger = v }
+        if let v = h.key, !v.isEmpty { meta.key = v }
+        if header.found.contains("capo") { meta.capo = h.capo }
+        if header.found.contains("tempo") { meta.tempo = h.tempo }
+        if !keepClefTime, header.found.contains("time") { meta.timeSignature = h.timeSignature }
+        for c in h.credits where !c.isEmpty && !meta.credits.contains(c) { meta.credits.append(c) }
+    }
+
+    /// Staff band widened up to the chord-band top and down through the last lyric / jianpu row.
+    /// Normalised to the deskewed page and clamped to 0...1.
+    static func systemAnchor(page: Int, staff: TabStaff, chordTop: Double?, contentBottom: Double?, pageHeight H: Double) -> PageAnchor {
+        var top = staff.top - 10 * staff.u
+        var bottom = staff.bottom + 12 * staff.u
+        if let c = chordTop { top = min(top, c) }
+        if let b = contentBottom { bottom = max(bottom, b) }
+        guard H > 0 else { return PageAnchor(page: page, y: 0, height: 0) }
+        let y0 = min(1, max(0, top / H))
+        let y1 = min(1, max(0, bottom / H))
+        let y = min(y0, y1)
+        return PageAnchor(page: page, y: y, height: min(1 - y, max(0, y1 - y)))
     }
 
     static func simple(_ k: BarlineKind) -> BarlineKind { k }
