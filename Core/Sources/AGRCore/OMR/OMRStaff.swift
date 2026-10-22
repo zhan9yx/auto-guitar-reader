@@ -358,7 +358,6 @@ enum OMRStaffDetector {
         for r in runs {
             if var g = groups.last, Double(r.0 - g.last!.1) <= max(3, 0.9 * u) { g.append(r); groups[groups.count - 1] = g } else { groups.append([r]) }
         }
-        let thickPx = max(3, Int((u * 0.22).rounded()))
         func darkWidth(_ r: (Int, Int)) -> Int {
             guard let dk = dark else { return r.1 - r.0 + 1 }
             var n = 0
@@ -369,15 +368,30 @@ enum OMRStaffDetector {
             }
             return n
         }
-        let widths = runs.map { darkWidth($0) }.sorted()
-        let medW = widths.isEmpty ? 1 : widths[widths.count / 2]
-        func isThick(_ w: Int) -> Bool { w >= max(3, Int((Double(medW) * 1.5).rounded(.up)), medW + 1) }
+        // Mid-staff gray of a stroke. Lower is darker. -1 when gray is unavailable.
+        func midGray(_ r: (Int, Int)) -> Int {
+            guard let gimg = gray, gimg.width == bm.w, gimg.height == bm.h else { return -1 }
+            let yA = max(0, (y0 + y1) / 2 - 2), yB = min(gimg.height - 1, (y0 + y1) / 2 + 2)
+            var sum = 0, n = 0
+            for x in r.0...r.1 {
+                for y in yA...yB { sum += Int(gimg.pixels[y * gimg.width + x]); n += 1 }
+            }
+            return n > 0 ? sum / n : -1
+        }
         var out: [BarlineStructure] = []
         for g in groups {
             let x0 = g.first!.0, x1 = g.last!.1 + 1
             var bs = BarlineStructure(x0: x0, x1: x1, kind: .single, xAfter: Double(x1), xBefore: Double(x0))
+            // A blurred twin is only one column wider. A heavy stroke is two columns
+            // wider than the narrowest in the group, or clearly darker than a thinner one.
+            let stats = g.map { (w: darkWidth($0), g: midGray($0)) }
+            let minW = stats.map(\.w).min() ?? 1
             var lastThick = false
-            for r in g { if isThick(darkWidth(r)) { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false } }
+            for s in stats {
+                let wider = s.w >= minW + 2
+                let darker = s.g >= 0 && stats.contains { $0.g >= 0 && $0.w < s.w && $0.g >= s.g + 40 }
+                if wider || darker { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false }
+            }
             // repeat dots: small blobs between lines 2-3 and 3-4 adjacent to the group
             func dotsNear(_ xa: Int, _ xb: Int) -> Bool {
                 let cb = clean ?? bm
@@ -408,8 +422,11 @@ enum OMRStaffDetector {
                                 }
                             }
                             let bw = Double(maxx - minx + 1), bh = Double(maxy - miny + 1)
-                            if n >= max(3, Int(u * u * 0.02)), bw <= 0.55 * u, bh <= 0.55 * u, bw >= 0.14 * u, bh >= 0.14 * u,
-                               abs((Double(miny + maxy) / 2) - cy) <= 0.28 * u, Double(n) >= 0.45 * bw * bh,
+                            let cyb = Double(miny + maxy) / 2
+                            // Drawn radius is 0.2u. Blur plus a downscale round-trip spreads a dot to about 0.8u,
+                            // and the clef beside a system-start repeat adds a column to the same component.
+                            if n >= max(3, Int(u * u * 0.02)), bw <= 0.80 * u, bh <= 0.80 * u, bw >= 0.14 * u, bh >= 0.14 * u,
+                               abs(cyb - cy) <= 0.28 * u, Double(n) >= 0.45 * bw * bh,
                                bw / bh >= 0.55, bw / bh <= 1.8 { return true }
                         }
                     }
