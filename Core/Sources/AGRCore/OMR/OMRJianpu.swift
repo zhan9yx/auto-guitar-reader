@@ -358,27 +358,59 @@ enum OMRJianpuReader {
         let ths = runsPerNote.flatMap { $0.map { Double($0.1 - $0.0 + 1) } }.sorted()
         let t1 = ths.isEmpty ? 2.0 : ths[ths.count / 4]
         let gUL = max(1.0, t1)
+        // Thickness alone calls a blurred single line two underlines (the thin quartile is 1px,
+        // so a 2–3px halo rounds up). Two strokes that touch stay darker at each core and lighter
+        // in the gap; a blurred stroke is darkest in the middle.
+        func levelsOfRun(_ r: (Int, Int), cx: Int) -> Int {
+            let h = Double(r.1 - r.0 + 1)
+            let byThick = max(1, Int(((h + gUL) / (t1 + gUL)).rounded()))
+            if byThick < 2 || r.1 - r.0 < 2 { return 1 }
+            var gs: [Int] = []
+            gs.reserveCapacity(r.1 - r.0 + 1)
+            for y in r.0...r.1 {
+                var s = 0, n = 0
+                for dx in -1...1 {
+                    let x = cx + dx
+                    if x >= 0, y >= 0, x < gray.width, y < gray.height { s += Int(gray[x, y]); n += 1 }
+                }
+                gs.append(n == 0 ? 255 : s / n)
+            }
+            var rise = 0
+            for i in 1..<(gs.count - 1) where gs[i] >= gs[i - 1] && gs[i] >= gs[i + 1] {
+                let above = gs[..<i].min() ?? 255
+                let below = gs[(i + 1)..<gs.count].min() ?? 255
+                rise = max(rise, min(gs[i] - above, gs[i] - below))
+            }
+            return rise >= 32 ? byThick : 1
+        }
         var dotsBelow = [Int](repeating: 0, count: notes.count)
         for i in notes.indices {
+            let cx = Int(notes[i].cx.rounded())
             var lv = 0
-            for r in runsPerNote[i] { lv += max(1, Int((((Double(r.1 - r.0 + 1)) + gUL) / (t1 + gUL)).rounded())) }
+            for r in runsPerNote[i] { lv += levelsOfRun(r, cx: cx) }
             notes[i].levels = min(lv, 3)
             // a second underline lowers the dot; do not extend the window for a single underline (that marks lyric ink)
             let extra = notes[i].levels >= 2 ? 0.8 * u : 0
-            let lim = min(max(dotLimit1, notes[i].bottom + 1.35 * u) + extra, lyricTop - 1)
+            // The lowered dot's centre sits on the lyric ink line. One pixel past the old cap is
+            // still that disk when it begins above the lyric; a glyph top does not.
+            let lyricCap = notes[i].levels >= 2 ? lyricTop : lyricTop - 1
+            let lim = min(max(dotLimit1, notes[i].bottom + 1.35 * u) + extra, lyricCap)
             let tailTop = notes[i].bottom + (notes[i].levels >= 2 ? 1.75 * u : 1.30 * u)
             var lastMid = 0
             var firstTh = 0.0, firstWd = 0.0
+            func dotNotGlyph(_ d: DotCand, mid: Double) -> Bool {
+                notes[i].levels < 2 || mid <= lyricTop - 1 || (!d.tailed && Double(d.top) <= lyricTop - 2)
+            }
             for d in dotCands[i] {
                 let mid = Double(d.mid)
-                let placed = mid <= lim && (!d.tailed || Double(d.top) <= tailTop)
+                let placed = mid <= lim && (!d.tailed || Double(d.top) <= tailTop) && dotNotGlyph(d, mid: mid)
                 if dotsBelow[i] == 0 {
                     if placed { dotsBelow[i] = 1; lastMid = d.mid; firstTh = d.th; firstWd = d.wd }
                     continue
                 }
                 // octave -2: a second disk the same size, not the lyric the first dot's stem runs into
                 let gapOk = mid - Double(lastMid) >= 0.35 * u && mid - Double(lastMid) <= 0.85 * u
-                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim {
+                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim && dotNotGlyph(d, mid: mid) {
                     dotsBelow[i] = 2
                     break
                 }
