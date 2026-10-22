@@ -7,7 +7,8 @@ import uuid
 from conftest import make_score, page, search, upload
 
 ISO_Z = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
-SUMMARY_KEYS = {"id", "title", "artist", "key", "mode", "uploader", "downloads", "created_at", "page_count"}
+SUMMARY_KEYS = {"id", "title", "artist", "key", "mode", "uploader", "downloads", "created_at", "page_count",
+                "uploader_id", "favorites", "favorited_by_me"}
 
 
 def test_healthz(client):
