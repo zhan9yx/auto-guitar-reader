@@ -18,3 +18,9 @@ tools/omr-synth/fonts/
 tools/omr-synth/out/
 tools/omr-synth/.pip-cache/
 tools/omr-synth/tmp/
+
+# OMR OCR sidecar
+tools/ocr/.venv/
+tools/ocr/pip-cache/
+tools/ocr/tmp/
+tools/ocr/models/
