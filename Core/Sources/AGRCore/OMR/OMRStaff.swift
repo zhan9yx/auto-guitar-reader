@@ -86,11 +86,29 @@ enum OMRStaffDetector {
             } else { y += 1 }
         }
         if ProcessInfo.processInfo.environment["OMR_DEBUG_STAFF"] != nil { FileHandle.standardError.write(Data("lines \(lines.map { String(format: "%.1f/%d", $0.y, $0.t) }) thr \(thr) maxSum \(maxSum) minRun \(minRun)\n".utf8)) }
+        // String spacing is the common small gap (typically 8–40 px). An equally spaced chain
+        // several times that gap is text and staff lines mixed together, not a tab staff.
+        let gaps = (0..<max(0, lines.count - 1)).map { lines[$0 + 1].y - lines[$0].y }
+        let smallGaps = gaps.filter { $0 >= 8 && $0 <= 40 }
+        var pitch: Double?
+        if smallGaps.count >= 4 {
+            var bestN = 0
+            var bestG = smallGaps[0]
+            for g in smallGaps {
+                let tol = max(1.5, 0.12 * g)
+                let n = smallGaps.reduce(0) { $0 + (abs($1 - g) <= tol ? 1 : 0) }
+                if n > bestN || (n == bestN && g < bestG) { bestN = n; bestG = g }
+            }
+            let tol = max(1.5, 0.12 * bestG)
+            let cluster = smallGaps.filter { abs($0 - bestG) <= tol }.sorted()
+            if cluster.count >= 4 { pitch = cluster[cluster.count / 2] }
+        }
         var staves: [TabStaff] = []
         var i = 0
         while i + 5 < lines.count {
             let s = lines[i + 1].y - lines[i].y
             var ok = s >= 4 && s <= Double(h) / 6
+            if let pitch, s > pitch * 2.5 || abs(s - pitch) > max(2.0, 0.25 * pitch) { ok = false }
             var chain = [i]
             if ok {
                 for k in 1..<6 {
@@ -190,7 +208,8 @@ enum OMRStaffDetector {
                 return rr - l + 1
             }
             var headW = 0
-            func inBand(_ y: Int) -> Bool { st.bands.contains { y >= $0.0 && y <= $0.1 } }
+            // One row above the projection band is still the heavy line, not an arrow head.
+            func inBand(_ y: Int) -> Bool { st.bands.contains { y >= $0.0 - 1 && y <= $0.1 } }
             for dy in Int(-0.45 * u)...Int(0.3 * u) {
                 if !inBand(y0 + dy) { headW = max(headW, width(atY: y0 + dy)) }
                 if !inBand(y1 - dy) { headW = max(headW, width(atY: y1 - dy)) }
