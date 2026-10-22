@@ -145,6 +145,9 @@ enum OMRJianpuReader {
             // geometry of a note glyph relative to the row
             guard r.cy >= rowTop - 0.12 * Hd, r.cy <= rowBottom + 0.12 * Hd else { continue }
             guard h >= 0.72 * Hd, h <= 1.4 * Hd, w >= 0.2 * u, c.area >= 12 else { continue }
+            // A staff-tall barline is absent from barXs (h > 6u). Cut at the digit baseline it is a
+            // four-pixel stem that classifies as "1" and shifts every later beat in the measure.
+            if h / max(w, 1) >= 4.5 { used.insert(c.id); continue }
             var b = OMRVision.extract(lab, c)
             // merged neighbours (touching digits): the glyph matches no single digit well and is much wider than usual
             let single = classifier.classify(b)
@@ -207,13 +210,16 @@ enum OMRJianpuReader {
             let h = Double(r.h), w = Double(r.w)
             if dbg, r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   comp x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area) row \(Int(rowTop))-\(Int(rowBottom)) Hd \(Hd) lyricTop \(lyricTop)") }
             if c.area < 2 { continue }
-            // thin horizontal strokes: underline (below digits) or dash (mid height)
+            // thin horizontal strokes: underline (below digits), dash (mid height), or a flat tie above
             if h <= max(3.5, 0.22 * Hd) && w >= 0.4 * Hd && w / h >= 2.5 {
                 if r.cy >= rowBottom - 0.05 * Hd && r.cy <= rowBottom + 1.1 * u + 0.3 * Hd {
                     let lv = thick > 0 && h > 1.9 * thick ? Int((h / thick).rounded()) : 1
                     underlines.append((Double(r.x0), Double(r.x1), min(3, lv)))
                 } else if r.cy >= rowTop + 0.25 * Hd && r.cy <= rowTop + 0.8 * Hd {
                     dashes.append(r.cx)
+                } else if r.cy < rowTop - 0.02 * Hd && w >= 0.7 * Hd {
+                    // a short slur is only a few pixels tall, so it never reaches the arc test below
+                    arcs.append((Double(r.x0), Double(r.x1)))
                 }
                 continue
             }
@@ -440,15 +446,36 @@ enum OMRJianpuReader {
         let measureBeats = Double(timeSignature.beats)
         var perMeasure = [[Int]](repeating: [], count: measureCount)
         for (i, n) in notes.enumerated() where n.measure >= 0 { perMeasure[n.measure].append(i) }
+        func quarters(_ n: JianpuNote) -> Double {
+            var q = 1.0 / Double(1 << n.levels)
+            if n.dots == 1 { q *= 1.5 } else if n.dots >= 2 { q *= 1.75 }
+            q += Double(n.dashes)
+            return q
+        }
         for mi in 0..<measureCount {
-            var t = 0.0
-            for i in perMeasure[mi] {
-                var q = 1.0 / Double(1 << notes[i].levels)
-                if notes[i].dots == 1 { q *= 1.5 } else if notes[i].dots >= 2 { q *= 1.75 }
-                q += Double(notes[i].dashes)
-                notes[i].beat = t
-                notes[i].duration = q * unitScale
-                t += q * unitScale
+            func place() -> Double {
+                var t = 0.0
+                for i in perMeasure[mi] {
+                    let q = quarters(notes[i])
+                    notes[i].beat = t
+                    notes[i].duration = q * unitScale
+                    t += notes[i].duration
+                }
+                return t
+            }
+            var t = place()
+            // A dotted eighth is printed here as a dot with no underline, so it reads as a dotted
+            // quarter and the bar runs 3/4 long. Shorten that one note when the next is a sixteenth.
+            if abs(t - measureBeats - 0.75 * unitScale) < 1e-6 {
+                let idxs = perMeasure[mi]
+                var cand: [Int] = []
+                for (k, i) in idxs.enumerated() where notes[i].dots == 1 && notes[i].levels == 0 && notes[i].dashes == 0 {
+                    if k + 1 < idxs.count && notes[idxs[k + 1]].levels >= 2 { cand.append(i) }
+                }
+                if cand.count == 1 {
+                    notes[cand[0]].levels = 1
+                    t = place()
+                }
             }
             if !perMeasure[mi].isEmpty, abs(t - measureBeats) > 1e-6 {
                 res.issues.append(issue(.beatSumMismatch, mi, "melody beats sum \(t) != \(measureBeats)", conf: 0.5))
