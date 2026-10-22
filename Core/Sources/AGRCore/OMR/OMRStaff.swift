@@ -4,6 +4,7 @@ import Foundation
 struct TabStaff {
     var lines: [Double]       // y centers, top (string 1) -> bottom (string 6)
     var thickness: Int
+    var bands: [(Int, Int)] = []   // pixel row ranges (inclusive) of each line
     var x0: Int
     var x1: Int               // exclusive
     var u: Double { (lines[5] - lines[0]) / 5 }
@@ -62,7 +63,7 @@ enum OMRStaffDetector {
         let maxSum = rowSum.max() ?? 0
         guard maxSum > 0 else { return [] }
         let thr = max(Double(maxSum) * 0.45, Double(minRun))
-        struct L { var y: Double; var t: Int; var x0: Int; var x1: Int }
+        struct L { var y: Double; var t: Int; var x0: Int; var x1: Int; var ya: Int; var yb: Int }
         var lines: [L] = []
         var y = 0
         while y < h {
@@ -75,7 +76,7 @@ enum OMRStaffDetector {
                     if Double(rowSum[e]) >= thr { last = e; wsum += Double(rowSum[e]); wy += Double(rowSum[e]) * Double(e); x0 = min(x0, rowMin[e]); x1 = max(x1, rowMax[e]) }
                     e += 1
                 }
-                lines.append(L(y: wy / wsum, t: last - y + 1, x0: x0, x1: x1))
+                lines.append(L(y: wy / wsum, t: last - y + 1, x0: x0, x1: x1, ya: y, yb: last))
                 y = e
             } else { y += 1 }
         }
@@ -96,7 +97,7 @@ enum OMRStaffDetector {
                 let ls = chain.map { lines[$0] }
                 let ys = ls.map { $0.y }
                 let x0 = ls.map { $0.x0 }.sorted()[2], x1 = ls.map { $0.x1 }.sorted()[3]
-                staves.append(TabStaff(lines: ys, thickness: max(1, ls.map { $0.t }.max() ?? 1), x0: x0, x1: x1))
+                staves.append(TabStaff(lines: ys, thickness: max(1, ls.map { $0.t }.max() ?? 1), bands: ls.map { ($0.ya, $0.yb) }, x0: x0, x1: x1))
                 i = chain.last! + 1
             } else { i += 1 }
         }
@@ -107,8 +108,8 @@ enum OMRStaffDetector {
     static func removeLines(_ bm: Bitmap, staves: [TabStaff]) -> Bitmap {
         var out = bm
         for st in staves {
-            for yc in st.lines {
-                let ya = Int((yc - Double(st.thickness) / 2).rounded(.down)), yb = Int((yc + Double(st.thickness) / 2).rounded(.up))
+            for band in st.bands {
+                let ya = band.0, yb = band.1
                 let lo = max(0, ya - 1), hi = min(bm.h - 1, yb + 1)
                 for x in max(0, st.x0)..<min(bm.w, st.x1) {
                     // vertical extent of ink attached above/below the band
@@ -131,11 +132,11 @@ enum OMRStaffDetector {
                     }
                 }
                 // heal: restore band pixels bridging ink above and below
-                for x in max(1, st.x0)..<min(bm.w - 1, st.x1) {
+                for x in max(2, st.x0)..<min(bm.w - 2, st.x1) {
                     var above = false, below = false
-                    for dx in -1...1 {
-                        if out.ink(x + dx, ya - 1) { above = true }
-                        if out.ink(x + dx, yb + 1) { below = true }
+                    for dx in -2...2 {
+                        if out.ink(x + dx, ya - 1) || out.ink(x + dx, ya - 2) { above = true }
+                        if out.ink(x + dx, yb + 1) || out.ink(x + dx, yb + 2) { below = true }
                     }
                     if above && below && bm.ink(x, ya) {
                         for r in max(0, ya)...min(bm.h - 1, yb) where bm.d[r * bm.w + x] != 0 { out.d[r * bm.w + x] = 1 }

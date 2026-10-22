@@ -12,3 +12,15 @@ public enum OMRDebug {
         return s
     }
 }
+
+extension OMRDebug {
+    /// Writes the line-removed bitmap as PGM (for inspection).
+    public static func dumpClean(_ img: GrayImage, path: String) throws {
+        let (bm, _, _, _) = OMRVision.binarize(img)
+        let staves = OMRStaffDetector.detect(bm)
+        let c = OMRStaffDetector.removeLines(bm, staves: staves)
+        var g = GrayImage(width: c.w, height: c.h)
+        for i in 0..<c.d.count where c.d[i] != 0 { g.pixels[i] = 0 }
+        try g.writePGM(path: path)
+    }
+}
