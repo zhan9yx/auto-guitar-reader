@@ -117,7 +117,7 @@ enum OMRPage {
         }
         var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
-            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st)
+            let bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st), bm: bm, bmLine: bmLine, staff: st)
             if ProcessInfo.processInfo.environment["AGR_OMR_TRACE"] != nil {
                 FileHandle.standardError.write(Data(" staff y \(Int(st.top)) bars \(bars.count) x \(st.x0)-\(st.x1)\n".utf8))
             }
@@ -297,6 +297,62 @@ enum OMRPage {
             if best == nil || gap < best!.1 { best = (si, gap) }
         }
         return best?.0
+    }
+
+    /// The staff detector rejects a full-height barline when ink on an outer string — a note
+    /// on the line, or the line's own shoulder — is wider than the shaft, the same test that
+    /// drops strum arrows. An arrowhead is still wider than the shaft 2px outside the staff;
+    /// a shoulder is not. Put those barlines back.
+    static func recoverBarlines(_ bars: [BarlineStructure], bm: Bitmap, bmLine: Bitmap, staff st: TabStaff) -> [BarlineStructure] {
+        let u = st.u
+        let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
+        guard y1 > y0 + 4 else { return bars }
+        var cols: [Int] = []
+        let xLo = max(0, st.x0 - 3), xHi = min(bmLine.w, st.x1 + 3)
+        for x in xLo..<xHi {
+            var gap = 0, maxGap = 0, n = 0
+            for y in (y0 + 2)...(y1 - 2) where y >= 0 && y < bmLine.h {
+                let hit = bmLine.d[y * bmLine.w + x] != 0 || (x > 0 && bmLine.d[y * bmLine.w + x - 1] != 0 && x + 1 < bmLine.w && bmLine.d[y * bmLine.w + x + 1] != 0)
+                if hit { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
+            }
+            maxGap = max(maxGap, gap)
+            let total = y1 - y0 - 3
+            var edgeGaps = 0
+            for y in [y0, y0 + 1, y1 - 1, y1] where y >= 0 && y < bmLine.h && bmLine.d[y * bmLine.w + x] == 0 { edgeGaps += 1 }
+            if Double(n) >= 0.98 * Double(total) && maxGap <= 1 && edgeGaps <= 2 { cols.append(x) }
+        }
+        var runs: [(Int, Int)] = []
+        for c in cols {
+            if let l = runs.last, c <= l.1 + 1 { runs[runs.count - 1].1 = c } else { runs.append((c, c)) }
+        }
+        func nearBand(_ y: Int) -> Bool {
+            for b in st.bands where y >= b.0 - 1 && y <= b.1 + 1 { return true }
+            return false
+        }
+        func width(_ y: Int, _ cx: Int) -> Int {
+            var l = cx, rr = cx
+            let lim = Int(2 * u)
+            while l > cx - lim && bm.ink(l - 1, y) { l -= 1 }
+            while rr < cx + lim && bm.ink(rr + 1, y) { rr += 1 }
+            return rr - l + 1
+        }
+        var out = bars
+        for r in runs where r.1 - r.0 <= 5 {
+            let cx = (r.0 + r.1) / 2
+            if bars.contains(where: { cx >= $0.x0 - Int(0.45 * u) && cx <= $0.x1 + Int(0.45 * u) }) { continue }
+            var midY = (y0 + y1) / 2 + Int(0.5 * u)
+            while nearBand(midY) { midY += 1 }
+            let midW = width(midY, cx)
+            // One pixel past the outer staff line is still the line's shoulder or a note sitting
+            // on it. An arrowhead is still wider than the shaft a pixel further out.
+            let topOut = width((st.bands.first?.1 ?? y0) + 2, cx)
+            let botOut = width((st.bands.last?.1 ?? y1) + 2, cx)
+            guard topOut <= midW + 1, botOut <= midW + 1 else { continue }
+            let x1 = r.1 + 1
+            out.append(BarlineStructure(x0: r.0, x1: x1, kind: .single, xAfter: Double(x1), xBefore: Double(r.0)))
+        }
+        out.sort { $0.x0 < $1.x0 }
+        return out
     }
 
     /// Measure gaps from barline `x0`/`x1` (`xAfter` / `xBefore` include repeat dots).
