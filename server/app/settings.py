@@ -25,6 +25,10 @@ class Settings:
     max_assets: int = 10
     max_asset_bytes: int = 5 * 1024 * 1024
     rate_limit_per_hour: int = 30
+    max_avatar_bytes: int = 1024 * 1024
+    profile_rate_limit_per_hour: int = 30
+    # Optional fixed salt for hashing device ids (default: random, persisted in the DB).
+    device_salt: str = ""
 
     @classmethod
     def from_env(cls) -> "Settings":
@@ -34,6 +38,9 @@ class Settings:
             max_assets=_int_env("AGR_MAX_ASSETS", 10),
             max_asset_bytes=_int_env("AGR_MAX_ASSET_BYTES", 5 * 1024 * 1024),
             rate_limit_per_hour=_int_env("AGR_RATE_LIMIT_PER_HOUR", 30),
+            max_avatar_bytes=_int_env("AGR_MAX_AVATAR_BYTES", 1024 * 1024),
+            profile_rate_limit_per_hour=_int_env("AGR_PROFILE_RATE_LIMIT_PER_HOUR", 30),
+            device_salt=os.environ.get("AGR_DEVICE_SALT", ""),
         )
 
     @property
@@ -43,3 +50,7 @@ class Settings:
     @property
     def assets_dir(self) -> Path:
         return self.data_dir / "assets"
+
+    @property
+    def avatars_dir(self) -> Path:
+        return self.data_dir / "avatars"

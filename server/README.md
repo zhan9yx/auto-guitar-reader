@@ -34,6 +34,9 @@ Run a single container/worker per data volume.
 | `AGR_MAX_ASSETS` | `10` | max page images per upload |
 | `AGR_MAX_ASSET_BYTES` | `5242880` | max size per image |
 | `AGR_RATE_LIMIT_PER_HOUR` | `30` | successful uploads per device id per rolling hour |
+| `AGR_PROFILE_RATE_LIMIT_PER_HOUR` | `30` | profile / avatar mutations per device per rolling hour (429 beyond) |
+| `AGR_MAX_AVATAR_BYTES` | `1048576` | max uploaded avatar size (JPEG/PNG, stored under `avatars/`) |
+| `AGR_DEVICE_SALT` | random, persisted in the DB | salt for hashing device ids; set only to share it across data dirs |
 
 ## API (`/api/v1`)
 
@@ -48,8 +51,32 @@ Errors are always `{"detail": "<message>"}` (400 validation, 404, 413 too large,
 | `POST /scores/{id}/report` | `{"reason": "..."}`, header `X-Device-Id`; 3 reports from distinct devices hide the score |
 | `GET /healthz` | `{"status":"ok"}` |
 
-Summary object: `id, title, artist, key, mode, uploader, downloads, created_at (ISO-8601 UTC "…Z"), page_count`.
+Summary object: `id, title, artist, key, mode, uploader, downloads, created_at (ISO-8601 UTC "…Z"), page_count, uploader_id, favorites, favorited_by_me` (`favorited_by_me` is only ever true when `X-Device-Id` was sent).
 Search response: `items, total, page, page_size`.
+
+### Profiles, favorites, my uploads
+Identity stays anonymous: the device id is HMAC-hashed with a server salt before it is stored (users, scores, reports,
+favorites) and never appears in a response. Every authenticated request (any endpoint that needs `X-Device-Id`) creates
+the user on first sight. A user is published as a short random `user_id` (10 hex chars).
+
+| Endpoint | Notes |
+|---|---|
+| `GET /me` | own profile: `user_id, nickname, bio, avatar_emoji, avatar_url, level, genres, created_at, updated_at, favorites_count, stats{uploads,downloads,favorites_received}` |
+| `PUT /me` | JSON partial update (only sent keys change, `null` clears): `nickname` (1-24), `bio` (<=200), `avatar_emoji` (an emoji; replaces an uploaded image), `level` (`beginner\|intermediate\|advanced`), `genres` (<=5, each <=20 chars). 422 on invalid input |
+| `PUT /me/avatar` | multipart field `avatar`: JPEG or PNG (sniffed from the bytes), <= 1 MB (413 beyond); replaces the emoji |
+| `DELETE /me/avatar` | removes image and emoji |
+| `GET /users/{user_id}` | public profile (no `updated_at` / `favorites_count`) + stats; stats count visible (not report-hidden) scores |
+| `GET /users/{user_id}/scores?page=&page_size=` | their uploads, newest first (`{items,total,page,page_size}`) |
+| `GET /users/{user_id}/avatar` | image bytes (`avatar_url` already points here with a cache-busting `?v=`) |
+| `POST/DELETE /scores/{id}/favorite` | idempotent; returns `{"favorited": bool, "favorites": n}` |
+| `GET /me/favorites?page=` | scores I favorited, most recently favorited first |
+| `GET /me/scores?page=` | my uploads |
+| `DELETE /scores/{id}` | uploader only (403 otherwise); removes the score, its images, favorites and reports |
+
+Profile mutations are limited per device (`AGR_PROFILE_RATE_LIMIT_PER_HOUR`). Changing the nickname also renames the
+`uploader` of that device's existing scores; once a profile nickname is set it wins over the legacy `X-Nickname` header.
+Older databases are migrated on start: `scores.favorites` is added, stored raw device ids are hashed and users are
+created for existing uploaders (one-off, tracked in `server_meta`).
 
 ### Upload rules
 - `score` must be a JSON object: `meta.title` non-empty string (<= 200 chars), `sections` array,

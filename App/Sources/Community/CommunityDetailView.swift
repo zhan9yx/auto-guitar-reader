@@ -5,6 +5,8 @@ import AGRCore
 @MainActor
 struct CommunityDetailView: View {
     let summary: CommunityScoreSummary
+    /// Called with the server-confirmed state after the heart was toggled (lets the list row follow).
+    var onFavoriteChange: ((CommunityFavoriteState) -> Void)?
 
     @Environment(\.dismiss) private var dismiss
     @Environment(SettingsStore.self) private var settings
@@ -18,6 +20,14 @@ struct CommunityDetailView: View {
     @State private var notice: String?
     @State private var showReportOptions = false
     @State private var reportDone = false
+    @State private var favorite: FavoriteSnapshot
+    @State private var isTogglingFavorite = false
+
+    init(summary: CommunityScoreSummary, onFavoriteChange: ((CommunityFavoriteState) -> Void)? = nil) {
+        self.summary = summary
+        self.onFavoriteChange = onFavoriteChange
+        _favorite = State(initialValue: FavoriteSnapshot(summary: summary))
+    }
 
     private static let reportReasons: [String] = ["垃圾 / 广告内容", "侵权内容", "谱面错误或乱码", "其他"]
 
@@ -29,6 +39,16 @@ struct CommunityDetailView: View {
                 .toolbar {
                     ToolbarItem(placement: .cancellationAction) {
                         Button("关闭") { dismiss() }
+                    }
+                    ToolbarItem(placement: .primaryAction) {
+                        Button {
+                            Task { await toggleFavorite() }
+                        } label: {
+                            Label("\(favorite.count)", systemImage: favorite.favorited ? "heart.fill" : "heart")
+                                .foregroundStyle(favorite.favorited ? Color.red : Color.accentColor)
+                        }
+                        .disabled(isTogglingFavorite)
+                        .accessibilityLabel(favorite.favorited ? "取消收藏" : "收藏")
                     }
                     ToolbarItem(placement: .primaryAction) {
                         Menu {
@@ -174,6 +194,27 @@ struct CommunityDetailView: View {
             downloadedID = saved.id
         } catch {
             notice = "保存失败：\(describeError(error))"
+        }
+    }
+
+    private func toggleFavorite() async {
+        guard let client = settings.communityClient() else { return }
+        let before = favorite
+        favorite = before.toggled()          // optimistic
+        isTogglingFavorite = true
+        defer { isTogglingFavorite = false }
+        do {
+            let state: CommunityFavoriteState
+            if before.favorited {
+                state = try await client.unfavorite(scoreID: summary.id)
+            } else {
+                state = try await client.favorite(scoreID: summary.id)
+            }
+            favorite = FavoriteSnapshot(state: state)
+            onFavoriteChange?(state)
+        } catch {
+            favorite = before
+            notice = "收藏失败：\(describeError(error))"
         }
     }
 

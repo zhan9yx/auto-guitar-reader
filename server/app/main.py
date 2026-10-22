@@ -18,9 +18,10 @@ from starlette.concurrency import run_in_threadpool
 from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException
 
-from . import db
+from . import db, profiles
 from .models import OkResponse, ReportBody, ScoreSummary, SearchResponse
 from .search import build_keys, build_search_sql, normalize
+from .services import Services
 from .settings import Settings
 
 API = "/api/v1"
@@ -72,6 +73,13 @@ def device_id_from(request: Request) -> str:
     if not DEVICE_ID_RE.match(value):
         raise bad("X-Device-Id must be 1-128 characters of [A-Za-z0-9._:-]")
     return value
+
+
+def viewer_from(request: Request) -> Optional[str]:
+    """Raw device id if the (optional) header is present, else None."""
+    if request.headers.get("x-device-id") is None:
+        return None
+    return device_id_from(request)
 
 
 def nickname_from(request: Request) -> str:
@@ -155,7 +163,9 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
     settings = settings or Settings.from_env()
     settings.data_dir.mkdir(parents=True, exist_ok=True)
     settings.assets_dir.mkdir(parents=True, exist_ok=True)
-    db.init_db(settings.db_path)
+    settings.avatars_dir.mkdir(parents=True, exist_ok=True)
+    salt = db.init_db(settings.db_path, settings.device_salt, clock())
+    svc = Services(settings, clock, salt)
 
     app = FastAPI(title="Auto Guitar Reader Community", version="1.0.0")
     app.state.settings = settings
@@ -173,19 +183,6 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
         return JSONResponse(status_code=422, content={"detail": detail})
 
     # ----- helpers bound to settings ----------------------------------------
-    def row_to_summary(row) -> ScoreSummary:
-        return ScoreSummary(
-            id=row["id"],
-            title=row["title"],
-            artist=row["artist"],
-            key=row["key"],
-            mode=row["mode"],
-            uploader=row["uploader"],
-            downloads=row["downloads"],
-            created_at=iso_utc(row["created_ts"]),
-            page_count=row["page_count"],
-        )
-
     def recent_uploads(conn, device_id: str) -> int:
         since = clock() - 3600
         return conn.execute(
@@ -197,7 +194,7 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
             if recent_uploads(conn, device_id) >= settings.rate_limit_per_hour:
                 raise RateLimited
 
-    def store_score(device_id: str, nickname: str, doc: dict, assets: dict[str, bytes]) -> ScoreSummary:
+    def store_score(device_id: str, nickname: Optional[str], doc: dict, assets: dict[str, bytes]) -> ScoreSummary:
         sid = str(uuid.uuid4())
         doc["id"] = sid
         meta = doc["meta"]
@@ -220,6 +217,14 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
                 with db.write_tx(conn):
                     if recent_uploads(conn, device_id) >= settings.rate_limit_per_hour:
                         raise RateLimited
+                    user = svc.ensure_user(conn, device_id, nickname)
+                    if user["nick_locked"]:
+                        nickname = user["nickname"]  # profile nickname wins over the legacy header
+                    else:
+                        nickname = nickname or user["nickname"]
+                        if nickname != user["nickname"]:
+                            conn.execute("UPDATE users SET nickname=?, updated_ts=? WHERE device_id=?",
+                                         (nickname[:24], now, device_id))
                     conn.execute(
                         "INSERT INTO scores (id,title,artist,key,mode,uploader,device_id,downloads,created_ts,"
                         "page_count,json,n_title,n_artist,py_title,py_artist,in_title,in_artist) "
@@ -233,7 +238,7 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
                             (sid, name, len(data), ASSET_CONTENT_TYPES[Path(name).suffix.lower()]),
                         )
                 row = conn.execute("SELECT * FROM scores WHERE id=?", (sid,)).fetchone()
-            return row_to_summary(row)
+                return svc.summaries(conn, [row], None)[0]
         except BaseException:
             shutil.rmtree(asset_dir, ignore_errors=True)
             raise
@@ -245,7 +250,7 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
 
     @app.post(f"{API}/scores", response_model=ScoreSummary, status_code=201)
     async def upload_score(request: Request):
-        device_id = device_id_from(request)
+        device_id = svc.dev(device_id_from(request))
         nickname = nickname_from(request)
 
         # Cheap early rejection of obviously oversized bodies (chunked uploads
@@ -312,11 +317,14 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
 
     @app.get(f"{API}/scores", response_model=SearchResponse)
     def search_scores(
+        request: Request,
         q: str = "",
         sort: str = "recent",
         page: int = 1,
         page_size: int = 20,
     ):
+        viewer = viewer_from(request)
+        viewer = svc.dev(viewer) if viewer else None
         if sort not in ("recent", "popular"):
             raise bad("sort must be 'recent' or 'popular'")
         page = max(1, page)
@@ -336,7 +344,8 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
                 f"SELECT *, {rank} AS rank FROM scores WHERE {where} ORDER BY rank ASC, {order} LIMIT :limit OFFSET :offset",
                 {**params, "limit": page_size, "offset": (page - 1) * page_size},
             ).fetchall()
-        return SearchResponse(items=[row_to_summary(r) for r in rows], total=total, page=page, page_size=page_size)
+            items = svc.summaries(conn, rows, viewer)
+        return SearchResponse(items=items, total=total, page=page, page_size=page_size)
 
     @app.get(f"{API}/scores/{{score_id}}")
     def get_score(score_id: str):
@@ -373,7 +382,7 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
 
     @app.post(f"{API}/scores/{{score_id}}/report", response_model=OkResponse)
     def report_score(score_id: str, body: ReportBody, request: Request):
-        device_id = device_id_from(request)
+        device_id = svc.dev(device_id_from(request))
         reason = body.reason.strip()
         if not reason:
             raise bad("reason must not be empty", 422)
@@ -393,6 +402,8 @@ def create_app(settings: Optional[Settings] = None, clock: Callable[[], float] =
                 if n >= REPORT_HIDE_THRESHOLD:
                     conn.execute("UPDATE scores SET hidden=1 WHERE id=?", (score_id,))
         return OkResponse()
+
+    profiles.install(app, svc, device_id_from, lambda r: (lambda v: svc.dev(v) if v else None)(viewer_from(r)))
 
     return app
 

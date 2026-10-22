@@ -73,6 +73,12 @@ struct RootView: View {
             .tag(AppTab.community)
 
             NavigationStack {
+                ProfileView()
+            }
+            .tabItem { Label("我的", systemImage: "person.crop.circle") }
+            .tag(AppTab.profile)
+
+            NavigationStack {
                 SettingsView()
             }
             .tabItem { Label("设置", systemImage: "gearshape") }
@@ -94,6 +100,8 @@ struct RootView: View {
             switch appModel.sidebarSelection {
             case .community:
                 CommunityView()
+            case .profile:
+                ProfileView()
             case .settings:
                 SettingsView()
             default:

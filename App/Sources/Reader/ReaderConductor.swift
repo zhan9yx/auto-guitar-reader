@@ -57,6 +57,7 @@ final class ReaderConductor {
         stopActivity()
         self.score = score
         self.settings = settings
+        PracticeStore.shared.noteOpened(scoreID: score.id, title: score.meta.title)
         structure = Timeline.build(from: score)
         highlight = HighlightTracker()
 
@@ -121,6 +122,7 @@ final class ReaderConductor {
         }
         activity = .playing
         activityStartedAt = CACurrentMediaTime()
+        if let score = score { PracticeStore.shared.begin(scoreID: score.id, title: score.meta.title, mode: .playback) }
         refreshSessionFlags()
         startAutoScroll()
     }
@@ -169,6 +171,7 @@ final class ReaderConductor {
             return
         }
         activityStartedAt = CACurrentMediaTime()
+        PracticeStore.shared.begin(scoreID: score.id, title: score.meta.title, mode: .follow)
         refreshSessionFlags()
         startAutoScroll()
     }
@@ -194,6 +197,7 @@ final class ReaderConductor {
 
     /// Stops playback / following, the display link and the audio session. The panel stays as it is.
     func stopActivity() {
+        PracticeStore.shared.end()
         backgroundWatch?.cancel()
         backgroundWatch = nil
         autoScroll?.stop()
