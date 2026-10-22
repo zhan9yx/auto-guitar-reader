@@ -145,11 +145,14 @@ enum OMRTabAnalyzer {
             }
             if h < 0.3 * u && w < 0.4 * u { continue }  // dots / specks
             let cs = crossScore(bmp)
-            if cs > 0.3 && w >= 0.3 * u && h >= 0.3 * u {
-                glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: cs, string: sIdx + 1, stringOffset: so)); continue
+            let cl = classifier.classify(bmp, role: .tabDigit)
+            if let (label, conf) = cl, conf >= 0.25 {
+                if label == "x" { glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
+                if let d = Int(label) { glyphs.append(TabGlyph(rect: r, kind: .digit(d), confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
+                if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" { glyphs.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
             }
-            if let (label, conf) = classifier.classify(bmp, role: .tabDigit), conf >= 0.3, let d = Int(label) {
-                glyphs.append(TabGlyph(rect: r, kind: .digit(d), confidence: conf, string: sIdx + 1, stringOffset: so)); continue
+            if cs > 0.5 && w >= 0.3 * u && h >= 0.3 * u {
+                glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: cs * 0.8, string: sIdx + 1, stringOffset: so)); continue
             }
             if w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 { glyphs.append(TabGlyph(rect: r, kind: .arc, confidence: 0.5, string: sIdx + 1, stringOffset: so)); continue }
             glyphs.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))

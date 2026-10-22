@@ -13,11 +13,16 @@ public enum OMRTraining {
         let clean = OMRStaffDetector.removeLines(bm, staves: staves)
         let lab = OMRVision.label(clean)
         var out: [String] = []
-        let digitLabels: Set<String> = ["jianpu_digit", "tab_fret", "chord_basefret", "tab_timesig", "header_timesig", "tab_technique"]
+        let digitLabels: Set<String> = ["jianpu_digit", "tab_fret", "chord_basefret", "tab_timesig", "header_timesig", "tab_technique", "tab_cross", "jianpu_paren", "lyric_char", "tab_clef"]
+        var cjkCount = 0
         for e in els {
-            guard let l = e["label"] as? String, digitLabels.contains(l), let text = e["text"] as? String,
+            guard let l = e["label"] as? String, digitLabels.contains(l),
                   let bb = e["bbox"] as? [Double], bb.count == 4 else { continue }
-            if text.count != 1 { continue }
+            var text = (e["text"] as? String) ?? ""
+            if l == "tab_cross" { text = "x" }
+            if l == "lyric_char" { cjkCount += 1; if cjkCount > 6 { continue }; text = "cjk" }
+            if l == "tab_clef" { text = "clef" }
+            if text.isEmpty || (text.count != 1 && !["cjk", "clef"].contains(text)) { continue }
             let box = IRect(x0: Int(bb[0].rounded(.down)) - 1, y0: Int(bb[1].rounded(.down)) - 1, x1: Int(bb[2].rounded(.up)) + 1, y1: Int(bb[3].rounded(.up)) + 1)
             // union of components whose centre is inside the box
             var sel = Bitmap(w: max(1, box.w), h: max(1, box.h))
