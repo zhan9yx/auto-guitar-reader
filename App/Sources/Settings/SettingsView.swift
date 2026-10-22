@@ -96,6 +96,8 @@ struct SettingsView: View {
                 }
             }
 
+            AISettingsSection()
+
             SwiftUI.Section("曲库") {
                 Button("恢复示例曲谱") {
                     showRestoreConfirm = true
