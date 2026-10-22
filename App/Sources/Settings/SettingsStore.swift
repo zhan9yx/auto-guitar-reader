@@ -44,6 +44,9 @@ final class SettingsStore {
     /// Generated once on first launch; identifies this device to the community server.
     let deviceID: String
 
+    /// Optional AI-assisted recognition (API key in the Keychain).
+    let ai: AISettings
+
     var serverURLString: String {
         didSet { defaults.set(serverURLString, forKey: Keys.serverURL) }
     }
@@ -99,8 +102,9 @@ final class SettingsStore {
         didSet { defaults.set(countInBeats, forKey: Keys.countIn) }
     }
 
-    init(defaults: UserDefaults = .standard) {
+    init(defaults: UserDefaults = .standard, secrets: SecretStore = DefaultSecretStore.make()) {
         self.defaults = defaults
+        self.ai = AISettings(defaults: defaults, secrets: secrets)
 
         let device: String
         if let existing = defaults.string(forKey: Keys.deviceID), !existing.isEmpty {

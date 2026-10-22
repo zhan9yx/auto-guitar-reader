@@ -13,6 +13,8 @@ case "follow-eval":
     exit(FollowEvalCommand.run(Array(args.dropFirst())))
 case "omr-score":
     exit(OMRScoreCommand.run(Array(args.dropFirst())))
+case "ai-dump-requests", "ai-apply":
+    exit(AICommand.run(args))
 default:
-    print("usage: agr-tool <import|render|follow-eval|omr-score> [options]")
+    print("usage: agr-tool <import|render|follow-eval|omr-score|ai-dump-requests|ai-apply> [options]")
 }
