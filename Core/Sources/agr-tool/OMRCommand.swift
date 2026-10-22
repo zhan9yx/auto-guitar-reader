@@ -47,19 +47,25 @@ enum OMRCommand {
         if args.first == "overlay", args.count > 2 {
             do { try OMRDebug.overlay(try GrayImage.readPGM(path: args[1]), ocr: loadOCR(args.count > 3 ? args[3] : nil), path: args[2]); return 0 } catch { print(error); return 1 }
         }
+        var inputs: [String] = []
         var input: String?, ocr: String?, out: String?
         var i = 0
         while i < args.count {
             switch args[i] {
             case "--ocr": ocr = args[i + 1]; i += 2
             case "-o": out = args[i + 1]; i += 2
-            default: input = args[i]; i += 1
+            default: input = args[i]; inputs.append(args[i]); i += 1
             }
         }
         guard let input else { print("usage: agr-tool omr page.pgm [--ocr page.ocr.json] [-o out.agr.json]"); return 2 }
         do {
-            let img = try GrayImage.readPGM(path: input)
-            let (score, report) = OMREngine.recognize(pages: [(img, loadOCR(ocr), (input as NSString).lastPathComponent)])
+            var pages: [OMREngine.PageInput] = []
+            for p in inputs {
+                let stem = ((p as NSString).deletingPathExtension)
+                let oc = ocr ?? ((FileManager.default.fileExists(atPath: (p as NSString).deletingLastPathComponent + "/ocr/" + ((stem as NSString).lastPathComponent) + ".ocr.json")) ? (p as NSString).deletingLastPathComponent + "/ocr/" + ((stem as NSString).lastPathComponent) + ".ocr.json" : nil)
+                pages.append((try GrayImage.readPGM(path: p), loadOCR(oc), (p as NSString).lastPathComponent))
+            }
+            let (score, report) = OMREngine.recognize(pages: pages)
             let data = try ScoreCoding.encode(score)
             if let out { try data.write(to: URL(fileURLWithPath: out)) } else { FileHandle.standardOutput.write(data) }
             FileHandle.standardError.write(Data("systems \(report.systemCount) issues \(report.issues.count) \(Int(report.milliseconds)) ms\n".utf8))

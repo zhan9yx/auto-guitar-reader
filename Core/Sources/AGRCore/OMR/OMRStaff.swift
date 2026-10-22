@@ -34,33 +34,35 @@ enum OMRStaffDetector {
         var rowMin = [Int](repeating: Int.max, count: h)
         var rowMax = [Int](repeating: Int.min, count: h)
         var rowLongest = [Int](repeating: 0, count: h)
+        let gapMax = max(3, Int(Double(w) * 0.011))
         for y in 0..<h {
+            // raw ink runs
+            var runs: [(Int, Int)] = []
             var x = 0
-            var sum = 0
             while x < w {
                 if bm.d[y * w + x] != 0 {
                     var e = x
                     while e < w && bm.d[y * w + e] != 0 { e += 1 }
-                    // bridge tiny gaps (glyph halos)
-                    while e < w - 3 && (bm.d[y * w + e + 1] != 0 || bm.d[y * w + e + 2] != 0) && e - x >= 6 {
-                        var f = e
-                        while f < w && bm.d[y * w + f] == 0 && f - e < 3 { f += 1 }
-                        if f < w && bm.d[y * w + f] != 0 && f - e < 3 {
-                            while f < w && bm.d[y * w + f] != 0 { f += 1 }
-                            e = f
-                        } else { break }
-                    }
-                    if e - x >= minRun {
-                        sum += e - x
-                        rowLongest[y] = max(rowLongest[y], e - x)
-                        rowMin[y] = min(rowMin[y], x)
-                        rowMax[y] = max(rowMax[y], e)
-                    }
-                    x = e
+                    runs.append((x, e)); x = e
                 } else { x += 1 }
             }
+            // merge across small gaps, keep groups that are dense and long
+            var sum = 0
+            var gi = 0
+            while gi < runs.count {
+                var gs = runs[gi].0, ge = runs[gi].1, ink = ge - gs
+                var gj = gi + 1
+                while gj < runs.count && runs[gj].0 - ge <= gapMax { ink += runs[gj].1 - runs[gj].0; ge = runs[gj].1; gj += 1 }
+                let ext = ge - gs
+                if ext >= minRun && Double(ext) >= 0.12 * Double(w) && Double(ink) >= 0.6 * Double(ext) {
+                    sum += ink
+                    rowLongest[y] = max(rowLongest[y], ext)
+                    rowMin[y] = min(rowMin[y], gs)
+                    rowMax[y] = max(rowMax[y], ge)
+                }
+                gs = 0; gi = gj
+            }
             rowSum[y] = sum
-            if Double(rowLongest[y]) < 0.2 * Double(w) { rowSum[y] = 0 }
         }
         // candidate rows: at least 30% of the widest horizontal extent
         let maxSum = rowSum.max() ?? 0
@@ -92,11 +94,13 @@ enum OMRStaffDetector {
             var chain = [i]
             if ok {
                 for k in 1..<6 {
-                    let expect = lines[i].y + Double(k) * s
-                    guard let j = (chain.last! + 1..<lines.count).first(where: { abs(lines[$0].y - expect) <= max(2.0, 0.15 * s) }) else { ok = false; break }
+                    let sm = (lines[chain.last!].y - lines[i].y) / Double(k - 1 > 0 ? k - 1 : 1)
+                    let expect = lines[chain.last!].y + (k == 1 ? s : sm)
+                    guard let j = (chain.last! + 1..<lines.count).first(where: { abs(lines[$0].y - expect) <= max(2.0, 0.17 * s) }) else { ok = false; break }
                     chain.append(j)
                 }
             }
+            if ProcessInfo.processInfo.environment["OMR_DEBUG_STAFF"] != nil { FileHandle.standardError.write(Data("i \(i) s \(s) ok \(ok) chain \(chain)\n".utf8)) }
             if ok {
                 let ls = chain.map { lines[$0] }
                 let ys = ls.map { $0.y }
