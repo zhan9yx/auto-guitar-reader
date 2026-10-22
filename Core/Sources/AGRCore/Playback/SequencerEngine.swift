@@ -23,7 +23,7 @@ public final class SequencerEngine {
 
     private struct Item {
         var sample: Int
-        var kind: UInt8        // 0 = mute, 1 = pluck, 2 = click
+        var kind: UInt8        // 0 = mute, 1 = pluck, 2 = click, 3 = melody off, 4 = melody on
         var midi: Int32
         var string: Int32
         var velocity: Float
@@ -46,6 +46,17 @@ public final class SequencerEngine {
     private var clickNoise: UInt32 = 0x2468_ACE1
     private let clickLength: Int
 
+    // Melody voice (monophonic, soft sine-ish with a slow pluck decay).
+    private var melodyOn = false
+    private var melodyID: Int32 = -1
+    private var melodyPhase: Double = 0
+    private var melodyStep: Double = 0
+    private var melodyAmp: Float = 0
+    private var melodyEnv: Float = 0
+    private var melodyDecay: Float = 1
+    private var melodyAttack: Float = 0
+    private var melodyRelease: Float = 0
+
     // Shared state (guarded by `lock`).
     private let lock: UnsafeMutablePointer<pthread_mutex_t>
     private var pendingPlaying: Bool?
@@ -65,6 +76,13 @@ public final class SequencerEngine {
         var end = 0.0
         for (i, e) in events.enumerated() {
             let s = max(Int((e.time * sampleRate).rounded()), 0)
+            if e.isMelody {
+                list.append(Item(sample: s, kind: 4, midi: Int32(e.midi), string: 0, velocity: e.velocity, id: Int32(i)))
+                let off = Int(((e.time + e.duration) * sampleRate).rounded())
+                list.append(Item(sample: max(off, s), kind: 3, midi: 0, string: 0, velocity: 0, id: Int32(i)))
+                end = max(end, e.time + e.duration)
+                continue
+            }
             if e.isClick {
                 list.append(Item(sample: s, kind: 2, midi: 0, string: 0, velocity: e.velocity, id: Int32(i)))
                 continue
@@ -93,6 +111,9 @@ public final class SequencerEngine {
         lock = UnsafeMutablePointer<pthread_mutex_t>.allocate(capacity: 1)
         pthread_mutex_init(lock, nil)
         durationSeconds = end
+        melodyAttack = Float(1 - exp(-1.0 / (0.012 * sampleRate)))
+        melodyRelease = Float(exp(-1.0 / (0.06 * sampleRate)))
+        melodyDecay = Float(exp(-1.0 / (1.2 * sampleRate)))
     }
 
     deinit {
@@ -139,6 +160,7 @@ public final class SequencerEngine {
             }
             synth.render(into: buffer + done, frameCount: n)
             if clickRemaining > 0 { renderClick(buffer + done, n) }
+            if melodyOn || melodyEnv > 1e-5 { renderMelody(buffer + done, n) }
             if playing { pos += n }
             done += n
         }
@@ -153,7 +175,7 @@ public final class SequencerEngine {
         pthread_mutex_unlock(lock)
         if let s = seek { doSeek(s) }
         if let p = play {
-            if playing && !p { synth.mute(stringIndex: nil) }
+            if playing && !p { synth.mute(stringIndex: nil); stopMelody() }
             playing = p
         }
     }
@@ -176,6 +198,13 @@ public final class SequencerEngine {
         synth.mute(stringIndex: nil)
         for i in 0..<GuitarSynth.voiceCount { activeID[i] = -1 }
         clickRemaining = 0
+        stopMelody()
+    }
+
+    private func stopMelody() {
+        melodyOn = false
+        melodyEnv = 0
+        melodyID = -1
     }
 
     private func fireDue() {
@@ -193,10 +222,36 @@ public final class SequencerEngine {
                     synth.mute(stringIndex: s)
                     activeID[s] = -1
                 }
+            case 4:
+                melodyOn = true
+                melodyID = it.id
+                melodyStep = 2 * Double.pi * 440.0 * pow(2.0, (Double(it.midi) - 69.0) / 12.0) / sampleRate
+                melodyAmp = 0.22 * min(max(it.velocity, 0), 1)
+                melodyEnv = 0
+            case 3:
+                if melodyID == it.id { melodyOn = false }
             default:
                 startClick(accent: it.velocity)
             }
         }
+    }
+
+    private func renderMelody(_ out: UnsafeMutablePointer<Float>, _ n: Int) {
+        for i in 0..<n {
+            if melodyOn {
+                melodyEnv += (1 - melodyEnv) * melodyAttack
+                melodyAmp *= melodyDecay
+                if melodyAmp < 0.05 { melodyAmp = max(melodyAmp, 0.05) }   // keeps a quiet sustain
+            } else {
+                melodyEnv *= melodyRelease
+            }
+            let p = Float(melodyPhase)
+            let s = sinf(p) + 0.22 * sinf(2 * p) + 0.06 * sinf(3 * p)
+            melodyPhase += melodyStep
+            if melodyPhase > 2 * Double.pi { melodyPhase -= 2 * Double.pi }
+            out[i] = min(max(out[i] + melodyAmp * melodyEnv * s, -1), 1)
+        }
+        if !melodyOn && melodyEnv < 1e-5 { melodyEnv = 0 }
     }
 
     // MARK: Clicks (short noise burst + tone)

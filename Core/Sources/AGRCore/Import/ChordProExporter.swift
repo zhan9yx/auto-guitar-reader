@@ -5,6 +5,7 @@ import Foundation
 /// Preserved: title/artist/composer/lyricist/arranger/key/capo/tempo/time/tuning, play mode, chord
 /// definitions, section names and kinds, line kinds, chord/lyric segments and tab events (rendered as ASCII tab
 /// in `{sot}` blocks; beats are quantized to 1/8 beat and event durations become "until the next event").
+/// Notation systems (`.system`) are exported lossily (chords + verse-1 lyrics + notes, no tab/melody/diagrams).
 /// Not preserved: segment `beats`, page anchors, strum patterns, arrangement, per-measure `beats` overrides.
 public enum ChordProExporter {
     public static func export(_ score: Score) -> String {
@@ -81,7 +82,8 @@ public enum ChordProExporter {
             let text = line.segments.compactMap { $0.chord.map { "[\($0)]" } }.joined(separator: " ")
             return text.isEmpty ? [] : [text]
         case .system:
-            return []  // TODO(v2): export NotationSystem
+            // Lossy: chords + verse-1 lyrics per measure and `{c:}` notes; see NotationSystemFormatter.chordProLines.
+            return line.system.map(NotationSystemFormatter.chordProLines) ?? []
         case .comment:
             guard let t = line.text, !t.isEmpty else { return [] }
             return ["{comment: \(sanitize(t))}"]
