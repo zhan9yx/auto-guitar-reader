@@ -51,12 +51,14 @@ public enum OMRChordsDebug {
             out.width = image.width; out.height = image.height
             let bm = OMRVision.binarize(image).bm
             let staves = oracle.map { TabStaff(lines: $0.lineYs, thickness: 1, x0: Int($0.x0), x1: Int($0.x1)) }
-            for (si, o) in oracle.enumerated() {
-                let st = staves[si]
-                let spans = o.measureX.map { MeasureSpan(x0: $0.0, x1: $0.1, beats: o.beats ?? beats) }
-                let prev = si > 0 ? staves[si - 1].bottom : nil
-                let r = OMRChordReader.read(bm: bm, gray: image, staff: st, bandTop: prev.map { max($0 + 2 * st.u, st.top - 10.5 * st.u) }, spans: spans, ocr: ocr, systemIndex: si)
-                out.systems.append(.init(measures: r.measures, staffTop: st.top, diagramCount: r.diagrams.count, spanX: o.measureX))
+            let inputs = oracle.enumerated().map { (si, o) in
+                ChordSystemInput(staff: staves[si],
+                                 bandTop: si > 0 ? max(staves[si - 1].bottom + 2 * staves[si].u, staves[si].top - 10.5 * staves[si].u) : nil,
+                                 spans: o.measureX.map { MeasureSpan(x0: $0.0, x1: $0.1, beats: o.beats ?? beats) })
+            }
+            let rs = OMRChordReader.readPage(bm: bm, gray: image, systems: inputs, ocr: ocr)
+            for (si, r) in rs.enumerated() {
+                out.systems.append(.init(measures: r.measures, staffTop: staves[si].top, diagramCount: r.diagrams.count, spanX: oracle[si].measureX))
                 out.issues += r.issues
             }
             return out
@@ -64,12 +66,14 @@ public enum OMRChordsDebug {
         let p = prepare(image, ocr)
         var out = OMRPageChords()
         out.width = p.img.width; out.height = p.img.height
-        for (si, st) in p.staves.enumerated() {
+        let inputs = p.staves.enumerated().map { (si, st) -> ChordSystemInput in
             let bars = OMRStaffDetector.barlines(p.bm, staff: st)
-            let spans = OMRChordReader.spans(bars: bars, staff: st, beats: beats)
-            let prev = si > 0 ? p.staves[si - 1].bottom : nil
-            let r = OMRChordReader.read(bm: p.bm, gray: p.img, staff: st, bandTop: prev.map { max($0 + 2 * st.u, st.top - 10.5 * st.u) }, spans: spans, ocr: p.ocr, systemIndex: si)
-            out.systems.append(.init(measures: r.measures, staffTop: st.top, diagramCount: r.diagrams.count, spanX: spans.map { ($0.x0, $0.x1) }))
+            return ChordSystemInput(staff: st, bandTop: si > 0 ? max(p.staves[si - 1].bottom + 2 * st.u, st.top - 10.5 * st.u) : nil,
+                                    spans: OMRChordReader.spans(bars: bars, staff: st, beats: beats))
+        }
+        let rs = OMRChordReader.readPage(bm: p.bm, gray: p.img, systems: inputs, ocr: p.ocr)
+        for (si, r) in rs.enumerated() {
+            out.systems.append(.init(measures: r.measures, staffTop: p.staves[si].top, diagramCount: r.diagrams.count, spanX: inputs[si].spans.map { ($0.x0, $0.x1) }))
             out.issues += r.issues
         }
         return out

@@ -50,6 +50,30 @@ struct MeasureSpan {
     }
 }
 
+/// Diagrams repeat on a page: remembers name <-> shape pairs read with a printed name, to fix and fill others.
+struct ChordLibrary {
+    var shapesByName: [String: [[Int]: Int]] = [:]       // ChordNameNormalizer.key -> frets -> count
+    var namesByShape: [[Int]: [String: Int]] = [:]
+    mutating func add(name: String, frets: [Int]) {
+        shapesByName[ChordNameNormalizer.key(name), default: [:]][frets, default: 0] += 1
+        namesByShape[frets, default: [:]][name, default: 0] += 1
+    }
+    mutating func merge(_ o: ChordLibrary) {
+        for (k, v) in o.shapesByName { for (f, c) in v { shapesByName[k, default: [:]][f, default: 0] += c } }
+        for (k, v) in o.namesByShape { for (n, c) in v { namesByShape[k, default: [:]][n, default: 0] += c } }
+    }
+    func bestShape(for name: String) -> [Int]? {
+        shapesByName[ChordNameNormalizer.key(name)]?.max { $0.value < $1.value }?.key
+    }
+    func name(for frets: [Int]) -> String? { namesByShape[frets]?.max { $0.value < $1.value }?.key }
+}
+
+struct ChordSystemInput {
+    var staff: TabStaff
+    var bandTop: Double?
+    var spans: [MeasureSpan]
+}
+
 struct ChordReadResult {
     var measures: [[ChordMark]]
     var issues: [OMRIssue]
@@ -58,6 +82,7 @@ struct ChordReadResult {
     /// Placed chords with their pixel anchors (for debugging / evaluation).
     var placed: [(measure: Int, chord: ChordMark, x: Double, diagram: Int?)]
     var bandTop: Double
+    var learned = ChordLibrary()
 }
 
 enum OMRChordReader {
@@ -70,7 +95,7 @@ enum OMRChordReader {
     ///   - bandTop: top of the search band in pixels (e.g. bottom of the previous system's lyrics); default staff.top - 10.5u.
     ///   - spans: tab measures of this system (x range, beats, optional event anchors).
     static func read(bm bmGlobal: Bitmap, gray: GrayImage? = nil, staff: TabStaff, bandTop: Double? = nil, spans: [MeasureSpan], ocr: [OCRToken],
-                     pageIndex: Int = 0, systemIndex: Int = 0) -> ChordReadResult {
+                     library: ChordLibrary = ChordLibrary(), pageIndex: Int = 0, systemIndex: Int = 0) -> ChordReadResult {
         let u = staff.u
         let bottom = staff.top - 0.25 * u
         let top = max(0, bandTop ?? (staff.top - 10.5 * u))
@@ -101,9 +126,17 @@ enum OMRChordReader {
 
         var entries: [(x: Double, name: String, shape: ChordShape?, di: Int?, conf: Double, p0: Double)] = []
         var issues: [OMRIssue] = []
+        var learned = ChordLibrary()
         for (di, d) in diagrams.enumerated() {
             if let ni = nameOfDiagram[di] {
-                entries.append((d.left, names[ni].text, d.shape, di, min(d.confidence, names[ni].confidence), 0.05))
+                var shape = d.shape
+                if let sym = ChordNameNormalizer.symbol(names[ni].text), shapeFit(sym, shape.frets) < 0.95,
+                   let lib = library.bestShape(for: names[ni].text), shapeFit(sym, lib) >= 0.95 {
+                    shape = ChordShape(frets: lib, baseFret: shape.baseFret)      // repeated chord: trust the page's majority reading
+                } else { learned.add(name: names[ni].text, frets: shape.frets) }
+                entries.append((d.left, names[ni].text, shape, di, min(d.confidence, names[ni].confidence), 0.05))
+            } else if let known = library.name(for: d.frets) {
+                entries.append((d.left, known, d.shape, di, 0.6 * d.confidence, 0.05))
             } else if let guess = identify(frets: d.frets) {
                 entries.append((d.left, guess, d.shape, di, 0.3 * d.confidence, 0.05))
                 issues.append(OMRIssue(kind: .unknownChord, path: "sections[0].lines[{L}].system.measures[0]",
@@ -137,7 +170,19 @@ enum OMRChordReader {
             placed.append((mi, mark, e.x, e.di))
         }
         for i in measures.indices { measures[i].sort { $0.beat < $1.beat } }
-        return ChordReadResult(measures: measures, issues: issues, diagrams: diagrams, names: names, placed: placed, bandTop: top)
+        return ChordReadResult(measures: measures, issues: issues, diagrams: diagrams, names: names, placed: placed, bandTop: top, learned: learned)
+    }
+
+    /// Reads all systems of a page; chord diagrams repeat, so names/shapes learned on the page fix and fill the others.
+    static func readPage(bm: Bitmap, gray: GrayImage?, systems: [ChordSystemInput], ocr: [OCRToken]) -> [ChordReadResult] {
+        var results = systems.enumerated().map { (i, s) in read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, systemIndex: i) }
+        var lib = ChordLibrary()
+        for r in results { lib.merge(r.learned) }
+        guard !lib.namesByShape.isEmpty else { return results }
+        for (i, s) in systems.enumerated() {
+            results[i] = read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, library: lib, systemIndex: i)
+        }
+        return results
     }
 
     /// Local binarization of a horizontal band (threshold between the band's background and its darkest content).
@@ -171,6 +216,8 @@ enum OMRChordReader {
         }
         let f = (x - s.x0) / w
         let raw = max(0, (f - p0) / (1 - p0 - 0.03) * s.beats)
+        // chords sit on the downbeat, the half measure or a whole beat
+        if let c = [0.0, s.beats / 2].min(by: { abs($0 - raw) < abs($1 - raw) }), abs(c - raw) <= 0.8 { return (mi, c) }
         return (mi, min(raw.rounded(), max(0, s.beats - 1)))
     }
 
@@ -304,7 +351,11 @@ enum OMRChordReader {
             for j in 0..<n {
                 let yc = (lineYs[j] + lineYs[j + 1]) / 2
                 let sc = dotScore(bm, x: xs[i], y: yc, sp: sp, f: fAdj, base: base)
-                if debugOn && ProcessInfo.processInfo.environment["OMR_CH_DOTS"] != nil { FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) sc \(sc)\n".utf8)) }
+                if debugOn && sc >= 0.9 && ProcessInfo.processInfo.environment["OMR_CH_DOTS"] != nil {
+                    var d = ""
+                    for yy in Int(yc.rounded()) - 2...Int(yc.rounded()) + 2 { d += " \(rowSpan(bm, x: xs[i], y: yy, sp: sp))" }
+                    FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) base \(base) spans\(d)\n".utf8))
+                }
                 if sc >= 0.9 && found == 0 { found = j + 1 }
                 else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
             }
@@ -360,10 +411,10 @@ enum OMRChordReader {
     static func dotScore(_ bm: Bitmap, x: Double, y: Double, sp: Double, f: Double, base: Double) -> Double {
         let need = max(2.5, base + max(1.5, 0.22 * sp))
         var best = 0.0
-        let y0 = Int(y.rounded())
+        let y0 = Int(y.rounded(.down))
         for c in (y0 - 1)...(y0 + 1) {
             let n = (c - 1...c + 1).filter { rowSpan(bm, x: x, y: $0, sp: sp) >= need }.count
-            best = max(best, Double(n) / 3)
+            best = max(best, c == y0 ? Double(n) / 3 : (n == 3 ? 1 : Double(n) / 3 * 0.6))
         }
         return best >= 0.66 ? 1.0 : (best > 0 ? 0.35 : 0)
     }
