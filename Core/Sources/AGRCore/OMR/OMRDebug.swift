@@ -24,3 +24,12 @@ extension OMRDebug {
         try g.writePGM(path: path)
     }
 }
+
+extension OMRDebug {
+    /// Runs the page pipeline with tracing and writes an RGB overlay (PPM).
+    public static func overlay(_ img: GrayImage, ocr: [OCRToken], path: String) throws {
+        let trace = OMRTrace()
+        _ = OMRPage.process(page: 0, image: img, ocr: ocr, options: OMROptions(), trace: trace)
+        if let d = trace.ppm() { try d.write(to: URL(fileURLWithPath: path)) }
+    }
+}

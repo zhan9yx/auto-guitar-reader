@@ -36,6 +36,17 @@ enum OMRCommand {
             print("samples \(lines.count)")
             return 0
         }
+        if args.first == "regions", args.count > 1 {
+            // agr-tool omr regions page.pgm -> JSON array of normalised crop regions for a second OCR pass
+            guard let img = try? GrayImage.readPGM(path: args[1]) else { return 1 }
+            let r = OMREngine.ocrRegions(image: img)
+            if let d = try? JSONEncoder().encode(r) { FileHandle.standardOutput.write(d) }
+            return 0
+        }
+        if args.first == "eval" { return OMREval.run(Array(args.dropFirst())) }
+        if args.first == "overlay", args.count > 2 {
+            do { try OMRDebug.overlay(try GrayImage.readPGM(path: args[1]), ocr: loadOCR(args.count > 3 ? args[3] : nil), path: args[2]); return 0 } catch { print(error); return 1 }
+        }
         var input: String?, ocr: String?, out: String?
         var i = 0
         while i < args.count {

@@ -52,20 +52,37 @@ struct PageResult {
 }
 
 enum OMRPage {
-    static func process(page: Int, image: GrayImage, ocr: [OCRToken], options: OMROptions) -> PageResult {
+    static func process(page: Int, image: GrayImage, ocr: [OCRToken], options: OMROptions, trace: OMRTrace? = nil) -> PageResult {
         var res = PageResult()
-        let (bm, _, _, _) = OMRVision.binarize(image)
+        var image = image
+        var ocr = ocr
+        var (bm, _, bgLevel, _) = OMRVision.binarize(image)
+        let slope = OMRDeskew.estimateSlope(bm)
+        if slope != 0 {
+            image = OMRDeskew.rotate(image, slope: slope, fill: UInt8(max(0, min(255, bgLevel))))
+            ocr = ocr.map { t in
+                var t = t
+                let W = Double(image.width), H = Double(image.height)
+                let c = OMRDeskew.forward(x: (t.x + t.width / 2) * W, y: (t.y + t.height / 2) * H, slope: slope, width: image.width, height: image.height)
+                t.x = c.0 / W - t.width / 2; t.y = c.1 / H - t.height / 2
+                return t
+            }
+            bm = OMRVision.binarize(image).bm
+        }
         let staves = OMRStaffDetector.detect(bm)
         if staves.isEmpty {
             res.issues.append(OMRIssue(kind: .noStaff, path: "sections[0]", message: "no six-line tab staff found on page \(page)"))
             return res
         }
         let clean = OMRStaffDetector.removeLines(bm, staves: staves)
+        trace?.image = image
         let H = Double(image.height), W = Double(image.width)
         let beats = 4.0
         for (si, st) in staves.enumerated() {
             let bars = OMRStaffDetector.barlines(bm, staff: st)
-            let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, classifier: .shared)
+            trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
+            for b in bars { trace?.add(IRect(x0: b.x0 - 1, y0: Int(st.top) - 4, x1: b.x1 + 1, y1: Int(st.bottom) + 4), (0, 160, 0)) }
+            let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, classifier: .shared, trace: trace)
             var measures: [NotationMeasure] = []
             for (mi, mt) in mts.enumerated() {
                 var m = NotationMeasure(tab: mt.events)
@@ -86,4 +103,27 @@ enum OMRPage {
     }
 
     static func simple(_ k: BarlineKind) -> BarlineKind { k }
+}
+
+/// A normalised page region worth a second, zoomed OCR pass (small chord names above the diagrams).
+public struct OMRRegion: Codable, Hashable, Sendable {
+    public var x: Double, y: Double, width: Double, height: Double
+    public var scale: Double
+}
+
+extension OMREngine {
+    /// Regions where a dedicated OCR pass on a crop (upscaled by `scale`) finds small text that
+    /// full-page OCR misses (chord names above the diagrams). iOS may run Vision on these crops too.
+    public static func ocrRegions(image: GrayImage) -> [OMRRegion] {
+        let (bm, _, _, _) = OMRVision.binarize(image)
+        let staves = OMRStaffDetector.detect(bm)
+        let W = Double(image.width), H = Double(image.height)
+        var out: [OMRRegion] = []
+        for st in staves {
+            let y0 = max(0, st.top - 9.5 * st.u), y1 = st.top - 0.3 * st.u
+            out.append(OMRRegion(x: 0, y: y0 / H, width: 1, height: (y1 - y0) / H, scale: 2.5))
+        }
+        _ = W
+        return out
+    }
 }

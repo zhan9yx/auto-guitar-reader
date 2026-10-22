@@ -8,8 +8,8 @@ Writes <out-dir or <image dir>/ocr>/<image stem>.ocr.json. Token: {text,x,y,widt
 coordinates normalized to the page, origin top-left (same as the iOS VisionOCR adapter).
 
 Differences from iOS Vision (risk): RapidOCR (PP-OCRv4) has a different error profile. This script
-(a) runs the detector at full resolution, (b) adds a second pass over overlapping 2x-upscaled bands so
-small chord names ("C", "G7") are found, (c) emits word tokens for chord-like / Latin multi-word lines
+(a) runs the detector at full resolution, (b) optionally (--bands, or crops listed in <stem>.regions.json from
+`agr-tool omr regions`) adds a second zoomed pass so small chord names ("C", "G7") are found, (c) emits word tokens for chord-like / Latin multi-word lines
 and line tokens for CJK lines, like VisionOCR.makeTokens. Vision itself finds most chord names in one pass.
 """
 import json, os, re, sys
@@ -50,13 +50,33 @@ def overlaps(a, b):
     return inter > 0.3 * max(area, 1e-6)
 
 
-def recognize(path, engine):
+def region_pass(engine, im, regions, items):
+    W, H = im.size
+    for r in regions:
+        x0, y0 = int(r["x"] * W), int(r["y"] * H)
+        x1, y1 = min(W, int((r["x"] + r["width"]) * W)), min(H, int((r["y"] + r["height"]) * H))
+        if x1 - x0 < 8 or y1 - y0 < 8:
+            continue
+        sc = float(r.get("scale", 2.0))
+        crop = im.crop((x0, y0, x1, y1)).resize((int((x1 - x0) * sc), int((y1 - y0) * sc)), Image.LANCZOS)
+        for it in run_pass(engine, np.array(crop), sc, 0):
+            it = (it[0], it[1] + x0, it[2] + y0, it[3] + x0, it[4] + y0, it[5])
+            # crop OCR wins over a full-page token covering the same spot when it is not longer text
+            dup = [e for e in items if overlaps(it, e)]
+            for e in dup:
+                items.remove(e)
+            items.append(it)
+
+
+def recognize(path, engine, regions=None, bands=False):
     im = Image.open(path).convert("RGB")
     W, H = im.size
     arr = np.array(im)
     items = run_pass(engine, arr)
+    if regions:
+        region_pass(engine, im, regions, items)
     band, step = 130, 65
-    y = 0
+    y = 0 if bands else H
     while y < H:
         y1 = min(H, y + band)
         crop = im.crop((0, y, W, y1)).resize((W * 2, (y1 - y) * 2), Image.LANCZOS)
@@ -108,7 +128,11 @@ def main(argv):
         dst = os.path.join(d, stem + ".ocr.json")
         if os.path.exists(dst) and not force:
             continue
-        toks, _ = recognize(p, engine)
+        regions = None
+        rj = os.path.join(d, stem + ".regions.json")
+        if os.path.exists(rj):
+            regions = json.load(open(rj))
+        toks, _ = recognize(p, engine, regions, "--bands" in argv)
         with open(dst, "w", encoding="utf-8") as f:
             json.dump(toks, f, ensure_ascii=False)
         print(dst, len(toks), flush=True)

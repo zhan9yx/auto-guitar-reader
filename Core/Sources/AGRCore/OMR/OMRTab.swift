@@ -24,6 +24,7 @@ struct MeasureTab {
     var lowConfidence: [Int]    // event indices with doubtful glyphs
     var beatSum: Double
     var glyphs: [TabGlyph]
+    var timeSig: (beats: Int, unit: Int)? = nil
 }
 
 enum OMRTabAnalyzer {
@@ -66,12 +67,13 @@ enum OMRTabAnalyzer {
                 if clean.d[y * clean.w + x] != 0 {
                     var e = y
                     while e < yTo && clean.d[e * clean.w + x] != 0 { e += 1 }
-                    if e - y >= minLen && Double(e) >= st.bottom + 0.7 * u { if best == nil || e - y > best!.1 - best!.0 { best = (y, e) } }
+                    if e - y >= minLen && e - y <= Int(7 * u) && Double(y) <= st.bottom + 1.8 * u && Double(e) >= st.bottom + 0.7 * u { if best == nil || e - y > best!.1 - best!.0 { best = (y, e) } }
                     y = e
                 } else { y += 1 }
             }
             if let b = best { cols.append((x, b.0, b.1)) }
         }
+        if ProcessInfo.processInfo.environment["OMR_DEBUG_COLS"] != nil { FileHandle.standardError.write(Data("cols \(cols.filter { $0.x > 385 && $0.x < 430 }.map { "\($0.x):\($0.y0)-\($0.y1)" })  bottom \(st.bottom)\n".utf8)) }
         var stems: [Stem] = []
         var i = 0
         while i < cols.count {
@@ -106,7 +108,7 @@ enum OMRTabAnalyzer {
     // MARK: Main
 
     static func analyze(bm: Bitmap, clean: Bitmap, staff st: TabStaff, bars: [BarlineStructure],
-                        beats: Double, classifier: OMRGlyphClassifier) -> [MeasureTab] {
+                        beats: Double, classifier: OMRGlyphClassifier, trace: OMRTrace? = nil) -> [MeasureTab] {
         let u = st.u
         var stems = findStems(clean: clean, staff: st, bars: bars)
         for i in stems.indices { stems[i].beams = beamCount(clean: clean, stem: stems[i], staff: st) }
@@ -120,7 +122,7 @@ enum OMRTabAnalyzer {
         }
         for b in bars { for x in max(0, b.x0 - 1)..<min(gb.w, b.x1 + 1) { for y in max(0, Int(st.top - u * 0.4))..<min(gb.h, Int(st.bottom + u * 0.4)) { gb.d[y * gb.w + x] = 0 } } }
         // restrict to the tab band
-        let yLo = Int(st.top - 1.6 * u), yHi = Int(st.bottom + 1.2 * u)
+        let yLo = Int(st.top - 0.9 * u), yHi = Int(st.bottom + 1.2 * u)
         var band = Bitmap(w: gb.w, h: gb.h)
         for y in max(0, yLo)..<min(gb.h, yHi) { for x in st.x0..<min(gb.w, st.x1) { band.d[y * gb.w + x] = gb.d[y * gb.w + x] } }
         let lab = OMRVision.label(band)
@@ -138,7 +140,7 @@ enum OMRTabAnalyzer {
             let so = abs(off - Double(sIdx))
             // dash = rest
             let fracOff = abs(off - off.rounded())
-            if w >= 0.5 * u && h <= 0.4 * u && w / max(h, 1) >= 2.2 && fracOff > 0.2 {
+            if w >= 0.5 * u && h <= 0.4 * u && w / max(h, 1) >= 2.2 && fracOff > 0.2 && cy > st.top && cy < st.bottom {
                 glyphs.append(TabGlyph(rect: r, kind: .rest, confidence: 0.9, string: sIdx + 1, stringOffset: so)); continue
             }
             if h < 0.3 * u && w < 0.4 * u { continue }  // dots / specks
@@ -146,7 +148,7 @@ enum OMRTabAnalyzer {
             if cs > 0.3 && w >= 0.3 * u && h >= 0.3 * u {
                 glyphs.append(TabGlyph(rect: r, kind: .cross, confidence: cs, string: sIdx + 1, stringOffset: so)); continue
             }
-            if let (label, conf) = classifier.classify(bmp, role: .tabDigit), let d = Int(label) {
+            if let (label, conf) = classifier.classify(bmp, role: .tabDigit), conf >= 0.3, let d = Int(label) {
                 glyphs.append(TabGlyph(rect: r, kind: .digit(d), confidence: conf, string: sIdx + 1, stringOffset: so)); continue
             }
             if w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 { glyphs.append(TabGlyph(rect: r, kind: .arc, confidence: 0.5, string: sIdx + 1, stringOffset: so)); continue }
@@ -159,11 +161,22 @@ enum OMRTabAnalyzer {
         if sorted.count >= 2 {
             for i in 0..<(sorted.count - 1) { ranges.append((sorted[i].xAfter, sorted[i + 1].xBefore)) }
         }
+        for g in glyphs { trace?.add(g.rect, g.kind == .cross ? (0, 0, 255) : (g.kind == .rest ? (255, 128, 0) : (200, 0, 200))) }
+        for s in stems { trace?.add(IRect(x0: Int(s.x) - 1, y0: s.y0, x1: Int(s.x) + 2, y1: s.y1), (0, 200, 200), "b\(s.beams)") }
         var out: [MeasureTab] = []
         for (mi, rg) in ranges.enumerated() {
             let mg = glyphs.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
             let ms = stems.filter { $0.x >= rg.0 && $0.x < rg.1 }
-            let note = mg.filter { if case .rest = $0.kind { return false }; if case .arc = $0.kind { return false }; if case .unknown = $0.kind { return false }; return true }
+            var timeSig: (Int, Int)? = nil
+            var mgNotes = mg
+            if mi == 0, stems.count >= 3, let fs = ms.first?.x {
+                let left = mg.filter { $0.rect.cx < fs - 0.5 * u }
+                var up = [Int](), lo = [Int]()
+                for g in left { if case .digit(let d) = g.kind, g.rect.h > Int(0.95 * u) { if g.rect.cy < st.top + 2.5 * u { up.append(d) } else { lo.append(d) } } }
+                if up.count == 1 && lo.count == 1 { timeSig = (up[0], lo[0]) }
+                mgNotes = mg.filter { $0.rect.cx >= fs - 0.5 * u }
+            }
+            let note = mgNotes.filter { if case .rest = $0.kind { return false }; if case .arc = $0.kind { return false }; if case .unknown = $0.kind { return false }; return true }
             let rests = mg.filter { $0.kind == .rest }
             // cluster note glyphs to events: nearest stem within 0.7u, else own cluster by x
             struct Ev { var x: Double; var glyphs: [TabGlyph]; var stem: Stem? }
@@ -189,6 +202,7 @@ enum OMRTabAnalyzer {
             }
             for r in rests { items.append(Item(x: r.rect.cx, dur: 1.0, ev: nil)) }
             items.sort { $0.x < $1.x }
+            if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) glyphs \(mg.map { "\($0.kind)@\(Int($0.rect.cx)),\(Int($0.rect.cy)) \($0.rect.w)x\($0.rect.h)" })\n stems \(ms.map { "\(Int($0.x)):b\($0.beams)" })\n items \(items.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
             let restIdx = items.indices.filter { items[$0].ev == nil }
             let evSum = items.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
             if !restIdx.isEmpty {
@@ -221,7 +235,7 @@ enum OMRTabAnalyzer {
                 }
                 t += it.dur
             }
-            out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg))
+            out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }))
             _ = mi
         }
         return out
