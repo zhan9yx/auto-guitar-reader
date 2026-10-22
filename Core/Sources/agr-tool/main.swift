@@ -13,6 +13,12 @@ case "follow-eval":
     exit(FollowEvalCommand.run(Array(args.dropFirst())))
 case "omr":
     exit(OMRCommand.run(Array(args.dropFirst())))
+case "omr-jianpu":
+    exit(OMRJianpuCommand.run(Array(args.dropFirst())))
+case "omr-jianpu-train":
+    exit(OMRJianpuCommand.train(Array(args.dropFirst())))
+case "omr-jianpu-eval":
+    exit(OMRJianpuCommand.eval(Array(args.dropFirst())))
 case "omr-score":
     exit(OMRScoreCommand.run(Array(args.dropFirst())))
 default:
