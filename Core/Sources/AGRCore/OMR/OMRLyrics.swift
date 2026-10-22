@@ -12,6 +12,8 @@ struct LyricRow {
     var syllables: [LyricSyllable]
     var top: Double
     var bottom: Double
+    /// First pixel row with substantial ink of the characters (OCR boxes are loose).
+    var inkTop: Double
 }
 
 enum OMRLyrics {
@@ -59,7 +61,7 @@ enum OMRLyrics {
             let x0 = t.x * Double(W), x1 = (t.x + t.width) * Double(W)
             let y0 = t.y * Double(H), y1 = (t.y + t.height) * Double(H)
             let cy = (y0 + y1) / 2, cx = (x0 + x1) / 2
-            guard cy > yFrom + 0.3 * digitH, cy < yTo, cx >= xRange.lowerBound - 0.5 * u, cx <= xRange.upperBound + 0.5 * u else { continue }
+            guard cy > yFrom + 0.9 * digitH, cy < yTo, cx >= xRange.lowerBound - 0.5 * u, cx <= xRange.upperBound + 0.5 * u else { continue }
             guard y1 - y0 >= 0.4 * u, y1 - y0 <= 3.2 * u else { continue }
             let text = t.text.filter { !$0.isWhitespace || true }
             guard text.contains(where: { isCJK($0) || $0.isLetter }) else { continue }
@@ -125,7 +127,14 @@ enum OMRLyrics {
                 syl.append(LyricSyllable(text: "一", x: x))
             }
             syl.sort { $0.x < $1.x }
-            out.append(LyricRow(syllables: syl, top: rowTop, bottom: rowBottom))
+            let rx0 = Int(r.map { $0.x0 }.min() ?? 0), rx1 = Int(r.map { $0.x1 }.max() ?? 0)
+            var prof: [Int] = []
+            let py0 = Int(rowTop), py1 = Int(rowBottom)
+            if py1 > py0 { for y in py0...py1 { prof.append(bm.count(x0: rx0, y0: y, x1: rx1 + 1, y1: y + 1)) } }
+            let pk = prof.max() ?? 0
+            var inkTop = rowTop
+            if pk > 0, let k = prof.firstIndex(where: { Double($0) >= 0.3 * Double(pk) }) { inkTop = rowTop + Double(k) }
+            out.append(LyricRow(syllables: syl, top: rowTop, bottom: rowBottom, inkTop: inkTop))
         }
         return out
     }

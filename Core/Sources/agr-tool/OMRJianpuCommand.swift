@@ -133,7 +133,19 @@ enum OMRJianpuCommand {
                 let gtLines = g.sections.reduce(0) { $0 + $1.lines.count }, predLines = p.sections.reduce(0) { $0 + $1.lines.count }
                 if gtLines != predLines {
                     skipped += 1
-                    if perPage { print("SKIP \(f[0]) systems gt \(gtLines) pred \(predLines)") }
+                    if args.contains("--diff") {
+                    func d(_ n: MelodyNote) -> String { var t = describe(n); if let i = t.firstIndex(of: "[") { t = String(t[..<i]) }; return t }
+                    let gl = g.sections.flatMap { $0.lines }, pl = p.sections.flatMap { $0.lines }
+                    for (li, (a, b)) in zip(gl, pl).enumerated() {
+                        let ga = a.system?.measures ?? [], pb = b.system?.measures ?? []
+                        if ga.count != pb.count { print("DIFF \(f[0].suffix(30)) sys\(li) measure count gt \(ga.count) pred \(pb.count)") }
+                        for mi in 0..<min(ga.count, pb.count) {
+                            let x = ga[mi].melody.map(d).joined(separator: " "), y = pb[mi].melody.map(d).joined(separator: " ")
+                            if x != y { print("DIFF \(f[0].suffix(30)) sys\(li) m\(mi)\n    GT   \(x)\n    PRED \(y)") }
+                        }
+                    }
+                }
+                if perPage { print("SKIP \(f[0]) systems gt \(gtLines) pred \(predLines)") }
                     continue
                 }
                 let r = OMRScorer.compare(groundTruth: g, predicted: p)
@@ -141,6 +153,18 @@ enum OMRJianpuCommand {
                 rhythm.tp += r.rhythm.tp; rhythm.fp += r.rhythm.fp; rhythm.fn += r.rhythm.fn
                 lyr.gt += r.lyrics.groundTruthChars; lyr.edit += r.lyrics.editDistance
                 issueCount += iss.count
+                if args.contains("--diff") {
+                    func d(_ n: MelodyNote) -> String { var t = describe(n); if let i = t.firstIndex(of: "[") { t = String(t[..<i]) }; return t }
+                    let gl = g.sections.flatMap { $0.lines }, pl = p.sections.flatMap { $0.lines }
+                    for (li, (a, b)) in zip(gl, pl).enumerated() {
+                        let ga = a.system?.measures ?? [], pb = b.system?.measures ?? []
+                        if ga.count != pb.count { print("DIFF \(f[0].suffix(30)) sys\(li) measure count gt \(ga.count) pred \(pb.count)") }
+                        for mi in 0..<min(ga.count, pb.count) {
+                            let x = ga[mi].melody.map(d).joined(separator: " "), y = pb[mi].melody.map(d).joined(separator: " ")
+                            if x != y { print("DIFF \(f[0].suffix(30)) sys\(li) m\(mi)\n    GT   \(x)\n    PRED \(y)") }
+                        }
+                    }
+                }
                 if perPage {
                     print(String(format: "%@  melody %.2f%%  lyricsCER %.2f%%  issues %d", ((f[0] as NSString).deletingLastPathComponent as NSString).lastPathComponent + "/" + (f[0] as NSString).lastPathComponent, r.melody.f1 * 100, r.lyrics.cer * 100, iss.count))
                 }
