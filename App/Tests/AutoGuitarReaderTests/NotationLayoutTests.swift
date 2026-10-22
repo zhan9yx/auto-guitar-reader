@@ -374,3 +374,15 @@ final class NotationLayoutTests: XCTestCase {
         XCTAssertNotNil(barre.barre)
     }
 }
+
+final class NotationChordsTests: XCTestCase {
+    func testShapesAndLabels() {
+        let printed = ChordShape(frets: [-1, 3, 2, 0, 1, 0])
+        XCTAssertEqual(NotationChords.shape(for: ChordMark(name: "C", shape: printed), definitions: [:], transpose: 0, preferFlats: nil), printed)
+        XCTAssertNil(NotationChords.shape(for: ChordMark(name: "???"), definitions: [:], transpose: 0, preferFlats: nil))
+        XCTAssertNotNil(NotationChords.shape(for: ChordMark(name: "G"), definitions: [:], transpose: 2, preferFlats: nil))
+        XCTAssertNotEqual(NotationChords.shape(for: ChordMark(name: "C", shape: printed), definitions: [:], transpose: 2, preferFlats: nil), printed)
+        XCTAssertEqual(NotationChords.label(ChordMark(name: "C"), transpose: 2, preferFlats: nil), "D")
+        XCTAssertEqual(NotationChords.label(ChordMark(name: "N.C."), transpose: 2, preferFlats: nil), "N.C.")
+    }
+}
