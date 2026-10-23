@@ -335,7 +335,25 @@ Example (two measures, key C, 4/4; chord diagrams for C and G7(3), × picks, 2 v
 
 Tools: `NotationSystemFormatter.asciiTab(system)` renders the system as aligned text for diffing; `ChordProExporter` exports
 systems lossily (chords + verse-1 lyrics + `{c:}` notes); `agr-tool omr-score --gt a.agr.json --pred b.agr.json [--json]`
-scores a predicted score against a ground truth (`OMRScorer`: per-category tp/fp/fn and a weighted overall accuracy — tab 30%
-(tab notes + strokes), melody 20%, lyrics 20% (1 − CER), chords 15% (marks + diagrams), rhythm 5% (event/melody durations,
-measure lengths), barlines 5% (barlines/repeats/voltas/marks + measure alignment), header 5%; measures of GT and
-prediction are aligned by sequence alignment, empty categories are skipped; melody-note duration is scored under rhythm).
+scores a predicted score against a ground truth (`OMRScorer`: per-category tp/fp/fn with precision and recall, and a weighted
+overall accuracy; `--metric v1|v2`, default v2; `--meta gt.meta.json` supplies the GT `watermarks` for v2 cleanliness).
+Groups: tab 29% (tab notes + strokes), melody 19%, lyrics 19% (1 − CER), chords 15% (marks + diagrams), rhythm 5%,
+barlines 5% (barlines/repeats/voltas/marks + measure alignment), header 5%, cleanliness 3% (v1 weights: tab 30, melody 20,
+lyrics 20, chords 15, rhythm 5, barlines 5, header 5, no cleanliness). Categories empty in both GT and prediction are
+skipped and the weights renormalized; a category empty only in the prediction scores 0.
+
+Scorer v2 (honest metric; v1 kept for comparability):
+- Measures of GT and prediction are aligned by sequence alignment, but two measures are paired only when their content
+  similarity (Dice over chord/tab/melody/lyric tokens) is at least 0.3; otherwise the GT measure is missing and the predicted
+  one extra, and everything in them is fn / fp.
+- Rhythm counts every GT tab event, melody note and measure length as an item: a matched event with the wrong duration is
+  fn + fp, a missed event is fn, an extra predicted event is fp. Measure length is always compared (effective length
+  from the time signature), so a wrong time signature costs rhythm and header.
+- Barlines: the right barline of every measure is counted (single included), plus non-default left barlines, voltas, marks.
+- Header: also credits (normalized text) and capo/tempo/time/tuning/mode whenever either side is non-default.
+- Cleanliness: literal strings extracted from the GT `watermarks` of `<id>.meta.json` (CJK runs of 4+ characters, digit runs
+  of 7+, parentheticals dropped, strings that are part of the GT's own text excluded) must not appear in predicted
+  title/artist/credits/lyrics: tp = absent, fp = leaked.
+- `agr-tool omr eval --images dir --gt dir [--ocr dir] [--ids a,b] [--metric v1|v2] [--json out]` prints pooled and macro
+  P/R/accuracy per category, groups and a per-page table; output is deterministic for identical recognizer output (the engine
+  is not deterministic across processes: average over a shell loop, `for r in 1 2 3; do agr-tool omr eval ... > run.$r.txt; done`).

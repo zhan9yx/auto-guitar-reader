@@ -2,11 +2,11 @@ import XCTest
 @testable import AGRCore
 
 final class OMRScorerTests: XCTestCase {
-    private func report(_ edit: (inout Score) -> Void) -> OMRScoreReport {
+    private func report(_ metric: OMRMetric = .v2, _ edit: (inout Score) -> Void) -> OMRScoreReport {
         let gt = V2.score()
         var p = gt
         edit(&p)
-        return OMRScorer.compare(groundTruth: gt, predicted: p)
+        return OMRScorer.compare(groundTruth: gt, predicted: p, metric: metric)
     }
     private func mutate(_ s: inout Score, _ f: (inout NotationMeasure) -> Void, measure: Int = 0) {
         f(&s.sections[0].lines[0].system!.measures[measure])
@@ -129,17 +129,21 @@ final class OMRScorerTests: XCTestCase {
     }
 
     func testBarlinesAndRepeats() {
-        let r = report { mutate(&$0, { $0.rightBarline = .single }, measure: 2) }
+        let r = report(.v1) { mutate(&$0, { $0.rightBarline = .single }, measure: 2) }
         XCTAssertEqual(r.barlines.fn, 1); XCTAssertEqual(r.barlines.fp, 0)
+        let r2 = report { mutate(&$0, { $0.rightBarline = .single }, measure: 2) }  // v2: a wrong kind is fn + fp
+        XCTAssertEqual(r2.barlines.fn, 1); XCTAssertEqual(r2.barlines.fp, 1)
         let v = report { mutate(&$0, { $0.volta = [1] }, measure: 2) }
         XCTAssertEqual(v.barlines.fp, 1)
         XCTAssertEqual(v.chords.fp + v.tab.fp, 0)
     }
 
     func testHeaderFields() {
-        let r = report { $0.meta.title = "别的歌"; $0.meta.capo = 2 }
+        let r = report(.v1) { $0.meta.title = "别的歌"; $0.meta.capo = 2 }
         XCTAssertEqual(r.header.tp, 3)  // artist, key, tempo
         XCTAssertEqual(r.header.fn, 1); XCTAssertEqual(r.header.fp, 2)
+        let r2 = report { $0.meta.title = "别的歌"; $0.meta.capo = 2 }  // v2: capo 0 vs 2 is fn + fp as well
+        XCTAssertEqual(r2.header.tp, 3); XCTAssertEqual(r2.header.fn, 2); XCTAssertEqual(r2.header.fp, 2)
         let same = report { $0.meta.title = " 小星云 " }
         XCTAssertEqual(same.header.fp + same.header.fn, 0)
     }

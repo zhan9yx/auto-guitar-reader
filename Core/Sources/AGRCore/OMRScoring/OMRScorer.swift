@@ -22,9 +22,22 @@ import Foundation
 //  * barlines    : non-default barlines, voltas and marks as tokens.
 //  * measures    : alignment result (tp = aligned pairs, fn = missing, fp = extra).
 //
+// Metric versions: `OMRMetric.v1` is the original metric (kept for comparability); `.v2` (default) is the honest one:
+//  * measures are paired only when their content similarity >= `pairThreshold` (otherwise gap = missing + extra), so a
+//    totally different measure no longer inflates measure tp and everything aligned under it;
+//  * rhythm counts EVERY GT tab event / melody note / measure (unmatched = wrong) and every extra predicted one;
+//    measure length is always scored (effective length from the time signature), so a wrong time signature hurts;
+//  * barlines count every right barline (single included) plus non-default left barlines, voltas and marks;
+//  * header also scores credits and non-default-on-either-side capo/tempo/time/tuning/mode as field pairs;
+//  * cleanliness: watermark strings of the GT (`meta.json` `watermarks`) found in predicted title/artist/credits/
+//    lyrics are errors (tp = clean needle, fp = leaked needle), weight 0.03;
+//  * precision / recall are reported per category next to tp/fp/fn.
+//
 // Overall = weighted mean of group accuracies (groups without any item in GT and prediction are skipped and the
 // weights renormalized): tab 30% (tab + strokes), melody 20%, lyrics 20%, chords 15% (chords + shapes),
 // rhythm 5%, barlines 5% (barlines + measures), header 5%.
+
+public enum OMRMetric: String, Codable, Sendable { case v1, v2 }
 
 public struct CategoryScore: Codable, Hashable, Sendable {
     public var tp: Int = 0
@@ -42,7 +55,7 @@ public struct CategoryScore: Codable, Hashable, Sendable {
     /// tp / (tp + fp + fn); 1 when the category is empty.
     public var accuracy: Double { isEmpty ? 1 : Double(tp) / Double(tp + fp + fn) }
 
-    mutating func add(_ o: CategoryScore) { tp += o.tp; fp += o.fp; fn += o.fn }
+    public mutating func add(_ o: CategoryScore) { tp += o.tp; fp += o.fp; fn += o.fn }
 
     enum CodingKeys: String, CodingKey { case tp, fp, fn, precision, recall, f1, accuracy }
     public init(from d: Decoder) throws {
@@ -111,8 +124,11 @@ public struct OMRScoreReport: Codable, Hashable, Sendable {
     public var lyrics = LyricsScore()
     public var barlines = CategoryScore()
     public var measures = CategoryScore()
+    /// v2 only: watermark needles that leaked into predicted text (tp = clean, fp = leaked).
+    public var cleanliness = CategoryScore()
+    public var metric: OMRMetric = .v2
     public var alignment = OMRMeasureAlignment()
-    /// Weighted groups (see file header): keys tab, melody, lyrics, chords, rhythm, barlines, header.
+    /// Weighted groups (see file header): keys tab, melody, lyrics, chords, rhythm, barlines, header, cleanliness (v2).
     public var groups: [String: OMRGroupScore] = [:]
     /// Weighted overall accuracy 0...1.
     public var overall: Double = 1
@@ -132,10 +148,10 @@ public struct OMRScoreReport: Codable, Hashable, Sendable {
         }
         var l = [row("header", header), row("chords", chords), row("chordShapes", chordShapes), row("tab", tab),
                  row("tabEvents", tabEvents), row("strokes", strokes), row("rhythm", rhythm), row("melody", melody),
-                 row("barlines", barlines), row("measures", measures),
+                 row("barlines", barlines), row("measures", measures)] + (metric == .v2 ? [row("cleanliness", cleanliness)] : []) + [
                  String(format: "lyrics       chars gt %d pred %d  edit %d  CER %.2f%%  acc %.2f%%", lyrics.groundTruthChars,
                         lyrics.predictedChars, lyrics.editDistance, lyrics.cer * 100, lyrics.accuracy * 100)]
-        for k in ["tab", "melody", "lyrics", "chords", "rhythm", "barlines", "header"] {
+        for k in ["tab", "melody", "lyrics", "chords", "rhythm", "barlines", "header", "cleanliness"] {
             if let g = groups[k] {
                 l.append(String(format: "  group %-8@ w %.2f acc %6.2f%%%@", k as NSString, g.weight, g.accuracy * 100, g.included ? "" : " (skipped)"))
             }
@@ -149,15 +165,26 @@ public enum OMRScorer {
     public static let weights: [String: Double] = [
         "tab": 0.30, "melody": 0.20, "lyrics": 0.20, "chords": 0.15, "rhythm": 0.05, "barlines": 0.05, "header": 0.05,
     ]
+    public static let weightsV2: [String: Double] = [
+        "tab": 0.29, "melody": 0.19, "lyrics": 0.19, "chords": 0.15, "rhythm": 0.05, "barlines": 0.05, "header": 0.05,
+        "cleanliness": 0.03,
+    ]
+    /// v2: minimum measure similarity (Dice over content tokens) for two measures to be paired.
+    public static let pairThreshold = 0.3
     /// Beat tolerance for matching events (1/16 beat).
     public static let beatTolerance = 1.0 / 16 + 1e-9
 
-    public static func compare(groundTruth gt: Score, predicted pred: Score) -> OMRScoreReport {
+    /// `watermarks` = the raw GT watermark descriptions (meta.json); only used by v2 (cleanliness).
+    public static func compare(groundTruth gt: Score, predicted pred: Score, metric: OMRMetric = .v2,
+                               watermarks: [String] = []) -> OMRScoreReport {
         var r = OMRScoreReport()
-        r.header = compareHeader(gt.meta, pred.meta)
+        let v2 = metric == .v2
+        r.metric = metric
+        r.header = compareHeader(gt.meta, pred.meta, v2: v2)
+        if v2 { r.cleanliness = cleanliness(gt: gt, pred: pred, watermarks: watermarks) }
 
         let g = flatten(gt), p = flatten(pred)
-        let al = align(g.map(\.m), p.map(\.m), gtBeats: g.map(\.defaultBeats), predBeats: p.map(\.defaultBeats))
+        let al = align(g.map(\.m), p.map(\.m), gtBeats: g.map(\.defaultBeats), predBeats: p.map(\.defaultBeats), minSimilarity: v2 ? pairThreshold : nil)
         r.alignment = OMRMeasureAlignment(groundTruthMeasures: g.count, predictedMeasures: p.count,
                                           pairs: al.pairs.map { [$0.0, $0.1] }, missing: al.missing, extra: al.extra)
         r.measures = CategoryScore(tp: al.pairs.count, fp: al.extra.count, fn: al.missing.count)
@@ -165,16 +192,16 @@ public enum OMRScorer {
         var lyricOps = (match: 0, sub: 0, del: 0, ins: 0)
         for (gi, pi) in al.pairs {
             let a = g[gi], b = p[pi]
-            scoreMeasure(a.m, b.m, a.defaultBeats, b.defaultBeats, into: &r)
+            scoreMeasure(a.m, b.m, a.defaultBeats, b.defaultBeats, v2: v2, into: &r)
             let d = lyricEdit(a.m, b.m)
             lyricOps.match += d.match; lyricOps.sub += d.sub; lyricOps.del += d.del; lyricOps.ins += d.ins
         }
         for gi in al.missing {
-            scoreOnly(g[gi].m, asGroundTruth: true, into: &r)
+            scoreOnly(g[gi].m, asGroundTruth: true, v2: v2, into: &r)
             lyricOps.del += lyricChars(g[gi].m).values.reduce(0) { $0 + $1.count }
         }
         for pi in al.extra {
-            scoreOnly(p[pi].m, asGroundTruth: false, into: &r)
+            scoreOnly(p[pi].m, asGroundTruth: false, v2: v2, into: &r)
             lyricOps.ins += lyricChars(p[pi].m).values.reduce(0) { $0 + $1.count }
         }
         r.lyrics.counts = CategoryScore(tp: lyricOps.match, fp: lyricOps.sub + lyricOps.ins, fn: lyricOps.sub + lyricOps.del)
@@ -182,11 +209,11 @@ public enum OMRScorer {
         r.lyrics.predictedChars = lyricOps.match + lyricOps.sub + lyricOps.ins
         r.lyrics.editDistance = lyricOps.sub + lyricOps.del + lyricOps.ins
 
-        finish(&r)
+        finish(&r, v2: v2)
         return r
     }
 
-    private static func finish(_ r: inout OMRScoreReport) {
+    private static func finish(_ r: inout OMRScoreReport, v2: Bool) {
         func merged(_ a: CategoryScore, _ b: CategoryScore) -> CategoryScore { var c = a; c.add(b); return c }
         let lyricsEmpty = r.lyrics.groundTruthChars == 0 && r.lyrics.predictedChars == 0
         let parts: [(String, CategoryScore, Double?)] = [
@@ -197,7 +224,8 @@ public enum OMRScorer {
             ("rhythm", r.rhythm, nil),
             ("barlines", merged(r.barlines, r.measures), nil),
             ("header", r.header, nil),
-        ]
+        ] + (v2 ? [("cleanliness", r.cleanliness, nil as Double?)] : [])
+        let weights = v2 ? weightsV2 : Self.weights
         var wsum = 0.0, acc = 0.0
         for (name, c, override) in parts {
             let w = weights[name] ?? 0
@@ -211,7 +239,9 @@ public enum OMRScorer {
 
     // MARK: Header
 
-    private static func compareHeader(_ a: ScoreMeta, _ b: ScoreMeta) -> CategoryScore {
+    private static func compareHeader(_ a: ScoreMeta, _ b: ScoreMeta, v2: Bool) -> CategoryScore {
+        // v2: a default-able field is scored when it is non-default on either side (a wrong value = fn + fp).
+        func on(_ field: (ScoreMeta) -> Bool, _ m: ScoreMeta) -> Bool { v2 ? (field(a) || field(b)) : field(m) }
         func tokens(_ m: ScoreMeta) -> [String] {
             func norm(_ s: String?) -> String? {
                 guard let s = s?.trimmingCharacters(in: .whitespacesAndNewlines), !s.isEmpty else { return nil }
@@ -223,11 +253,12 @@ public enum OMRScorer {
                 if let n = norm(v) { t.append("\(k)=\(n)") }
             }
             if let k = norm(m.key) { t.append("key=\(k.replacingOccurrences(of: "1=", with: ""))") }
-            if m.capo != 0 { t.append("capo=\(m.capo)") }
-            if m.tempo != 80 { t.append("tempo=\(Int(m.tempo.rounded()))") }
-            if m.timeSignature != TimeSignature() { t.append("time=\(m.timeSignature.beats)/\(m.timeSignature.unit)") }
-            if m.tuning != ScoreMeta.standardTuning { t.append("tuning=\(m.tuning)") }
-            if m.mode != .strumSing { t.append("mode=\(m.mode.rawValue)") }
+            if on({ $0.capo != 0 }, m) { t.append("capo=\(m.capo)") }
+            if on({ $0.tempo != 80 }, m) { t.append("tempo=\(Int(m.tempo.rounded()))") }
+            if on({ $0.timeSignature != TimeSignature() }, m) { t.append("time=\(m.timeSignature.beats)/\(m.timeSignature.unit)") }
+            if on({ $0.tuning != ScoreMeta.standardTuning }, m) { t.append("tuning=\(m.tuning)") }
+            if on({ $0.mode != .strumSing }, m) { t.append("mode=\(m.mode.rawValue)") }
+            if v2 { for c in m.credits { if let n = normText(c), !n.isEmpty { t.append("credit=\(n)") } } }
             return t
         }
         return multiset(tokens(a), tokens(b))
@@ -278,7 +309,7 @@ public enum OMRScorer {
         return 2 * Double(common) / Double(a.count + b.count)
     }
 
-    static func align(_ g: [NotationMeasure], _ p: [NotationMeasure], gtBeats: [Double], predBeats: [Double])
+    static func align(_ g: [NotationMeasure], _ p: [NotationMeasure], gtBeats: [Double], predBeats: [Double], minSimilarity: Double? = nil)
         -> (pairs: [(Int, Int)], missing: [Int], extra: [Int]) {
         let n = g.count, m = p.count
         if n == 0 || m == 0 { return ([], Array(0..<n), Array(0..<m)) }
@@ -289,7 +320,8 @@ public enum OMRScorer {
         for i in 1...n { dp[i][0] = Double(i) * gap; from[i][0] = 1 }
         for j in 1...m { dp[0][j] = Double(j) * gap; from[0][j] = 2 }
         for i in 1...n { for j in 1...m {
-            let diag = dp[i - 1][j - 1] + similarity(gs[i - 1], ps[j - 1]) + offset
+            let sim = similarity(gs[i - 1], ps[j - 1])
+            let diag = (minSimilarity.map { sim < $0 } ?? false) ? -Double.infinity : dp[i - 1][j - 1] + sim + offset
             let up = dp[i - 1][j] + gap, left = dp[i][j - 1] + gap
             if diag >= up && diag >= left { dp[i][j] = diag; from[i][j] = 0 }
             else if up >= left { dp[i][j] = up; from[i][j] = 1 }
@@ -328,16 +360,16 @@ public enum OMRScorer {
         "\(n.string)|\(n.chordTone ? "x" : String(n.fret))|\(n.technique?.rawValue ?? "")"
     }
 
-    static func barToken(_ m: NotationMeasure) -> [String] {
+    static func barToken(_ m: NotationMeasure, v2: Bool = false) -> [String] {
         var t: [String] = []
         if m.leftBarline != .single { t.append("L:\(m.leftBarline.rawValue)") }
-        if m.rightBarline != .single { t.append("R:\(m.rightBarline.rawValue)") }
+        if m.rightBarline != .single || v2 { t.append("R:\(m.rightBarline.rawValue)") }
         for v in m.volta.sorted() { t.append("V:\(v)") }
         for mk in m.marks { t.append("M:\(mk.lowercased().trimmingCharacters(in: .whitespaces))") }
         return t
     }
 
-    static func scoreMeasure(_ a: NotationMeasure, _ b: NotationMeasure, _ da: Double, _ db: Double, into r: inout OMRScoreReport) {
+    static func scoreMeasure(_ a: NotationMeasure, _ b: NotationMeasure, _ da: Double, _ db: Double, v2: Bool = false, into r: inout OMRScoreReport) {
         // Chords + shapes.
         let cm = matchByBeat(a.chords.map(\.beat), b.chords.map(\.beat)) {
             ChordNameNormalizer.key(a.chords[$0].name) == ChordNameNormalizer.key(b.chords[$1].name)
@@ -380,6 +412,9 @@ public enum OMRScorer {
         for (j, e) in b.tab.enumerated() where !tp.contains(j) {
             r.tab.fp += e.notes.count; r.tabEvents.fp += 1; if e.stroke != nil { r.strokes.fp += 1 }
         }
+        if v2 {  // unmatched events are rhythm errors too (missed = fn, extra = fp)
+            r.rhythm.fn += a.tab.count - tg.count; r.rhythm.fp += b.tab.count - tp.count
+        }
 
         // Melody.
         let mm = matchByBeat(a.melody.map(\.beat), b.melody.map(\.beat))
@@ -394,17 +429,18 @@ public enum OMRScorer {
         }
         r.melody.fn += a.melody.count - mg.count
         r.melody.fp += b.melody.count - mp.count
+        if v2 { r.rhythm.fn += a.melody.count - mg.count; r.rhythm.fp += b.melody.count - mp.count }
 
         // Measure length (only when either side states one).
-        if a.beats != nil || b.beats != nil {
+        if v2 || a.beats != nil || b.beats != nil {
             if abs((a.beats ?? da) - (b.beats ?? db)) <= beatTolerance { r.rhythm.tp += 1 } else { r.rhythm.fn += 1; r.rhythm.fp += 1 }
         }
 
-        r.barlines.add(multiset(barToken(a), barToken(b)))
+        r.barlines.add(multiset(barToken(a, v2: v2), barToken(b, v2: v2)))
     }
 
     /// Counts a measure that has no counterpart: everything in it is fn (GT) or fp (prediction).
-    static func scoreOnly(_ m: NotationMeasure, asGroundTruth gt: Bool, into r: inout OMRScoreReport) {
+    static func scoreOnly(_ m: NotationMeasure, asGroundTruth gt: Bool, v2: Bool = false, into r: inout OMRScoreReport) {
         func add(_ c: inout CategoryScore, _ n: Int) { if gt { c.fn += n } else { c.fp += n } }
         add(&r.chords, m.chords.count)
         add(&r.chordShapes, m.chords.filter { $0.shape != nil }.count)
@@ -412,7 +448,66 @@ public enum OMRScorer {
         add(&r.tabEvents, m.tab.count)
         add(&r.strokes, m.tab.filter { $0.stroke != nil }.count)
         add(&r.melody, m.melody.count)
-        add(&r.barlines, barToken(m).count)
+        add(&r.barlines, barToken(m, v2: v2).count)
+        if v2 { add(&r.rhythm, m.tab.count + m.melody.count + 1) }  // events, notes and the measure length
+    }
+
+    // MARK: Cleanliness (v2)
+
+    /// Fold width, lowercase, drop whitespace and punctuation.
+    static func normText(_ s: String?) -> String? {
+        guard let s else { return nil }
+        let f = ChordNameNormalizer.foldWidth(s).lowercased()
+        return String(f.unicodeScalars.filter { !CharacterSet.whitespacesAndNewlines.contains($0) && !CharacterSet.punctuationCharacters.contains($0) && !CharacterSet.symbols.contains($0) })
+    }
+
+    /// Literal strings worth searching for in the prediction, extracted from free-text watermark descriptions:
+    /// maximal CJK runs of >= 4 characters (punctuation / whitespace / latin split runs) and digit runs of >= 7
+    /// (phone / QQ numbers), parenthetical remarks removed. Needles that also occur in the GT's own text are dropped.
+    public static func watermarkNeedles(_ watermarks: [String], gtText: String = "") -> [String] {
+        let gtNorm = normText(gtText) ?? ""
+        var out = Set<String>()
+        for w in watermarks {
+            var plain = ""
+            var depth = 0
+            for ch in ChordNameNormalizer.foldWidth(w) {
+                if ch == "(" { depth += 1 } else if ch == ")" { depth = max(0, depth - 1) } else if depth == 0 { plain.append(ch) }
+            }
+            var cjk = "", digits = ""
+            func flush() {
+                if cjk.count >= 4 { out.insert(cjk) }
+                if digits.count >= 7 { out.insert(digits) }
+                cjk = ""; digits = ""
+            }
+            for ch in plain {
+                let cjkChar = ch.unicodeScalars.contains { (0x4E00...0x9FFF).contains($0.value) }
+                if cjkChar { if !digits.isEmpty { flush() }; cjk.append(ch) }
+                else if ch.isASCII && ch.isNumber { if !cjk.isEmpty { flush() }; digits.append(ch) }
+                else { flush() }
+            }
+            flush()
+        }
+        return out.filter { !gtNorm.contains(normText($0) ?? "\u{0}") }.sorted()
+    }
+
+    static func allText(_ s: Score) -> String {
+        var t = [s.meta.title, s.meta.artist ?? "", s.meta.composer ?? "", s.meta.lyricist ?? "", s.meta.arranger ?? ""] + s.meta.credits
+        for m in flatten(s) { for n in m.m.melody { t.append(contentsOf: n.lyrics) } }
+        return t.joined(separator: "\n")
+    }
+
+    static func cleanliness(gt: Score, pred: Score, watermarks: [String]) -> CategoryScore {
+        let needles = watermarkNeedles(watermarks, gtText: allText(gt))
+        // Lyrics are concatenated per note, so search the lyric stream as one string as well as each field.
+        var haystack = (normText(allText(pred)) ?? "")
+        var lyric = ""
+        for m in flatten(pred) { for n in m.m.melody.sorted(by: { $0.beat < $1.beat }) { lyric += n.lyrics.joined() } }
+        haystack += "\n" + (normText(lyric) ?? "")
+        var c = CategoryScore()
+        for n in needles {
+            if haystack.contains(normText(n) ?? "\u{0}") { c.fp += 1 } else { c.tp += 1 }
+        }
+        return c
     }
 
     // MARK: Lyrics
