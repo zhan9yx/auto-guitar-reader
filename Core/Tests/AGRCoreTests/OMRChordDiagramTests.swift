@@ -90,3 +90,17 @@ final class OMRChordDiagramTests: XCTestCase {
         XCTAssertEqual(d.rel[2], 1)
     }
 }
+
+/// Chord placement: the diagram is left-aligned with the first event it governs, so its centre sits half a diagram
+/// to the right of that event; beats are interpolated between the events and rounded to whole beats.
+final class OMRChordPlacementTests: XCTestCase {
+    func testCentreMinusHalfDiagramSnapsToWholeBeat() {
+        let anchors: [(x: Double, beat: Double)] = [(100, 0), (130, 0.5), (160, 1), (190, 1.5), (250, 3), (280, 3.5)]
+        let span = MeasureSpan(x0: 80, x1: 300, beats: 4, anchors: anchors)
+        // chord on the downbeat: centre 28 px right of the first event, half diagram 28
+        XCTAssertEqual(OMRChordReader.place(x: 128, spans: [span], shift: 28).1, 0)
+        // no event at beat 2 (rest): the position between the events at 1.5 and 3 still rounds to 2
+        XCTAssertEqual(OMRChordReader.place(x: 218 + 0, spans: [span], shift: 28).1, 2)
+        XCTAssertEqual(OMRChordReader.place(x: 278, spans: [span], shift: 28).1, 3)
+    }
+}

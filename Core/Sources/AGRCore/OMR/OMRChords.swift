@@ -178,7 +178,8 @@ enum OMRChordReader {
         var placed: [(measure: Int, chord: ChordMark, x: Double, diagram: Int?)] = []
         for e in entries.sorted(by: { $0.x < $1.x }) {
             guard !spans.isEmpty else { break }
-            let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0)
+            let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0, shift: e.di != nil ? halfW : nil)
+            if debugOn { let sp = spans[mi]; FileHandle.standardError.write(Data("place \(e.name) x \(Int(e.x)) m\(mi) span \(Int(sp.x0))-\(Int(sp.x1)) frac \(String(format: "%.3f", (e.x - sp.x0) / (sp.x1 - sp.x0))) beat \(beat) anchors \(sp.anchors.map { "\(Int($0.x)):\($0.beat)" })\n".utf8)) }
             var mark = ChordMark(name: e.name, beat: beat, shape: e.shape)
             if let msg = crossCheck(name: e.name, shape: e.shape) {
                 if let fixed = tryFix(name: e.name, shape: e.shape) {
@@ -230,11 +231,28 @@ enum OMRChordReader {
 
     // MARK: Measure / beat placement
 
-    static func place(x: Double, spans: [MeasureSpan], p0: Double = 0.05) -> (Int, Double) {
+    static func place(x: Double, spans: [MeasureSpan], p0: Double = 0.05, shift: Double? = nil) -> (Int, Double) {
         var mi = 0
         for (i, s) in spans.enumerated() where x >= s.x0 - 0.02 * (s.x1 - s.x0) { mi = i }
         let s = spans[mi]
         let w = max(1, s.x1 - s.x0)
+        if !s.anchors.isEmpty, let shift {
+            // The diagram (and the name centred on it) is left-aligned with the first event it governs, so the
+            // event position is the centre minus half the diagram. Interpolate the beat between the events and
+            // round to a whole beat: chord changes sit on beats.
+            let xa = x - shift
+            let a = s.anchors.sorted { $0.x < $1.x }
+            var beat = a[0].beat
+            if xa >= a[a.count - 1].x { beat = a[a.count - 1].beat }
+            else if xa > a[0].x {
+                for i in 1..<a.count where xa <= a[i].x {
+                    let dx = a[i].x - a[i - 1].x
+                    beat = dx > 0 ? a[i - 1].beat + (a[i].beat - a[i - 1].beat) * (xa - a[i - 1].x) / dx : a[i].beat
+                    break
+                }
+            }
+            return (mi, min(max(0, beat.rounded(.toNearestOrAwayFromZero)), max(0, s.beats - 1)))
+        }
         if !s.anchors.isEmpty {
             let xa = x - 0.2 * w / max(1, s.beats)
             let best = s.anchors.min { abs($0.x - xa) < abs($1.x - xa) }!
