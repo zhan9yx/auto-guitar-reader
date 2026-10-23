@@ -375,7 +375,7 @@ enum OMRChordReader {
             for j in 0..<n {
                 let yc = (lineYs[j] + lineYs[j + 1]) / 2
                 let sc = dotScore(bm, x: xs[i], y: yc, sp: sp, f: fAdj, base: base)
-                if debugOn && sc >= 0.9 && ProcessInfo.processInfo.environment["OMR_CH_DOTS"] != nil {
+                if debugOn && sc >= 0.9 && OMRTrace.flag("OMR_CH_DOTS") {
                     var d = ""
                     for yy in Int(yc.rounded()) - 2...Int(yc.rounded()) + 2 { d += " \(rowSpan(bm, x: xs[i], y: yy, sp: sp))" }
                     FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) base \(base) spans\(d)\n".utf8))
@@ -403,7 +403,7 @@ enum OMRChordReader {
                                 grid: grid, xs: xs, lineYs: lineYs, rel: rel)
         d.confidence = conf
         if OMRChordReader.debugOn {
-            if ProcessInfo.processInfo.environment["OMR_CH_ASCII"] != nil {
+            if OMRTrace.flag("OMR_CH_ASCII") {
                 var txt = ""
                 for yy in max(0, r.y0 - 10)..<min(bm.h, r.y1 + 2) {
                     for xx in max(0, r.x0 - 8)..<min(bm.w, r.x1 + 3) { txt += bm.d[yy * bm.w + xx] != 0 ? "#" : "." }
@@ -416,7 +416,7 @@ enum OMRChordReader {
         return d
     }
 
-    static let debugOn = ProcessInfo.processInfo.environment["OMR_CH_DEBUG"] != nil
+    static let debugOn = OMRTrace.flag("OMR_CH_DEBUG")
 
     static func rowSpan(_ bm: Bitmap, x: Double, y: Int, sp: Double) -> Double {
         guard y >= 0, y < bm.h else { return 0 }

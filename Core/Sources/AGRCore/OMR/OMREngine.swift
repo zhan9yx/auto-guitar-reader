@@ -90,7 +90,7 @@ enum OMRPage {
         OMRVision.removeSolidBlobs(&bm)
         OMRVision.removeSolidBlobs(&bmLine)
         let staves = OMRStaffDetector.detect(bmLine)
-        if ProcessInfo.processInfo.environment["AGR_OMR_TRACE"] != nil {
+        if OMRTrace.flag("AGR_OMR_TRACE") {
             FileHandle.standardError.write(Data("slope \(slope) staves \(staves.count) u \(staves.first.map { $0.u } ?? 0)\n".utf8))
         }
         if staves.isEmpty {
@@ -116,7 +116,7 @@ enum OMRPage {
             let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image)
             let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared)
             if let ts = mts.first?.timeSig, ts.beats > 0, ts.beats <= 12, [2, 4, 8].contains(ts.unit) {
-                beats = Double(ts.beats) * (ts.unit == 8 ? 1 : 1); unit = ts.unit
+                beats = Double(ts.beats); unit = ts.unit
                 res.meta.timeSignature = TimeSignature(beats: ts.beats, unit: ts.unit)
                 timeFromClef = true
             }
@@ -124,7 +124,7 @@ enum OMRPage {
         var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
             let bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image), bm: bm, bmLine: bmLine, staff: st)
-            if ProcessInfo.processInfo.environment["AGR_OMR_TRACE"] != nil {
+            if OMRTrace.flag("AGR_OMR_TRACE") {
                 FileHandle.standardError.write(Data(" staff y \(Int(st.top)) bars \(bars.count) x \(st.x0)-\(st.x1)\n".utf8))
             }
             trace?.add(IRect(x0: st.x0, y0: Int(st.top), x1: st.x1, y1: Int(st.bottom)), (255, 0, 0), "staff")
@@ -362,7 +362,7 @@ enum OMRPage {
             return rr - l + 1
         }
         var out = bars
-        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil {
+        if OMRTrace.flag("OMR_DEBUG_BAR") {
             FileHandle.standardError.write(Data(" recover runs \(runs) y \(y0)-\(y1) in \(bars.map { $0.x0 })\n".utf8))
         }
         for r in runs where r.1 - r.0 <= 5 {

@@ -94,7 +94,7 @@ enum OMRStaffDetector {
                 y = e
             } else { y += 1 }
         }
-        if ProcessInfo.processInfo.environment["OMR_DEBUG_STAFF"] != nil { FileHandle.standardError.write(Data("lines \(lines.map { String(format: "%.1f/%d", $0.y, $0.t) }) thr \(thr) maxSum \(maxSum) minRun \(minRun)\n".utf8)) }
+        if OMRTrace.flag("OMR_DEBUG_STAFF") { FileHandle.standardError.write(Data("lines \(lines.map { String(format: "%.1f/%d", $0.y, $0.t) }) thr \(thr) maxSum \(maxSum) minRun \(minRun)\n".utf8)) }
         // String spacing is the common small gap (typically 8–40 px). An equally spaced chain
         // several times that gap is text and staff lines mixed together, not a tab staff.
         let gaps = (0..<max(0, lines.count - 1)).map { lines[$0 + 1].y - lines[$0].y }
@@ -127,7 +127,7 @@ enum OMRStaffDetector {
                     chain.append(j)
                 }
             }
-            if ProcessInfo.processInfo.environment["OMR_DEBUG_STAFF"] != nil { FileHandle.standardError.write(Data("i \(i) s \(s) ok \(ok) chain \(chain)\n".utf8)) }
+            if OMRTrace.flag("OMR_DEBUG_STAFF") { FileHandle.standardError.write(Data("i \(i) s \(s) ok \(ok) chain \(chain)\n".utf8)) }
             if ok {
                 let ls = chain.map { lines[$0] }
                 let ys = ls.map { $0.y }
@@ -317,7 +317,7 @@ enum OMRStaffDetector {
             let total = y1 - y0 - 3
             var edgeGaps = 0
             for y in [y0, y0 + 1, y1 - 1, y1] where y >= 0 && y < bm.h && bm.d[y * bm.w + x] == 0 { edgeGaps += 1 }
-            if ProcessInfo.processInfo.environment["OMR_DEBUG_COL"] != nil, let t = Int(ProcessInfo.processInfo.environment["OMR_DEBUG_COL"]!), abs(t - x) <= 1 { FileHandle.standardError.write(Data("col \(x) n \(n) total \(total) maxGap \(maxGap) edge \(edgeGaps) y \(y0)-\(y1)\n".utf8)) }
+            if OMRTrace.flag("OMR_DEBUG_COL"), let t = Int(OMRTrace.value("OMR_DEBUG_COL") ?? ""), abs(t - x) <= 1 { FileHandle.standardError.write(Data("col \(x) n \(n) total \(total) maxGap \(maxGap) edge \(edgeGaps) y \(y0)-\(y1)\n".utf8)) }
             if Double(n) >= 0.98 * Double(total) && maxGap <= 1 && edgeGaps <= 2 { cols.append(x) }
         }
         // group columns into runs
@@ -325,7 +325,7 @@ enum OMRStaffDetector {
         for c in cols {
             if let l = runs.last, c <= l.1 + 1 { runs[runs.count - 1].1 = c } else { runs.append((c, c)) }
         }
-        if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil { FileHandle.standardError.write(Data("cols \(cols.count) runs \(runs) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1) bands \(st.bands)\n".utf8)) }
+        if OMRTrace.flag("OMR_DEBUG_BAR") { FileHandle.standardError.write(Data("cols \(cols.count) runs \(runs) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1) bands \(st.bands)\n".utf8)) }
         // strum arrows: a vertical shaft with a wider arrow head at one end is not a barline
         runs = runs.filter { r in
             if r.1 - r.0 > 5 { return true }
@@ -348,7 +348,7 @@ enum OMRStaffDetector {
             let midW = width(atY: midY)
             let keep = Double(headW) < Double(midW) + max(2.5, 0.17 * u)
             let shaft = isStrumShaft(bm, run: r, staff: st)
-            if ProcessInfo.processInfo.environment["OMR_DEBUG_BAR"] != nil {
+            if OMRTrace.flag("OMR_DEBUG_BAR") {
                 FileHandle.standardError.write(Data(" run \(r.0)-\(r.1) head \(headW) mid \(midW) keep \(keep) shaft \(shaft) tailB \(tailBelow(bm, run: r, staff: st))\n".utf8))
             }
             return keep && !shaft

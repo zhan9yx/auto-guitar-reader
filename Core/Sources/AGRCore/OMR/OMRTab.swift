@@ -81,7 +81,7 @@ enum OMRTabAnalyzer {
             }
             if let b = best { cols.append((x, b.0, b.1)) }
         }
-        if ProcessInfo.processInfo.environment["OMR_DEBUG_COLS"] != nil { FileHandle.standardError.write(Data("cols \(cols.filter { $0.x > 385 && $0.x < 430 }.map { "\($0.x):\($0.y0)-\($0.y1)" })  bottom \(st.bottom)\n".utf8)) }
+        if OMRTrace.flag("OMR_DEBUG_COLS") { FileHandle.standardError.write(Data("cols \(cols.filter { $0.x > 385 && $0.x < 430 }.map { "\($0.x):\($0.y0)-\($0.y1)" })  bottom \(st.bottom)\n".utf8)) }
         var stems: [Stem] = []
         var i = 0
         while i < cols.count {
@@ -304,7 +304,7 @@ enum OMRTabAnalyzer {
             let cl = classifier.classify(bmp, role: .tabDigit)
             if let (label, conf) = cl, conf >= 0.25 {
                 if label == "x" { items.append(Item(x: r.cx, kind: .cross, string: sIdx + 1, conf: conf, rect: r)); items[items.count - 1].strumStrings = []; if so > 0.4 { others.append(TabGlyph(rect: r, kind: .unknown, confidence: 0.1, string: sIdx + 1, stringOffset: so)) }; continue }
-                if ProcessInfo.processInfo.environment["OMR_DEBUG_GLYPH"] != nil, Int(label) != nil { FileHandle.standardError.write(Data("digit \(label) conf \(conf) rect \(r.x0),\(r.y0) \(r.w)x\(r.h) area \(c.area)\n".utf8)) }
+                if OMRTrace.flag("OMR_DEBUG_GLYPH"), Int(label) != nil { FileHandle.standardError.write(Data("digit \(label) conf \(conf) rect \(r.x0),\(r.y0) \(r.w)x\(r.h) area \(c.area)\n".utf8)) }
                 if let d = Int(label) { items.append(Item(x: r.cx, kind: .digit(d), string: sIdx + 1, conf: conf, rect: r)); continue }
                 if label == "clef" || label == "cjk" || label == "H" || label == "P" || label == "S" || label == "(" || label == ")" { others.append(TabGlyph(rect: r, kind: .unknown, confidence: conf, string: sIdx + 1, stringOffset: so)); continue }
             }
@@ -362,7 +362,7 @@ enum OMRTabAnalyzer {
             }
             for r in mRests { slots.append(Slot(x: r.cx, dur: unitScale, ev: nil)) }
             slots.sort { $0.x < $1.x }
-            if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
+            if OMRTrace.flag("OMR_DEBUG") { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
             let restIdx = slots.indices.filter { slots[$0].ev == nil }
             let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
             var repairs: [String] = []

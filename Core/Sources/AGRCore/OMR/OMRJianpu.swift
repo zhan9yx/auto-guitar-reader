@@ -113,7 +113,7 @@ enum OMRJianpuReader {
         let lyricFrac = lyricRows.first.map { $0.top + 0.35 * ($0.bottom - $0.top) } ?? Double.infinity
         let lyricTop = min(lyricInk, lyricFrac)
         let lyricScan = lyricRows.first?.bottom ?? lyricTop
-        if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil { for lr in lyricRows { print("   lyricRow \(Int(lr.top))-\(Int(lr.bottom)) inkTop \(Int(lr.inkTop)) \(lr.syllables.map { $0.text }.joined())") } }
+        if OMRTrace.flag("AGR_JP_DEBUG") { for lr in lyricRows { print("   lyricRow \(Int(lr.top))-\(Int(lr.bottom)) inkTop \(Int(lr.inkTop)) \(lr.syllables.map { $0.text }.joined())") } }
 
         // ---- split the region at the digit baseline: upper part (digits, dots above, arcs, dashes, accidentals),
         // lower part (underlines are scanned per note; octave dots below are components of the lower part)
@@ -147,7 +147,7 @@ enum OMRJianpuReader {
         for c in lab.comps {
             let r = offsetRect(c.rect)
             let h = Double(r.h), w = Double(r.w)
-            if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] == "all", r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   ALL x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area)") }
+            if OMRTrace.value("AGR_JP_DEBUG") == "all", r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   ALL x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area)") }
             if barSet.contains(where: { abs($0 - r.cx) < 2.5 }) && w <= 0.3 * Hd && h / max(w, 1) >= 4 { used.insert(c.id); continue }
             // geometry of a note glyph relative to the row
             guard r.cy >= rowTop - 0.12 * Hd, r.cy <= rowBottom + 0.12 * Hd else { continue }
@@ -194,7 +194,7 @@ enum OMRJianpuReader {
                                     degree: Int(label)!, conf: conf))
         }
         notes.sort { $0.cx < $1.cx }
-        if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil { print("   barXs \(barXs.map { Int($0) }.sorted()) Hd \(Hd) medW \(medW)") }
+        if OMRTrace.flag("AGR_JP_DEBUG") { print("   barXs \(barXs.map { Int($0) }.sorted()) Hd \(Hd) medW \(medW)") }
         guard !notes.isEmpty else { res.issues.append(issue(.jianpuUnread, nil, "no notes")); return res }
 
         // ---- attach marks
@@ -211,7 +211,7 @@ enum OMRJianpuReader {
         var underlines: [(x0: Double, x1: Double, levels: Int)] = []
         var dashes: [Double] = []
         var arcs: [(x0: Double, x1: Double)] = []
-        let dbg = ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil
+        let dbg = OMRTrace.flag("AGR_JP_DEBUG")
         for c in lab.comps where !used.contains(c.id) {
             let r = offsetRect(c.rect)
             let h = Double(r.h), w = Double(r.w)

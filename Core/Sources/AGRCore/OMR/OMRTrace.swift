@@ -2,6 +2,16 @@ import Foundation
 
 /// Optional debug recorder: rectangles / labels drawn over the (deskewed) page.
 final class OMRTrace {
+    /// Debug environment variables (`OMR_*`, `AGR_OMR_*`, `AGR_JP_*`), read once. `ProcessInfo.environment` copies the
+    /// whole environment on every call, so it must not be queried inside per-column / per-glyph loops.
+    private static let env: [String: String] = ProcessInfo.processInfo.environment.filter {
+        $0.key.hasPrefix("OMR_") || $0.key.hasPrefix("AGR_OMR_") || $0.key.hasPrefix("AGR_JP_")
+    }
+    /// True when any debug variable is set; guard debug-only work with this first.
+    static let enabled = !env.isEmpty
+    static func flag(_ key: String) -> Bool { enabled && env[key] != nil }
+    static func value(_ key: String) -> String? { enabled ? env[key] : nil }
+
     struct Box { var r: IRect; var color: (UInt8, UInt8, UInt8); var text: String }
     var boxes: [Box] = []
     func add(_ r: IRect, _ c: (UInt8, UInt8, UInt8), _ t: String = "") { boxes.append(Box(r: r, color: c, text: t)) }
