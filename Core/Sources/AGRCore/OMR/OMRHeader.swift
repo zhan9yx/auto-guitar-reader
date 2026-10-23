@@ -41,7 +41,7 @@ public enum OMRHeaderReader {
             if cy < top - 0.3 * u { keep.append(t) }
         }
         // rows
-        let rows = OCRRowBuilder.rows(from: keep)
+        let rows = splitColumns(OCRRowBuilder.rows(from: keep))
         struct Row { var text: String; var folded: String; var cy: Double; var h: Double; var cx: Double; var tokens: [OCRToken] }
         var rs: [Row] = rows.map { r in
             let folded = ChordNameNormalizer.foldWidth(r.text)
@@ -52,6 +52,7 @@ public enum OMRHeaderReader {
         var priorityKey = -1
         var titleCandidates: [Int] = []
         var creditRows: [Int] = []
+        var sourceRows: [Int] = []
         var metaRows = Set<Int>()
         var timeFromText: (Int, Int)?
         var capoShapeKey: String?
@@ -97,7 +98,7 @@ public enum OMRHeaderReader {
                     if let g = Rx.firstMatch(#"(?i)(?:bpm|tempo|速度)[:：=]?(?:[♩♪♫]=?|[Jj]=?)?(?:≈|约)?(\d{2,3})"#, in: T) ?? Rx.firstMatch(#"[♩♪♫][=≈](\d{2,3})"#, in: T)
                         ?? Rx.firstMatch(#"(?:^|[^\d=A-Za-z])[Jj]=(\d{2,3})"#, in: T) ?? Rx.firstMatch(#"(\d{2,3})(?i:bpm)"#, in: T)
                         ?? Rx.firstMatch(#"(?:速度|演奏速度)[:：=]?.{0,3}?=?(\d{2,3})"#, in: T), let v = g[1] { bpm = Double(v) }
-                    else if let g = Rx.firstMatch(#"(?:^|[^\d])=\s*(\d{2,3})$"#, in: T), let v = g[1], !T.contains("1="), r.cy < top - 0.5 * u { bpm = Double(v) }
+                    else if let g = Rx.firstMatch(#"(?:^|[^\d])=\s*(\d{2,3})$"#, in: T) ?? Rx.firstMatch(#"^\d{1,2}/\d{1,2}[=≈](\d{2,3})$"#, in: T), let v = g[1], !T.contains("1="), r.cy < top - 0.5 * u { bpm = Double(v) }
                     else if let g = Rx.firstMatch(#"^(\d{2,3})=[□■口]*$"#, in: T), let v = g[1] { bpm = Double(v) }      // "96=□□" (note glyph lost by OCR)
                     if let b = bpm, (30...300).contains(b) { if !res.found.contains("tempo") { res.meta.tempo = b; res.found.insert("tempo") }; isMeta = true }
                 }
@@ -105,12 +106,17 @@ public enum OMRHeaderReader {
             let T = Trow; _ = Srow
             // time signature written as text
             if timeFromText == nil, let g = Rx.firstMatch(#"(?<![\d/])(\d{1,2})/(\d{1,2})(?:拍)?(?![\d/])"#, in: T), let b = Int(g[1] ?? ""), let un = Int(g[2] ?? ""),
-               (1...12).contains(b), [2, 4, 8, 16].contains(un), r.cy < top - 0.5 * u, Rx.test(#"(?i)(1=|key|调|拍|bpm|tempo|capo)"#, T) || T.count <= 5 {
+               (1...12).contains(b), [2, 4, 8, 16].contains(un), r.cy < top - 0.5 * u, Rx.test(#"(?i)(1=|key|调|拍|bpm|tempo|capo)"#, T) || T.count <= 5 || Rx.test(#"^\d{1,2}/\d{1,2}[=≈]\d{2,3}$"#, T) {
                 timeFromText = (b, un); isMeta = true
             }
             // credits / artist labels
             let creditRx = #"(?:作词|作曲|词曲|曲词|词|曲|编配|编曲|编谱|制谱|整理|记谱|扒谱|校对|吉他谱|吉他编配|演唱者|演唱|原唱|歌手|主唱|arranged|transcribed|music|lyrics|words|artist|singer)\s*[:：]|(?:作词|作曲|编配|编曲|制谱|整理|演唱|原唱|歌手)\s*\S"#
-            if Rx.test("(?i)" + creditRx, r.folded) || Rx.test(#"(词曲|编\s*配|制\s*谱)\s*$"#, T) { creditRows.append(i); isMeta = true }
+            // header prose about key / capo ("原调为A调，变调夹夹二品", "男生调capo:3") and the work's source ("《…》电影主题曲") are
+            // printed header lines too (GT credits); a bare "1=G" / "♩=76" / "4/4" is not.
+            let proseMeta = Rx.test(#"(?i)(变调夹|原调|选调|capo)"#, T) && !Rx.test(#"^(?i)(capo[:：=]?\d{0,2}|变调夹[:：=]?\d{0,2}品?)$"#, T)
+            let sourceNote = Rx.test(#"(电影|电视剧|动画|主题曲|插曲|片尾曲|片头曲|主题歌|改编自)"#, T) && T.count <= 30
+            if Rx.test("(?i)" + creditRx, r.folded) || Rx.test("(?i)" + creditRx, Trow) || Rx.test(#"(词曲|编\s*配|制\s*谱)\s*$"#, T) || proseMeta { creditRows.append(i); isMeta = true }
+            if !isMeta, sourceNote { sourceRows.append(i) }
             if isMeta { metaRows.insert(i) }
             else if !SectionHeaderParser.isSectionLabel(r.folded), !looksLikeChordRow(r.tokens), OMRChordReader.cleanName(T) == nil || T.count > 6 { titleCandidates.append(i) }
         }
@@ -137,6 +143,21 @@ public enum OMRHeaderReader {
             res.meta.timeSignature = TimeSignature(beats: t.0, unit: t.1); res.found.insert("time")
         }
 
+        // a wrapped credit ("原唱：A /" + "B / C" directly below, same left edge) continues its row
+        var continuation: [Int: Int] = [:]
+        for i in creditRows {
+            let r = rs[i]
+            guard let c = r.text.last else { continue }
+            let left = (r.tokens.first?.x ?? 0) * W
+            for j in titleCandidates where !continuation.values.contains(j) {
+                let n = rs[j]
+                guard n.cy > r.cy, n.cy - r.cy <= 2.2 * max(r.h, n.h), abs((n.tokens.first?.x ?? 0) * W - left) <= 1.5 * r.h, n.h <= 1.3 * r.h, n.h >= 0.6 * r.h else { continue }
+                let startsSep = n.text.first.map { "/、,，&".contains($0) } ?? false
+                if "/、,，&".contains(c) || startsSep { continuation[i] = j; break }
+            }
+        }
+        titleCandidates.removeAll { continuation.values.contains($0) }
+
         // title: tallest candidate row in the upper region (centered rows win ties); artist: next smaller row below
         let region = titleCandidates.filter { rs[$0].cy < top - (firstStaffTop == nil ? 1.0 : 7.5) * u && rs[$0].tokens.allSatisfy { $0.confidence >= 0.5 } }
         func score(_ i: Int) -> Double {
@@ -144,8 +165,18 @@ public enum OMRHeaderReader {
             let centered = 1 - min(1, abs(r.cx - W / 2) / (W / 2)) * 0.25
             return r.h * centered - 0.0004 * r.cy
         }
-        if let ti = region.max(by: { score($0) < score($1) }) {
+        // tallest row wins; rows within 15% of its height are the same type size, so the topmost of those is the title
+        // (a subtitle such as "《电影》主题曲" printed just below in a similar size must not outrank it)
+        func pickTitle() -> Int? {
+            guard let best = region.max(by: { score($0) < score($1) }) else { return nil }
+            let hmax = region.map { rs[$0].h }.max() ?? 0
+            let tall = region.filter { rs[$0].h >= 0.85 * hmax }
+            return tall.min(by: { (rs[$0].cy, $0) < (rs[$1].cy, $1) }) ?? best
+        }
+        var titleRow: Int?, artistRow: Int?
+        if let ti = pickTitle() {
             let r = rs[ti]
+            titleRow = ti
             var title = cleanTitle(r.text)
             var artist: String?
             for sep in [" - ", " – ", " — ", "—"] {
@@ -158,17 +189,27 @@ public enum OMRHeaderReader {
             if let a = artist { res.meta.artist = a; res.found.insert("artist") }
             else if let ai = region.filter({ rs[$0].cy > r.cy && rs[$0].cy - r.cy < 4.0 * r.h && rs[$0].h <= 0.95 * r.h }).min(by: { rs[$0].cy < rs[$1].cy }) {
                 let a = cleanTitle(rs[ai].text)
-                if a.count <= 40 { res.meta.artist = a; res.found.insert("artist") }
+                if a.count <= 40, !looksLikeNonArtist(a) { res.meta.artist = a; res.found.insert("artist"); artistRow = ai }
             }
         }
         // labelled artist overrides a line picked up under the title (演唱 / 原唱 / 歌手)
         for i in creditRows {
             if let g = Rx.firstMatch(#"(?:演唱者|演唱|原\s*唱|歌手|主唱|(?i:singer|artist))\s*[:：]?\s*(\S.*)$"#, in: rs[i].folded) {
-                let v = (g[1] ?? "").agrTrimmed
+                var v = (g[1] ?? "").agrTrimmed
+                if let j = continuation[i] { v = spacedNames(v + " " + rs[j].text.agrTrimmed) }
                 if !v.isEmpty { res.meta.artist = v; res.found.insert("artist"); break }
             }
         }
-        for i in creditRows { let t = rs[i].text.agrTrimmed; if !res.meta.credits.contains(t) { res.meta.credits.append(t) } }
+        // "《…》电影主题曲"-style source notes are credits unless they are the title / artist line themselves
+        for i in sourceRows where i != titleRow && !(i == artistRow && res.meta.artist == cleanTitle(rs[i].text)) && region.contains(i) {
+            let t = rs[i].text.agrTrimmed
+            if !res.meta.credits.contains(t) { res.meta.credits.append(t) }
+        }
+        for i in creditRows {
+            var t = rs[i].text.agrTrimmed
+            if let j = continuation[i] { t += " " + rs[j].text.agrTrimmed }
+            if !res.meta.credits.contains(t) { res.meta.credits.append(t) }
+        }
         if res.meta.title.isEmpty { res.issues.append(OMRIssue(kind: .headerMissing, path: "meta.title", message: "no title found")) }
         return res
     }
@@ -211,6 +252,26 @@ public enum OMRHeaderReader {
 
     // MARK: Helpers
 
+    /// A printed header is laid out in blocks (key / tempo on the left, credits on the right, title in the middle) that
+    /// share a baseline. A gap wider than 1.6 text heights between two tokens of one OCR row separates two blocks;
+    /// each block becomes its own row so a "1=C 4" never fuses with the "作曲 …" credit at the far right.
+    static func splitColumns(_ rows: [OCRRow]) -> [OCRRow] {
+        var out: [OCRRow] = []
+        for r in rows {
+            guard r.tokens.count > 1 else { out.append(r); continue }
+            var groups: [[OCRToken]] = [[r.tokens[0]]]
+            for t in r.tokens.dropFirst() {
+                let prev = groups[groups.count - 1].last!
+                let h = max(prev.height, t.height)
+                // a lone character next to a word ("原" + "唱毛不易", letter-spaced labels) stays with it up to 3 heights
+                let limit = (prev.text.agrTrimmed.count <= 1 || t.text.agrTrimmed.count <= 1) ? 3.0 : 1.6
+                if t.x - (prev.x + prev.width) > limit * h { groups.append([t]) } else { groups[groups.count - 1].append(t) }
+            }
+            if groups.count == 1 { out.append(r) } else { for g in groups { out.append(contentsOf: OCRRowBuilder.rows(from: g)) } }
+        }
+        return out
+    }
+
     /// Centered title words that share a header row with a key / credit label.
     private static func centeredTitleTokens(_ tokens: [OCRToken], pageWidth W: Double) -> [OCRToken] {
         tokens.filter { t in
@@ -223,6 +284,21 @@ public enum OMRHeaderReader {
             if looksLikeChordRow([t]) { return false }
             return true
         }
+    }
+
+    /// Lines under a title that describe the tab, not the singer ("Standard tuning", "古典吉他", "吉他谱").
+    static func looksLikeNonArtist(_ s: String) -> Bool {
+        Rx.test(#"(?i)(tuning|capo|drop\s?[a-g]|吉他|指弹|指法|教学|教程|简谱|六线|版$|调弦|调$|\d+\s*bpm)"#, ChordNameNormalizer.foldWidth(s))
+    }
+
+    /// Restores the spaces OCR drops inside Latin name lists: "CareyMulligan/StarkSands" -> "Carey Mulligan / Stark Sands".
+    static func spacedNames(_ s: String) -> String {
+        func sub(_ p: String, _ s: String, _ w: String) -> String {
+            Rx.regex(p).stringByReplacingMatches(in: s, options: [], range: NSRange(location: 0, length: (s as NSString).length), withTemplate: w)
+        }
+        var t = sub(#"([a-z]{2,})([A-Z][a-z])"#, s, "$1 $2")
+        t = sub(#"\s*/\s*"#, t, " / ")
+        return t.split(whereSeparator: { $0 == " " }).joined(separator: " ")
     }
 
     /// Trims spaces and quote marks, but keeps 《…》 that wrap only part of the title ("《不染》G调精华版").

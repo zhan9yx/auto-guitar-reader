@@ -78,7 +78,7 @@ public enum OMRWatermark {
         "微信", "公众号", "公眾號", "扫码", "扫一扫", "扫描", "二维码", "关注", "淘宝", "天猫", "店铺", "官方店", "版权", "版權",
         "转载", "轉載", "盗版", "盜版", "必究", "侵权", "严禁", "禁止转", "请勿", "未经", "获取更多", "更多吉他谱", "更多谱", "更多原版",
         "输入歌名", "回复歌名", "教学视频", "加入我们", "在线交流", "哔哩", "优酷", "抖音", "微博", "网易云", "订购", "答疑",
-        "吉他专家", "谱集", "音乐是一种生活方式", "是一种生活方式", "专业教师", "老师在线", "视频教学", "视频课程", "扫码关注", "原创制谱", "学习交流", "仅供学习", "商业用途", "请支持", "下载", "关注我",
+        "吉他专家", "教学系列", "系列教程", "弹唱教学", "谱集", "音乐是一种生活方式", "是一种生活方式", "专业教师", "老师在线", "视频教学", "视频课程", "扫码关注", "原创制谱", "学习交流", "仅供学习", "商业用途", "请支持", "下载", "关注我",
     ]
     /// Matched as whole words only ("scan" must not hit "scandal"). Bare "scan" / "follow" are ordinary English
     /// (titles, lyrics), so only their call-to-action forms are listed.
@@ -166,7 +166,9 @@ public enum OMRWatermark {
         let bw = token.width * W
         if h > 4 * c.staffSpacing, expectedAspect >= 3, bw / max(1, h) < 0.55 * expectedAspect, bw / max(1, h) > 0.5 { return .hugeBox }
         // rotated watermark text produces huge boxes
-        if h > 9 * c.staffSpacing && token.width * W > 5 * c.staffSpacing { return .hugeBox }
+        // (a big but horizontal title is as wide as its characters are tall: width/height ≈ character count; rotated text
+        //  has a near-square box whatever its length)
+        if h > 9 * c.staffSpacing && token.width * W > 5 * c.staffSpacing && !(expectedAspect >= 1 && bw / max(1, h) >= 0.75 * expectedAspect) { return .hugeBox }
         // page header repeated from page 2 on: "title - artist" in a thin strip at the very top
         if !inSystem, c.pageIndex > 0, cy < 0.09 * H, (c.firstSystemTop.map { $0 - cy > 6 * c.staffSpacing } ?? true), !Rx.test(#"[=:：]"#, t),
            let g = Rx.firstMatch(#"^(.{1,30}?)\s?[-–—]\s?(.{1,30})$"#, in: t), (g[1] ?? "").filter({ $0.isLetter }).count >= 2, (g[2] ?? "").filter({ $0.isLetter }).count >= 2 { return .pageHeader }
