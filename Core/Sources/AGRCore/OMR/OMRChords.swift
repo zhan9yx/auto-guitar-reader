@@ -170,7 +170,12 @@ enum OMRChordReader {
         }
         let halves = diagrams.map { $0.cx - $0.left }.sorted()
         let halfW = halves.isEmpty ? 1.7 * u : halves[halves.count / 2]
+        // Names of one system share a baseline over their diagrams: an unpaired name on another row is stray text
+        // (a lyric letter such as "A" of the system above), not a chord.
+        let pairedCY = usedNames.sorted().map { (names[$0].y0 + names[$0].y1) / 2 }.sorted()
+        let pairedH = usedNames.sorted().map { names[$0].y1 - names[$0].y0 }.sorted()
         for (ni, n) in names.enumerated() where !usedNames.contains(ni) {
+            if !pairedCY.isEmpty, abs((n.y0 + n.y1) / 2 - pairedCY[pairedCY.count / 2]) > max(0.9 * pairedH[pairedH.count / 2], 0.8 * u) { continue }
             entries.append((n.cx, n.text, nil, nil, n.confidence, 0.12))
         }
 
@@ -178,9 +183,10 @@ enum OMRChordReader {
         var placed: [(measure: Int, chord: ChordMark, x: Double, diagram: Int?)] = []
         for e in entries.sorted(by: { $0.x < $1.x }) {
             guard !spans.isEmpty else { break }
-            let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0)
-            var mark = ChordMark(name: e.name, beat: beat, shape: e.shape)
-            if let msg = crossCheck(name: e.name, shape: e.shape) {
+            let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0, shift: e.di != nil ? halfW : nil)
+            if debugOn { let sp = spans[mi]; FileHandle.standardError.write(Data("place \(e.name) x \(Int(e.x)) m\(mi) span \(Int(sp.x0))-\(Int(sp.x1)) frac \(String(format: "%.3f", (e.x - sp.x0) / (sp.x1 - sp.x0))) beat \(beat) anchors \(sp.anchors.map { "\(Int($0.x)):\($0.beat)" })\n".utf8)) }
+            var mark = ChordMark(name: withBass(e.name, frets: e.shape?.frets), beat: beat, shape: e.shape)
+            if let msg = crossCheck(name: mark.name, shape: e.shape) {
                 if let fixed = tryFix(name: e.name, shape: e.shape) {
                     mark.shape = fixed
                     issues.append(OMRIssue(kind: .dataRepaired, path: "sections[0].lines[{L}].system.measures[\(mi)].chords",
@@ -204,7 +210,7 @@ enum OMRChordReader {
         var results = systems.enumerated().map { (i, s) in read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, systemIndex: i) }
         var lib = ChordLibrary()
         for r in results { lib.merge(r.learned) }
-        guard !lib.namesByShape.isEmpty else { return results }
+        guard !lib.namesByShape.isEmpty, !OMRTrace.flag("OMR_CH_NOLIB") else { return results }
         for (i, s) in systems.enumerated() {
             results[i] = read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, library: lib, systemIndex: i)
         }
@@ -230,11 +236,28 @@ enum OMRChordReader {
 
     // MARK: Measure / beat placement
 
-    static func place(x: Double, spans: [MeasureSpan], p0: Double = 0.05) -> (Int, Double) {
+    static func place(x: Double, spans: [MeasureSpan], p0: Double = 0.05, shift: Double? = nil) -> (Int, Double) {
         var mi = 0
         for (i, s) in spans.enumerated() where x >= s.x0 - 0.02 * (s.x1 - s.x0) { mi = i }
         let s = spans[mi]
         let w = max(1, s.x1 - s.x0)
+        if !s.anchors.isEmpty, let shift {
+            // The diagram (and the name centred on it) is left-aligned with the first event it governs, so the
+            // event position is the centre minus half the diagram. Interpolate the beat between the events and
+            // round to a whole beat: chord changes sit on beats.
+            let xa = x - shift
+            let a = s.anchors.sorted { $0.x < $1.x }
+            var beat = a[0].beat
+            if xa >= a[a.count - 1].x { beat = a[a.count - 1].beat }
+            else if xa > a[0].x {
+                for i in 1..<a.count where xa <= a[i].x {
+                    let dx = a[i].x - a[i - 1].x
+                    beat = dx > 0 ? a[i - 1].beat + (a[i].beat - a[i - 1].beat) * (xa - a[i - 1].x) / dx : a[i].beat
+                    break
+                }
+            }
+            return (mi, min(max(0, beat.rounded(.toNearestOrAwayFromZero)), max(0, s.beats - 1)))
+        }
         if !s.anchors.isEmpty {
             let xa = x - 0.2 * w / max(1, s.beats)
             let best = s.anchors.min { abs($0.x - xa) < abs($1.x - xa) }!
@@ -368,6 +391,20 @@ enum OMRChordReader {
         let yTop = yBot - Double(n) * fAdj
         var lineYs: [Double] = []
         for k in 0...n { lineYs.append(yTop + Double(k) * fAdj) }
+
+        // The six strings are continuous vertical lines over the whole grid height; a row of jianpu digits or
+        // lyrics under an underline satisfies the lattice test above but has no such lines.
+        var continuous = 0.0
+        for i in 0..<6 {
+            var hit = 0, tot = 0
+            for yy in Int(yTop.rounded())...Int(yBot.rounded()) where yy >= 0 && yy < bm.h {
+                tot += 1
+                let xc = Int(xs[i].rounded(.down))
+                if (xc - 1...xc + 1).contains(where: { bm.ink($0, yy) }) { hit += 1 }
+            }
+            continuous += tot > 0 ? Double(hit) / Double(tot) : 0
+        }
+        guard continuous / 6 >= 0.8 else { return nil }
 
         var rel = [Int](repeating: 0, count: 6)
         var clearDot = [Bool](repeating: false, count: 6)
@@ -678,6 +715,26 @@ enum OMRChordReader {
         let covered = Double(chordPCs.intersection(Set(pcs)).count) / Double(max(1, chordPCs.count))
         let bassOK = (bassPC(frets) == sym.bassPitchClass) ? 1.0 : 0.0
         return 0.5 * inChord + 0.2 * rootPresent + 0.2 * covered + 0.1 * bassOK
+    }
+
+    /// Slash-chord bass from the diagram. OCR reads the small "/#F" part of "D/#F" badly (drops it or the accidental), but a
+    /// diagram whose lowest sounding string is a FRETTED chord tone other than the root is deliberately an inversion
+    /// (an open bass is ambiguous: C = [0,3,2,0,1,0] is printed as plain "C"). Written like the sheets do: sharps in front ("#F").
+    static func withBass(_ name: String, frets: [Int]?) -> String {
+        guard let frets, let sym = ChordNameNormalizer.symbol(name),
+              let i = frets.firstIndex(where: { $0 >= 0 }), i < 6, frets[i] > 0 else { return name }
+        let pc = (standardTuning[i] + frets[i]) % 12
+        func written(_ pc: Int) -> String {
+            let n = ChordSymbol.noteName(pc, preferFlats: false)
+            return n.hasSuffix("#") ? "#" + n.dropLast() : n
+        }
+        if let printed = sym.bass, let slash = name.lastIndex(of: "/") {
+            // a printed bass the OCR garbled by one semitone (dropped accidental): the diagram knows
+            let d = (pc - printed + 12) % 12
+            return (d == 1 || d == 11) ? String(name[..<slash]) + "/" + written(pc) : name
+        }
+        guard pc != sym.root, sym.pitchClasses.contains(pc) else { return name }
+        return name + "/" + written(pc)
     }
 
     /// Mismatch message or nil when consistent / not checkable.
