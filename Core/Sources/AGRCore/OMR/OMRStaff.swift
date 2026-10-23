@@ -432,8 +432,8 @@ enum OMRStaffDetector {
                             }
                             let bw = Double(maxx - minx + 1), bh = Double(maxy - miny + 1)
                             let cyb = Double(miny + maxy) / 2
-                            // Drawn radius is 0.2u. Blur plus a downscale round-trip spreads a dot to about 0.8u,
-                            // and the clef beside a system-start repeat adds a column to the same component.
+                            // The 0.8u size limit was set on synthetic pages (blur + downscale spread a dot), and the
+                            // clef beside a system-start repeat adds a column to the same component. Not calibrated on real images.
                             if n >= max(3, Int(u * u * 0.02)), bw <= 0.80 * u, bh <= 0.80 * u, bw >= 0.14 * u, bh >= 0.14 * u,
                                abs(cyb - cy) <= 0.28 * u, Double(n) >= 0.45 * bw * bh,
                                bw / bh >= 0.55, bw / bh <= 1.8 { return true }
