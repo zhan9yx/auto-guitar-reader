@@ -127,7 +127,18 @@ enum OMRPage {
             ? OMRWatermark.detectQR(bm).map { OMRPixelBox(x0: Double($0.x0), y0: Double($0.y0), x1: Double($0.x1), y1: Double($0.y1)) } : []
         OMRVision.removeSolidBlobs(&bm)
         OMRVision.removeSolidBlobs(&bmLine)
-        let staves = OMRStaffDetector.detect(bmLine)
+        var staves = OMRStaffDetector.detect(bmLine)
+        // Some renderers draw the six strings as faint anti-aliased gray hairlines that the line
+        // threshold (22% of the contrast) misses. Retry with a more permissive threshold, used
+        // for the page: a renderer with hairline strings also draws stems and barlines that light.
+        if staves.isEmpty {
+            for frac in [0.12, 0.06] {
+                var alt = OMRVision.binarize(image, threshold: Int(bgLevel - frac * (bgLevel - inkLevel))).bm
+                OMRVision.removeSolidBlobs(&alt)
+                let found = OMRStaffDetector.detect(alt)
+                if !found.isEmpty { staves = found; bmLine = alt; bm = alt; break }
+            }
+        }
         if OMRTrace.flag("AGR_OMR_TRACE") {
             FileHandle.standardError.write(Data("slope \(slope) staves \(staves.count) u \(staves.first.map { $0.u } ?? 0)\n".utf8))
         }

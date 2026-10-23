@@ -288,6 +288,11 @@ enum OMRTabAnalyzer {
                     for i in max(0, rows.count - k)..<rows.count where offBand(i) { bot = max(bot, rows[i]) }
                     var dir: Stroke = bot >= top ? .down : .up
                     if abs(bot - top) < 2 { dir = .down }
+                    // A rest glyph (zigzag quarter rest) is no strum: its rows are several stem widths thick over most
+                    // of its height, while a shaft is a hairline and only its arrow head is wide.
+                    let rowInk = inkRows(bmp).sorted()
+                    let thickRows = Double(rowInk[(rowInk.count * 3) / 4]) / u
+                    if OMRTrace.flag("OMR_DEBUG_SHAFT") { FileHandle.standardError.write(Data("shaft x \(r.x0) y \(r.y0) w/u \(w / u) h/u \(h / u) fill \(Double(c.area) / (w * h)) p75 \(thickRows)\n".utf8)) }
                     var strs: [Int] = []
                     for i in 0..<6 where st.lines[i] >= Double(r.y0) - 0.3 * u && st.lines[i] <= Double(r.y1) + 0.3 * u { strs.append(i + 1) }
                     if !strs.isEmpty {
@@ -322,6 +327,25 @@ enum OMRTabAnalyzer {
             }
             others.append(TabGlyph(rect: r, kind: w >= 0.6 * u && h <= 0.9 * u && Double(c.area) / (w * h) < 0.5 ? .arc : .unknown, confidence: 0.2, string: sIdx + 1, stringOffset: so))
         }
+        // Fingerstyle staff: fret digits dominate and there are (almost) no strum shafts or crosses. There, a tall hairline is
+        // just the stem running through a chord, and a thick short glyph is a rest, neither is a strum.
+        var restComps: [IRect] = []
+        func shaftOnly(_ it: Item) -> Bool { it.isShaft }
+        let digitCount = items.filter { if case .digit = $0.kind { return true }; return false }.count
+        let strumCount = items.filter { it in
+            if case .digit = it.kind { return false }
+            if it.isShaft && (Double(it.rect.w) < 0.35 * u || (Double(it.rect.h) <= 2.15 * u && Double(it.rect.w) >= 0.4 * u)) { return false }
+            return true
+        }.count
+        let fingerStaff = digitCount >= 8 && digitCount >= 10 * strumCount
+        if fingerStaff {
+            items.removeAll { it in
+                guard shaftOnly(it) else { return false }
+                if Double(it.rect.w) < 0.35 * u { return true }
+                if Double(it.rect.h) <= 2.15 * u && Double(it.rect.w) >= 0.4 * u { restComps.append(it.rect); return true }
+                return false
+            }
+        }
         for it in items { trace?.add(it.rect, it.isShaft ? (255, 0, 255) : (it.kind == .cross ? (0, 0, 255) : (200, 0, 200))) }
         for r in rests { trace?.add(r, (255, 128, 0)) }
         for s in stems { trace?.add(IRect(x0: Int(s.x) - 1, y0: s.y0, x1: Int(s.x) + 2, y1: s.y1), (0, 200, 200), "b\(s.beams)") }
@@ -331,6 +355,8 @@ enum OMRTabAnalyzer {
         let sorted = bars.sorted { $0.x0 < $1.x0 }
         if sorted.count >= 2 { for i in 0..<(sorted.count - 1) { ranges.append((sorted[i].xAfter, sorted[i + 1].xBefore)) } }
 
+        let tripletStems = fingerStaff ? tripletStemXs(clean: clean, stems: stems, staff: st) : []
+        var lastNotes: [TabNote] = []
         var out: [MeasureTab] = []
         for (mi, rg) in ranges.enumerated() {
             var mItems = items.filter { $0.x >= rg.0 && $0.x < rg.1 }
@@ -359,6 +385,10 @@ enum OMRTabAnalyzer {
                     evs[k].items.append(g)
                 } else { evs.append(Ev(x: g.x, items: [g], stem: nil)) }
             }
+            if fingerStaff {
+                // A stem with no digit is a rest (a rest glyph sits on it) or the tied continuation of the previous note.
+                for sm in ms where !evs.contains(where: { $0.stem?.x == sm.x }) { evs.append(Ev(x: sm.x, items: [], stem: sm)) }
+            }
             evs.sort { $0.x < $1.x }
             var slots: [Slot] = []
             for e in evs {
@@ -366,6 +396,7 @@ enum OMRTabAnalyzer {
                 if let s = e.stem {
                     dur = [1.0, 0.5, 0.25, 0.125, 0.0625][min(4, s.beams)] * unitScale
                     if s.dotted { dur *= 1.5 }
+                    if tripletStems.contains(s.x) { dur *= 2.0 / 3.0 }
                 } else { dur = unitScale }
                 slots.append(Slot(x: e.x, dur: dur, ev: e))
             }
@@ -411,6 +442,11 @@ enum OMRTabAnalyzer {
                         for n in dn where !seen.contains(n.string) { seen.insert(n.string); notes.append(n) }
                     }
                     notes.sort { $0.string > $1.string }
+                    if e.items.isEmpty {
+                        let isRest = restComps.contains { abs(Double($0.x0 + $0.x1) / 2 - e.x) < 1.0 * u }
+                        if !isRest && !lastNotes.isEmpty { notes = lastNotes.map { TabNote(string: $0.string, fret: $0.fret, technique: .tie) } }
+                    }
+                    if !notes.isEmpty && !notes.contains(where: { $0.chordTone }) { lastNotes = notes }
                     if bad { low.append(events.count) }
                     events.append(TabEvent(beat: t, duration: sl.dur, notes: notes, stroke: stroke))
                     xs.append(sl.x)
@@ -422,6 +458,34 @@ enum OMRTabAnalyzer {
             }
             let mg = others.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
             out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }, repairs: repairs))
+        }
+        return out
+    }
+
+    /// x of every stem under a triplet bracket (a "3" between two bracket halves below the beams). A bracket that spans
+    /// a multiple of three stems makes those stems triplet notes (two thirds of their written value).
+    static func tripletStemXs(clean: Bitmap, stems: [Stem], staff st: TabStaff) -> Set<Double> {
+        let u = st.u
+        guard stems.count >= 3 else { return [] }
+        let ends = stems.map { $0.y1 }.sorted()
+        let yRef = ends[ends.count / 2]
+        let y0 = yRef + max(2, Int(0.4 * u)), y1 = min(clean.h, yRef + Int(3.2 * u))
+        guard y1 > y0 else { return [] }
+        var region = Bitmap(w: clean.w, h: clean.h)
+        for y in y0..<y1 { for x in max(0, st.x0)..<min(clean.w, st.x1) { region.d[y * clean.w + x] = clean.d[y * clean.w + x] } }
+        let comps = OMRVision.label(region).comps.filter { Double($0.rect.h) <= 1.5 * u && $0.area >= 3 }.sorted { $0.rect.x0 < $1.rect.x0 }
+        var out = Set<Double>()
+        var i = 0
+        while i < comps.count {
+            var j = i
+            var xr = comps[i].rect.x1
+            while j + 1 < comps.count && Double(comps[j + 1].rect.x0 - xr) <= 0.8 * u { j += 1; xr = max(xr, comps[j].rect.x1) }
+            let xl = comps[i].rect.x0
+            if j > i && Double(xr - xl) >= 1.8 * u {
+                let inside = stems.filter { $0.x >= Double(xl) - 0.3 * u && $0.x <= Double(xr) + 0.3 * u }
+                if inside.count >= 3 && inside.count % 3 == 0 { for s in inside { out.insert(s.x) } }
+            }
+            i = j + 1
         }
         return out
     }
