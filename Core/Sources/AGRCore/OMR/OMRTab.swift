@@ -13,6 +13,9 @@ struct Stem {
     var x: Double
     var width: Int
     var y0: Int, y1: Int
+    /// First row to erase from the glyph bitmap. Below the staff for a full-height strum shaft (its part inside the staff
+    /// is a shaft, not a stem); the whole run for a stem that hangs from a note inside the staff.
+    var eraseY0: Int = 0
     var beams = 0
     var dotted = false
 }
@@ -60,10 +63,10 @@ enum OMRTabAnalyzer {
         let yFrom = Int(st.top - 0.5 * u)
         let yTo = min(clean.h, Int(st.bottom + 9 * u))
         let minLen = Int(1.0 * u)
-        var cols: [(x: Int, y0: Int, y1: Int)] = []
+        var cols: [(x: Int, y0: Int, y1: Int, raw: Int)] = []
         for x in max(0, st.x0 + 2)..<min(clean.w, st.x1 - 1) {
             if bars.contains(where: { x >= $0.x0 - 1 && x <= $0.x1 }) { continue }
-            var best: (Int, Int)? = nil
+            var best: (Int, Int, Int)? = nil
             var y = max(0, yFrom)
             while y < yTo {
                 if clean.d[y * clean.w + x] != 0 {
@@ -74,12 +77,12 @@ enum OMRTabAnalyzer {
                     let stemTop = max(y, Int((st.bottom + 0.12 * u).rounded()))
                     let len = e - stemTop
                     if len >= minLen && len <= Int(4.8 * u) && Double(stemTop) <= st.bottom + 1.8 * u && Double(e) >= st.bottom + 0.7 * u {
-                        if best == nil || len > best!.1 - best!.0 { best = (stemTop, e) }
+                        if best == nil || len > best!.1 - best!.0 { best = (stemTop, e, y) }
                     }
                     y = e
                 } else { y += 1 }
             }
-            if let b = best { cols.append((x, b.0, b.1)) }
+            if let b = best { cols.append((x, b.0, b.1, b.2)) }
         }
         if OMRTrace.flag("OMR_DEBUG_COLS") { FileHandle.standardError.write(Data("cols \(cols.filter { $0.x > 385 && $0.x < 430 }.map { "\($0.x):\($0.y0)-\($0.y1)" })  bottom \(st.bottom)\n".utf8)) }
         var stems: [Stem] = []
@@ -90,7 +93,13 @@ enum OMRTabAnalyzer {
             let w = cols[j].x - cols[i].x + 1
             if Double(w) <= max(3.0, 0.35 * u) {
                 let x = (Double(cols[i].x) + Double(cols[j].x)) / 2 + 0.5
-                stems.append(Stem(x: x, width: w, y0: cols[i...j].map { $0.y0 }.min()!, y1: cols[i...j].map { $0.y1 }.max()!))
+                var stem = Stem(x: x, width: w, y0: cols[i...j].map { $0.y0 }.min()!, y1: cols[i...j].map { $0.y1 }.max()!)
+                // A run that reaches the top string is a full-height strum shaft: only its part below the staff is stem.
+                // A run that starts lower is a stem hanging from a note: all of it is stem, and must not stay behind
+                // in the glyph bitmap as a tall thin component, which would read as a multi-string strum.
+                let rawTop = cols[i...j].map { $0.raw }.min()!
+                stem.eraseY0 = Double(rawTop) <= st.top + 0.5 * u ? stem.y0 : min(stem.y0, rawTop)
+                stems.append(stem)
             }
             i = j + 1
         }
@@ -214,7 +223,7 @@ enum OMRTabAnalyzer {
         var gb = clean
         for s in stems {
             for x in Int(s.x - Double(s.width) / 2)..<Int(s.x + Double(s.width) / 2 + 1) where x >= 0 && x < gb.w {
-                for y in max(0, s.y0)..<min(gb.h, s.y1) { gb.d[y * gb.w + x] = 0 }
+                for y in max(0, s.eraseY0)..<min(gb.h, s.y1) { gb.d[y * gb.w + x] = 0 }
             }
         }
         for b in bars { for x in max(0, b.x0 - 1)..<min(gb.w, b.x1 + 1) { for y in max(0, Int(st.top - u * 0.4))..<min(gb.h, Int(st.bottom + u * 0.4)) { gb.d[y * gb.w + x] = 0 } } }
