@@ -20,7 +20,7 @@ public enum OMREngine {
             for (k, v) in r.chordDefinitions where score.chordDefinitions[k] == nil { score.chordDefinitions[k] = v }
             let base = lines.count
             lines.append(contentsOf: r.lines)
-            report.issues.append(contentsOf: r.issues.map { var i = $0; i.path = i.path.replacingOccurrences(of: "{L}", with: "\(base + (Int(i.context.split(separator: "|").first ?? "0") ?? 0))"); return i })
+            report.issues.append(contentsOf: r.issues.map { $0.placed(section: 0, firstLine: base) })
             report.removedText.append(contentsOf: r.removedText)
             report.systemCount += r.lines.count
         }
@@ -30,7 +30,17 @@ public enum OMREngine {
         return (score, report)
     }
 
-    private static func mergeMeta(_ a: ScoreMeta, _ b: ScoreMeta) -> ScoreMeta {
+    /// One page, for callers that choose per page between OMR and another reading (see `OMRImportPolicy`).
+    /// `knownTime` carries the previous page's time signature (`OMRPageResult.timeSignature`).
+    public static func recognizePage(index: Int, image: GrayImage, ocr: [OCRToken], options: OMROptions = OMROptions(),
+                                     knownTime: TimeSignature? = nil) -> OMRPageResult {
+        let t0 = Date()
+        let r = OMRPage.process(page: index, image: image, ocr: ocr, options: options, knownTime: knownTime)
+        return OMRPageResult(pageIndex: index, lines: r.lines, meta: r.meta, chordDefinitions: r.chordDefinitions, issues: r.issues,
+                             removedText: r.removedText, milliseconds: Date().timeIntervalSince(t0) * 1000)
+    }
+
+    static func mergeMeta(_ a: ScoreMeta, _ b: ScoreMeta) -> ScoreMeta {
         var m = a
         if m.title.isEmpty { m.title = b.title }
         if m.artist == nil { m.artist = b.artist }
@@ -42,6 +52,33 @@ public enum OMREngine {
         if m.lyricist == nil { m.lyricist = b.lyricist }
         for c in b.credits where !m.credits.contains(c) { m.credits.append(c) }
         return m
+    }
+}
+
+/// Result of `OMREngine.recognizePage`. Issue paths still hold the page-local line index placeholder `{L}`;
+/// `OMRIssue.placed(section:firstLine:)` resolves it once the lines have a place in a score.
+public struct OMRPageResult: Sendable {
+    public var pageIndex: Int
+    public var lines: [Line]
+    public var meta: ScoreMeta
+    public var chordDefinitions: [String: ChordShape]
+    public var issues: [OMRIssue]
+    public var removedText: [String]
+    public var milliseconds: Double
+    public var systemCount: Int { lines.count }
+    public var measureCount: Int { lines.reduce(0) { $0 + ($1.system?.measures.count ?? 0) } }
+    /// Time signature to hand to the next page as `knownTime`.
+    public var timeSignature: TimeSignature { meta.timeSignature }
+}
+
+extension OMRIssue {
+    /// Resolves the `{L}` line placeholder: page-local line index + `firstLine`, in section `section`.
+    func placed(section: Int, firstLine: Int) -> OMRIssue {
+        var i = self
+        let local = Int(context.split(separator: "|").first ?? "0") ?? 0
+        i.path = path.replacingOccurrences(of: "sections[0].lines[{L}]", with: "sections[\(section)].lines[\(firstLine + local)]")
+        i.path = i.path.replacingOccurrences(of: "{L}", with: "\(firstLine + local)")
+        return i
     }
 }
 
