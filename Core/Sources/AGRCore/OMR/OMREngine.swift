@@ -135,6 +135,7 @@ enum OMRPage {
             return res
         }
         let clean = OMRStaffDetector.removeLines(bm, staves: staves)
+        let contrast = bgLevel - inkLevel
         let lineClean = bmLine
         trace?.image = image
         let H = Double(image.height), W = Double(image.width)
@@ -150,7 +151,7 @@ enum OMRPage {
         // time signature from the first staff's clef area
         do {
             let st = staves[0]
-            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image)
+            let bars = OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image, contrast: contrast)
             let mts = OMRTabAnalyzer.analyze(bm: bm, clean: clean, staff: st, bars: bars, beats: beats, unit: unit, classifier: .shared)
             if let ts = mts.first?.timeSig, ts.beats > 0, ts.beats <= 12, [2, 4, 8].contains(ts.unit) {
                 beats = Double(ts.beats); unit = ts.unit
@@ -160,7 +161,7 @@ enum OMRPage {
         }
         var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
-            let bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image), bm: bm, bmLine: bmLine, staff: st)
+            let bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image, contrast: contrast), bm: bm, bmLine: bmLine, staff: st)
             if OMRTrace.flag("AGR_OMR_TRACE") {
                 FileHandle.standardError.write(Data(" staff y \(Int(st.top)) bars \(bars.count) x \(st.x0)-\(st.x1)\n".utf8))
             }
@@ -277,7 +278,7 @@ enum OMRPage {
             let nextTop = si + 1 < built.count ? built[si + 1].staff.top : nil
             let jr = OMRJianpuReader.read(gray: image, bitmap: bm, staff: built[si].staff, nextStaffTop: nextTop,
                                           bars: built[si].bars, ocr: kept, timeSignature: res.meta.timeSignature,
-                                          lineIndex: res.lines.count, pageIndex: page)
+                                          lineIndex: res.lines.count, pageIndex: page, contrast: contrast)
             res.issues.append(contentsOf: jr.issues)
             for (mi, mel) in jr.measures.enumerated() where mi < built[si].measures.count {
                 built[si].measures[mi].melody = mel

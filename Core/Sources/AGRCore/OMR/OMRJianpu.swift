@@ -43,7 +43,7 @@ enum OMRJianpuReader {
 
     static func read(gray: GrayImage, bitmap bm: Bitmap, staff: TabStaff, nextStaffTop: Double?, bars: [BarlineStructure],
                      ocr: [OCRToken], timeSignature: TimeSignature, lineIndex: Int = 0, pageIndex: Int = 0,
-                     classifier: JianpuClassifier = .shared) -> Result {
+                     contrast: Double? = nil, classifier: JianpuClassifier = .shared) -> Result {
         var measureCount = max(0, bars.count - 1)
         var res = Result(measures: [[MelodyNote]](repeating: [], count: measureCount), issues: [])
         guard measureCount > 0 else { return res }
@@ -368,6 +368,11 @@ enum OMRJianpuReader {
         // Thickness alone calls a blurred single line two underlines (the thin quartile is 1px,
         // so a 2–3px halo rounds up). Two strokes that touch stay darker at each core and lighter
         // in the gap; a blurred stroke is darkest in the middle.
+        // A ridge between two touching strokes: 32 gray levels on a full-contrast (255) page, scaled to this page's contrast.
+        let ridgeStep: Int = {
+            let c = contrast ?? { let l = OMRVision.levels(gray); return l.bg - l.ink }()
+            return max(3, Int((32.0 / 255.0 * c).rounded()))
+        }()
         func levelsOfRun(_ r: (Int, Int), cx: Int) -> Int {
             let h = Double(r.1 - r.0 + 1)
             let byThick = max(1, Int(((h + gUL) / (t1 + gUL)).rounded()))
@@ -388,7 +393,7 @@ enum OMRJianpuReader {
                 let below = gs[(i + 1)..<gs.count].min() ?? 255
                 rise = max(rise, min(gs[i] - above, gs[i] - below))
             }
-            return rise >= 32 ? byThick : 1
+            return rise >= ridgeStep ? byThick : 1
         }
         var dotsBelow = [Int](repeating: 0, count: notes.count)
         for i in notes.indices {

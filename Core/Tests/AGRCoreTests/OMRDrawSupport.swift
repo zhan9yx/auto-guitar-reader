@@ -4,14 +4,19 @@ import Foundation
 /// Tiny page painter for bitmap-level OMR tests: black ink on white, no antialiasing.
 struct OMRCanvas {
     var img: GrayImage
-    init(width: Int, height: Int) { img = GrayImage(width: width, height: height, fill: 255) }
+    /// Gray level of everything drawn without an explicit value.
+    var ink: UInt8 = 0
+    init(width: Int, height: Int, paper: UInt8 = 255, ink: UInt8 = 0) {
+        img = GrayImage(width: width, height: height, fill: paper)
+        self.ink = ink
+    }
     var width: Int { img.width }
     var height: Int { img.height }
 
-    mutating func set(_ x: Int, _ y: Int, _ v: UInt8 = 0) {
-        if x >= 0, y >= 0, x < img.width, y < img.height { img[x, y] = v }
+    mutating func set(_ x: Int, _ y: Int, _ v: UInt8? = nil) {
+        if x >= 0, y >= 0, x < img.width, y < img.height { img[x, y] = v ?? ink }
     }
-    mutating func rect(x0: Int, y0: Int, x1: Int, y1: Int, _ v: UInt8 = 0) {
+    mutating func rect(x0: Int, y0: Int, x1: Int, y1: Int, _ v: UInt8? = nil) {
         guard x1 > x0, y1 > y0 else { return }
         for y in y0..<y1 { for x in x0..<x1 { set(x, y, v) } }
     }
@@ -57,8 +62,8 @@ struct OMRTabFixture {
     var bottom: Int { top + 5 * u }
     func lineY(_ string: Int) -> Int { top + (string - 1) * u }
 
-    init(width: Int = 520, height: Int = 220) {
-        canvas = OMRCanvas(width: width, height: height)
+    init(width: Int = 520, height: Int = 220, paper: UInt8 = 255, ink: UInt8 = 0) {
+        canvas = OMRCanvas(width: width, height: height, paper: paper, ink: ink)
         x1 = width - 20
         for s in 1...6 { canvas.hline(x0: x0, x1: x1, y: lineY(s)) }
     }
@@ -101,8 +106,8 @@ struct OMRJianpuFixture {
     var tab: OMRTabFixture
     let digitTop: Int
     let digitH = 22
-    init(width: Int = 520, height: Int = 300) {
-        tab = OMRTabFixture(width: width, height: height)
+    init(width: Int = 520, height: Int = 300, paper: UInt8 = 255, ink: UInt8 = 0) {
+        tab = OMRTabFixture(width: width, height: height, paper: paper, ink: ink)
         digitTop = tab.bottom + 34
     }
     /// A digit at x (left edge). Returns its box.

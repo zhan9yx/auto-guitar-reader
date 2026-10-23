@@ -277,7 +277,9 @@ enum OMRStaffDetector {
     /// Full-height vertical lines across the staff -> barline structures (including edges).
     /// `gray`, when it matches `bm`, closes holes of at most 3 rows where the barline is still
     /// darker than both neighbors but lighter than the line threshold. A stem gap is white, not a ridge.
-    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, clean: Bitmap? = nil, staff st: TabStaff, gray: GrayImage? = nil) -> [BarlineStructure] {
+    /// `contrast` is the page's background minus ink gray level; gray-level steps are fractions of it (nil: measured from `gray`).
+    static func barlines(_ bm: Bitmap, dark: Bitmap? = nil, clean: Bitmap? = nil, staff st: TabStaff, gray: GrayImage? = nil,
+                         contrast: Double? = nil) -> [BarlineStructure] {
         let u = st.u
         let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
         var cols: [Int] = []
@@ -380,6 +382,11 @@ enum OMRStaffDetector {
             }
             return n > 0 ? sum / n : -1
         }
+        // "Clearly darker" = 40 gray levels on a full-contrast (255) page, scaled to this page's contrast.
+        let darkerStep: Double = {
+            let c = contrast ?? gray.map { let l = OMRVision.levels($0); return l.bg - l.ink } ?? 255
+            return max(4, 40.0 / 255.0 * c)
+        }()
         var out: [BarlineStructure] = []
         for g in groups {
             let x0 = g.first!.0, x1 = g.last!.1 + 1
@@ -391,7 +398,7 @@ enum OMRStaffDetector {
             var lastThick = false
             for s in stats {
                 let wider = s.w >= minW + 2
-                let darker = s.g >= 0 && stats.contains { $0.g >= 0 && $0.w < s.w && $0.g >= s.g + 40 }
+                let darker = s.g >= 0 && stats.contains { $0.g >= 0 && $0.w < s.w && Double($0.g) >= Double(s.g) + darkerStep }
                 if wider || darker { bs.thickCount += 1; lastThick = true } else { bs.thinCount += 1; lastThick = false }
             }
             // repeat dots: small blobs between lines 2-3 and 3-4 adjacent to the group
