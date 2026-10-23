@@ -69,12 +69,6 @@ public enum OMRWatermark {
         "吉他专家", "谱集", "音乐是一种生活方式", "是一种生活方式", "专业教师", "老师在线", "视频教学", "视频课程", "扫码关注", "原创制谱", "学习交流", "仅供学习", "商业用途", "请支持", "下载", "关注我",
     ]
     static let latinPhrases = ["wechat", "weixin", "taobao", "tmall", "bilibili", "youtube", "tiktok", "scan", "follow", "copyright", "©", "all rights"]
-    /// Corner-logo site names, stored as `key` values. Matched only when the whole token is the banner,
-    /// so a title that merely contains 谱 is kept.
-    static let siteBannerKeys: Set<String> = [
-        "吉他谱大全", "弹唱谱网", "六线谱之家", "琴谱天地", "指弹社区", "阿谱吉他", "木吉他谱库",
-        "guitarhub", "tabnest", "六弦谱站", "民谣吉他网", "弹唱圈", "吉他控", "chordgarden",
-    ]
 
     /// Normalised comparison key for repeated-text detection.
     public static func key(_ s: String) -> String {
@@ -102,8 +96,6 @@ public enum OMRWatermark {
         if Rx.test(urlRx, t) { return .url }
         // Site logos sit in a thin strip above the title. Titles in this set start lower.
         if cy < 0.034 * H, token.width > 0.10 { return .outsideSystems }
-        // A short site-name banner can sit lower, beside or above the title. Whole token only.
-        if siteBannerKeys.contains(key(raw)), c.firstSystemTop.map({ cy < $0 }) ?? (cy < 0.22 * H) { return .phrase }
         let compact = t.filter { !$0.isWhitespace && $0 != "-" }
         // phone / QQ numbers (jianpu rows are digit strings too, but only use 0...7)
         if Rx.test(#"^1[3-9]\d{9}$"#, compact) && compact.contains(where: { $0 == "8" || $0 == "9" }) { return .phoneNumber }
