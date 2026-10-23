@@ -41,6 +41,11 @@ public struct ChordSymbol: Hashable, Sendable, CustomStringConvertible {
     /// Parses a note name prefix ("C", "F#", "Bb", "C♯", "E♭"). Returns (pc, length, isFlat).
     static func parseNote(_ s: Substring) -> (Int, Int, Bool)? {
         guard let first = s.first else { return nil }
+        // Chinese sheets print the accidental in front of the letter ("#F", "#Fm7", "D/#F", "♭B"); same note as "F#".
+        if first == "#" || first == "♯" || first == "♭" {
+            guard let (pc, len, flat) = parseNote(s.dropFirst()), len == 1 else { return nil }
+            return ((pc + (first == "♭" ? -1 : 1) + 12) % 12, 2, first == "♭" ? true : flat)
+        }
         let base: Int
         switch first.uppercased() {
         case "C": base = 0

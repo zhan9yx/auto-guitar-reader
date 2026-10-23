@@ -170,7 +170,12 @@ enum OMRChordReader {
         }
         let halves = diagrams.map { $0.cx - $0.left }.sorted()
         let halfW = halves.isEmpty ? 1.7 * u : halves[halves.count / 2]
+        // Names of one system share a baseline over their diagrams: an unpaired name on another row is stray text
+        // (a lyric letter such as "A" of the system above), not a chord.
+        let pairedCY = usedNames.sorted().map { (names[$0].y0 + names[$0].y1) / 2 }.sorted()
+        let pairedH = usedNames.sorted().map { names[$0].y1 - names[$0].y0 }.sorted()
         for (ni, n) in names.enumerated() where !usedNames.contains(ni) {
+            if !pairedCY.isEmpty, abs((n.y0 + n.y1) / 2 - pairedCY[pairedCY.count / 2]) > max(0.9 * pairedH[pairedH.count / 2], 0.8 * u) { continue }
             entries.append((n.cx, n.text, nil, nil, n.confidence, 0.12))
         }
 
@@ -180,8 +185,8 @@ enum OMRChordReader {
             guard !spans.isEmpty else { break }
             let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0, shift: e.di != nil ? halfW : nil)
             if debugOn { let sp = spans[mi]; FileHandle.standardError.write(Data("place \(e.name) x \(Int(e.x)) m\(mi) span \(Int(sp.x0))-\(Int(sp.x1)) frac \(String(format: "%.3f", (e.x - sp.x0) / (sp.x1 - sp.x0))) beat \(beat) anchors \(sp.anchors.map { "\(Int($0.x)):\($0.beat)" })\n".utf8)) }
-            var mark = ChordMark(name: e.name, beat: beat, shape: e.shape)
-            if let msg = crossCheck(name: e.name, shape: e.shape) {
+            var mark = ChordMark(name: withBass(e.name, frets: e.shape?.frets), beat: beat, shape: e.shape)
+            if let msg = crossCheck(name: mark.name, shape: e.shape) {
                 if let fixed = tryFix(name: e.name, shape: e.shape) {
                     mark.shape = fixed
                     issues.append(OMRIssue(kind: .dataRepaired, path: "sections[0].lines[{L}].system.measures[\(mi)].chords",
@@ -205,7 +210,7 @@ enum OMRChordReader {
         var results = systems.enumerated().map { (i, s) in read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, systemIndex: i) }
         var lib = ChordLibrary()
         for r in results { lib.merge(r.learned) }
-        guard !lib.namesByShape.isEmpty else { return results }
+        guard !lib.namesByShape.isEmpty, !OMRTrace.flag("OMR_CH_NOLIB") else { return results }
         for (i, s) in systems.enumerated() {
             results[i] = read(bm: bm, gray: gray, staff: s.staff, bandTop: s.bandTop, spans: s.spans, ocr: ocr, library: lib, systemIndex: i)
         }
@@ -696,6 +701,26 @@ enum OMRChordReader {
         let covered = Double(chordPCs.intersection(Set(pcs)).count) / Double(max(1, chordPCs.count))
         let bassOK = (bassPC(frets) == sym.bassPitchClass) ? 1.0 : 0.0
         return 0.5 * inChord + 0.2 * rootPresent + 0.2 * covered + 0.1 * bassOK
+    }
+
+    /// Slash-chord bass from the diagram. OCR reads the small "/#F" part of "D/#F" badly (drops it or the accidental), but a
+    /// diagram whose lowest sounding string is a FRETTED chord tone other than the root is deliberately an inversion
+    /// (an open bass is ambiguous: C = [0,3,2,0,1,0] is printed as plain "C"). Written like the sheets do: sharps in front ("#F").
+    static func withBass(_ name: String, frets: [Int]?) -> String {
+        guard let frets, let sym = ChordNameNormalizer.symbol(name),
+              let i = frets.firstIndex(where: { $0 >= 0 }), i < 6, frets[i] > 0 else { return name }
+        let pc = (standardTuning[i] + frets[i]) % 12
+        func written(_ pc: Int) -> String {
+            let n = ChordSymbol.noteName(pc, preferFlats: false)
+            return n.hasSuffix("#") ? "#" + n.dropLast() : n
+        }
+        if let printed = sym.bass, let slash = name.lastIndex(of: "/") {
+            // a printed bass the OCR garbled by one semitone (dropped accidental): the diagram knows
+            let d = (pc - printed + 12) % 12
+            return (d == 1 || d == 11) ? String(name[..<slash]) + "/" + written(pc) : name
+        }
+        guard pc != sym.root, sym.pitchClasses.contains(pc) else { return name }
+        return name + "/" + written(pc)
     }
 
     /// Mismatch message or nil when consistent / not checkable.

@@ -103,4 +103,16 @@ final class OMRChordPlacementTests: XCTestCase {
         XCTAssertEqual(OMRChordReader.place(x: 218 + 0, spans: [span], shift: 28).1, 2)
         XCTAssertEqual(OMRChordReader.place(x: 278, spans: [span], shift: 28).1, 3)
     }
+
+    func testPrefixAccidentalAndDiagramBass() {
+        XCTAssertEqual(ChordNameNormalizer.key("D/#F"), ChordNameNormalizer.key("D/F#"))
+        XCTAssertEqual(ChordNameNormalizer.key("#Fm"), ChordNameNormalizer.key("F#m"))
+        // D major over F# (fretted bass on string 6): the OCR lost the "/#F"
+        XCTAssertEqual(OMRChordReader.withBass("D", frets: [2, -1, 0, 2, 3, 2]), "D/#F")
+        // open sixth string stays a plain C; a root bass stays plain
+        XCTAssertEqual(OMRChordReader.withBass("C", frets: [0, 3, 2, 0, 1, 0]), "C")
+        XCTAssertEqual(OMRChordReader.withBass("F", frets: [1, 3, 3, 2, 1, 1]), "F")
+        // accidental dropped by OCR: A9/G with a G# bass on fret 4
+        XCTAssertEqual(OMRChordReader.withBass("A9/G", frets: [4, 0, 2, 4, 2, 0]), "A9/#G")
+    }
 }
