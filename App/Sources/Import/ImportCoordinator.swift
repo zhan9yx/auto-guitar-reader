@@ -301,8 +301,9 @@ final class ImportCoordinator {
         )
     }
 
-    /// OCR every prepared page, then read a six-line tab staff with the OMR engine.
-    /// No staff (or an image that cannot be decoded) keeps the text reconstructor.
+    /// OCR every prepared page, then read each page's six-line tab staff with the OMR engine.
+    /// A page without a staff, with a doubtful reading, or that cannot be decoded keeps its OCR text
+    /// (`OMRImportPolicy` decides per page).
     private func buildImageDraft(
         prepared: [PreparedPage],
         title: String,
@@ -335,36 +336,55 @@ final class ImportCoordinator {
         }
 
         progress = ImportProgress(message: "正在识别谱面…", fraction: nil)
-        let pagesForReconstruction = ocrPages
-        let fallbackTitle = title
+        let pagesForOMR = ocrPages
         let preparedPages = prepared
         // One full-page Vision pass. `OMREngine.ocrRegions` (zoomed chord-name crops) is not re-read.
-        let recognized: (score: Score, report: OMRReport)? = await Task.detached(priority: .userInitiated) {
-            () -> (score: Score, report: OMRReport)? in
-            guard preparedPages.count == pagesForReconstruction.count, !preparedPages.isEmpty else { return nil }
-            var inputs: [OMREngine.PageInput] = []
-            inputs.reserveCapacity(preparedPages.count)
-            for (page, ocr) in zip(preparedPages, pagesForReconstruction) {
-                guard let image = OMRPageAdapter.grayImage(jpegData: page.jpeg) else { return nil }
-                inputs.append((
+        // OMR runs page by page off the main actor and stops when the import is cancelled. A page that
+        // cannot be decoded gets no result and is rebuilt from its OCR text below, like a page without a staff.
+        let omrTask = Task.detached(priority: .userInitiated) { () -> [OMRPageResult?] in
+            var results: [OMRPageResult?] = []
+            var knownTime: TimeSignature?
+            for (index, (page, ocr)) in zip(preparedPages, pagesForOMR).enumerated() {
+                guard !Task.isCancelled, let image = OMRPageAdapter.grayImage(jpegData: page.jpeg) else {
+                    results.append(nil)
+                    continue
+                }
+                let result = OMREngine.recognizePage(
+                    index: index,
                     image: image,
                     ocr: OMRPageAdapter.tokens(ocr.tokens),
-                    fileName: page.fileName
-                ))
+                    knownTime: knownTime
+                )
+                if result.systemCount > 0 { knownTime = result.timeSignature }
+                results.append(result)
             }
-            return OMREngine.recognize(pages: inputs)
-        }.value
-
-        var score: Score
-        if let recognized, recognized.report.systemCount > 0 {
-            score = recognized.score
-            warnings.append(contentsOf: recognized.report.issues.map { "识别问题：\($0.message)" })
-        } else {
-            progress = ImportProgress(message: "正在重建谱面…", fraction: nil)
-            score = await Task.detached(priority: .userInitiated) {
-                OCRScoreReconstructor.reconstruct(pages: pagesForReconstruction, fallbackTitle: fallbackTitle)
-            }.value
+            return results
         }
+        let omrResults = await withTaskCancellationHandler {
+            await omrTask.value
+        } onCancel: {
+            omrTask.cancel()
+        }
+
+        progress = ImportProgress(message: "正在重建谱面…", fraction: nil)
+        let pageInputs = zip(ocrPages, omrResults).map { OMRImportPolicy.PageInput(ocr: $0, omr: $1) }
+        let fallbackTitle = title
+        // Per page: OMR when it found a staff and reads cleanly, otherwise the OCR text lines.
+        let combined = await Task.detached(priority: .userInitiated) {
+            OMRImportPolicy.combine(pages: pageInputs, fallbackTitle: fallbackTitle)
+        }.value
+        for decision in combined.decisions {
+            switch decision.choice {
+            case .omr, .text(.noStaff):
+                break
+            case .text(.tooManyIssues), .text(.unexpectedResult):
+                warnings.append("第 \(decision.page + 1) 页谱面识别问题较多，已改用文字识别。")
+            case .text(.unavailable):
+                warnings.append("第 \(decision.page + 1) 页未能识别谱面，已改用文字识别。")
+            }
+        }
+        warnings.append(contentsOf: combined.issues.map { "识别问题：\($0.message)" })
+        var score = combined.score
 
         score.id = UUID()
         if score.meta.title.trimmed.isEmpty {
