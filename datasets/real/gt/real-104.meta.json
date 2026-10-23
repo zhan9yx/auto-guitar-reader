@@ -1,0 +1,30 @@
+{
+  "id": "real-104",
+  "site": "scan",
+  "style": "strum-sing jianpu tab",
+  "pageNumber": 1,
+  "watermarks": [
+    "1"
+  ],
+  "features": [
+    "chord diagrams",
+    "fingerpicking x",
+    "jianpu",
+    "lyrics",
+    "slides",
+    "repeat",
+    "grace note",
+    "octave dot",
+    "two jianpu rows"
+  ],
+  "uncertain": [
+    "s0l0m4 string-2 digit read as fret 1 then 0 (C/E bar); the 1 is a thin glyph beside the stem.",
+    "s0l1m1 slides: S plus slur, 1 to 3 then 3 to 1, both on string 2; destination techniques slideUp and slideDown.",
+    "s0l1m2 final × on string 2 read as a quarter (plain stem) followed by a tab dash and a one-beat gap.",
+    "s0l1m4 the 转眼 line is a jianpu-only measure under the system-2 brace, right of center, no tab staff.",
+    "s0l2 measures 4-6 are the lower jianpu row, printed in the same columns as measures 1-3; encoded after them because a measure holds one melody.",
+    "s0l2m0 and s0l2m1: a small 1 with a double beam slurred into the following 2 is encoded as a duration-0 grace (tieToNext) so the printed main-note values still fill the bar.",
+    "s0l2m0 the dot under the held 6 is a low-octave dot (octave -1), not an augmentation dot.",
+    "G(3) diagram reads the same frets as Fmaj7: [-1,-1,3,2,1,0]."
+  ]
+}

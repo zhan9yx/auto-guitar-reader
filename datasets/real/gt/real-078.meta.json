@@ -1,0 +1,35 @@
+{
+  "id": "real-078",
+  "site": "山山吉他",
+  "style": "弹唱",
+  "pageNumber": 1,
+  "watermarks": [
+    "QR code (top left)",
+    "公众号：山山吉他",
+    "对话框输入歌名获取吉他谱",
+    "QR code (top right)",
+    "和山山老师交朋友",
+    "教学、答疑、购琴",
+    "山山吉他",
+    "更多吉他谱尽在“山山吉他”微信公众号",
+    "添加老师微信获取海量高清无水印曲谱"
+  ],
+  "features": [
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "multi-verse",
+    "rhythm stems",
+    "repeat",
+    "fingerpicking x",
+    "plus-mark strums"
+  ],
+  "uncertain": [
+    "tab is a repeating grid of bracketed eighths; many are × but some boxes print fret digits 0/1/3. Encoded as chordTone on strings 3 and 4",
+    "+ above jianpu is a strum mark, not stored on the melody",
+    "a few dotted-note and dash durations were fit so the bar sums to 4",
+    "second-verse syllables are short in a couple of bars (empty lyric on the last note)",
+    "phrase slurs are printed over some groups and not stored as tieToNext",
+    "chord-to-measure alignment follows the left-to-right diagram order"
+  ]
+}

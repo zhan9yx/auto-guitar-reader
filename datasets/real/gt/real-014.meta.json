@@ -1,0 +1,39 @@
+{
+  "id": "real-014",
+  "site": "",
+  "style": "strum-sing 6/8 jianpu tab",
+  "pageNumber": null,
+  "watermarks": [
+    "燎原乐队培训"
+  ],
+  "features": [
+    "strum x",
+    "fingerstyle",
+    "hammer-on",
+    "pull-off",
+    "slide",
+    "capo",
+    "repeat",
+    "volta",
+    "multi-verse",
+    "jianpu",
+    "D.S.",
+    "Fine",
+    "tuplet"
+  ],
+  "uncertain": [
+    "s0l0 Am bars: circled S sits on the first high-E 3 while a slur runs toward the following 5; encoded slideUp on that 3.",
+    "s0l0/s0l6 Am bars: sixteenth-note triplet (bracket 3 under a double beam) encoded as three notes of duration 1/3.",
+    "s0l1 m3 and s0l3 lyric splits where two verse lines do not share the same syllable count (在九月 / 夜的 / 念的).",
+    "s0l2 m1: 232 group printed with a double underline; split as two sixteenths plus an eighth so the bar sums to 6.",
+    "s0l2 m5: dot after 3 and the following dash; duration folded so the bar sums to 6.",
+    "s0l3 m1-m2: 拍弦 measure and the mixed fret/x bar are partly hidden by the watermark.",
+    "s0l3 m5 chord printed as % C(Em); name stored as C(Em) and % kept as a mark.",
+    "s0l3 m7: Am then F (two chord names over the F/G-style split strum).",
+    "s0l4 m4: 1211 under a slur/double line read as four sixteenths.",
+    "s0l5 m4-m6: G slide phrases; the low x and the last H are partly crossed by the watermark.",
+    "s0l6: a 3-0-3 bar between the C pull-off and the final Am may share a detected measure; D.S. is printed over the second bar.",
+    "s0l7 m4: a wavy vertical stroke before Fine is not a normal strum arrow; encoded as one chord-tone event.",
+    "6/8 jianpu dash encoded as +2 eighth-beats (one quarter), matching a plain digit."
+  ]
+}

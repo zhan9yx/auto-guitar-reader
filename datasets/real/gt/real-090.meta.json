@@ -1,0 +1,33 @@
+{
+  "id": "real-090",
+  "site": "jianpudq",
+  "style": "dual-staff strum+fret jianpu",
+  "pageNumber": null,
+  "watermarks": [
+    "简谱大全",
+    "jianpudq.com",
+    "piano keyboard logo (bottom right)"
+  ],
+  "features": [
+    "strum x",
+    "fingerpicking x",
+    "chord diagrams",
+    "chord chart in header",
+    "jianpu",
+    "multi-verse",
+    "repeat",
+    "tuplet",
+    "two jianpu lines",
+    "ties"
+  ],
+  "uncertain": [
+    "header and in-staff chord numerals include fret 4 (G 320004, C 342010) while some dots sit in the 3rd diagram row",
+    "s0l0m1 beat 2 and s0l0m3 beat 3 tab ties omit the second fret digit; pitch copied from the tied note",
+    "s0l0m1 beat 1.5 fret glyph read as 2 on string 2",
+    "s0l0m1 triplet third tab digit may be 7 rather than melody 6",
+    "s0l1m1 melody sums to 3.5; no printed rest on the last eighth",
+    "s0l2 lower jianpu is the lyric line; upper jianpu stored in marks",
+    "s0l2m2 lyric 一个人 / 已痛 alignment near the logo",
+    "s0l2m0 x187 on the strum staff is a stack of round noteheads (possibly 0/8), not entered because the fret staff has the melody there"
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "real-080",
+  "site": "shanshan-guitar",
+  "style": "弹唱",
+  "pageNumber": 1,
+  "watermarks": [
+    "QR code (top left)",
+    "公众号：山山吉他",
+    "对话框输入歌名获取吉他谱",
+    "QR code (top right, WeChat)",
+    "和山山老师交朋友",
+    "教学、答疑、购琴",
+    "山山吉他",
+    "更多吉他谱尽在“山山吉他”微信公众号",
+    "添加老师微信获取海量高清无水印曲谱"
+  ],
+  "features": [
+    "capo",
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "multi-verse",
+    "fingerstyle x",
+    "hammer-on",
+    "repeat",
+    "tie"
+  ],
+  "uncertain": [
+    "s0l0 m4 first stack read as string 2 fret 1 with string 5 open; the 1 may sit one string higher",
+    "s0l0 m4 slur joining the two string-4 fret-4s is same-fret, so no hammer/pull was stored",
+    "wavy arches over 3 4 3 3 (s0l1 last measure and s0l3 measure 3) are not a tuplet numeral and were not stored",
+    "s0l4 无尾滑音: a separate fret-12 slide target was not a clean glyph",
+    "s0l4 measure 2 G diagram also fits a fret-3 dot on string 2 (320033) rather than open (320003)",
+    "芽 and 酱 are placed on the long final notes of their phrases"
+  ]
+}

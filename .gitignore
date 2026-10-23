@@ -12,7 +12,17 @@ server/.venv/
 server/.pip-cache/
 server/tmp/
 .scratch/
-datasets/
+# Version the real-score evaluation snapshot; keep downloads and working files local.
+datasets/*
+!datasets/real/
+datasets/real/*
+!datasets/real/images/
+!datasets/real/gt/
+!datasets/real/inventory.json
+!datasets/real/incoming/
+datasets/real/incoming/**
+!datasets/real/incoming/**/
+!datasets/real/incoming/**/manifest.json
 tools/omr-synth/.venv/
 tools/omr-synth/fonts/
 tools/omr-synth/out/

@@ -1,0 +1,25 @@
+{
+  "id": "real-083",
+  "site": "",
+  "style": "strum-arrow",
+  "pageNumber": 1,
+  "watermarks": [
+    "捷诚吉他",
+    "1/4"
+  ],
+  "features": [
+    "strum arrows",
+    "chord diagrams",
+    "capo",
+    "lyrics",
+    "tie"
+  ],
+  "uncertain": [
+    "detected staves at y826 and y1390 are chord-diagram grids, not tab; five systems",
+    "beat 2.5: up-arrow on the lower strings beside × on strings 3-6; string 2 is ambiguous on system 1",
+    "a slur arc over the mid-bar string-4 × is not stored (no fret-digit hammer/pull)",
+    "second chord of each full bar sits near beat 1.75",
+    "systems 2 and 4 last bars: four strums then a half-rest rectangle; no Em diagram",
+    "lyric split 这都是形容你的眼睛 and 黄昏的晚霞 may sit across the barline"
+  ]
+}

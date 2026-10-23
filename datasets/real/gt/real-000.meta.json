@@ -1,0 +1,33 @@
+{
+  "id": "real-000",
+  "site": "gt-tab",
+  "style": "strum-sing jianpu tab",
+  "pageNumber": null,
+  "watermarks": [
+    "AUTHENTIC GT-TAB EDITION NO.2"
+  ],
+  "features": [
+    "strum arrows",
+    "fingerstyle x",
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "repeat",
+    "flat",
+    "octave dot",
+    "second voice"
+  ],
+  "uncertain": [
+    "Key icon prints A-#C (major/relative); encoded key A. No 1= printed.",
+    "s0l0 m3 A diagram dots sit in the first fret space, encoded [0,0,1,1,1,0], not the usual 2nd-fret A.",
+    "s0l0 m3 has a lower jianpu voice 5 — 2 1 under the upper line; only the upper line is encoded.",
+    "s0l1 m1 tab: string-2 note at beat 2 encoded fret 1 (may be 3); string-3 16th at beat 3.75 encoded fret 2 (may be 3).",
+    "s0l1 m2 lower jianpu voice under the whole-note 2 is not encoded (single melody voice).",
+    "s0l1 m3 lower voice 7 — 0 under 5 — 0 is not encoded.",
+    "s0l2/s0l3 chord diagrams are printed (several marked 2fr.) but dot rows were not read cleanly; shape omitted and marks include shape?.",
+    "s0l2 and s0l3 tab noteheads are mostly crosses; a few fret numerals may have been encoded as chordTone.",
+    "s0l2 m1 lyric 伤 is printed left of the note it is attached to.",
+    "s0l3 m1 the quarter-length 1 between 忙 and 我 is rhythmically tight; encoded duration 1.",
+    "Fmaj7 diagram on s0l1 m1 was not read cleanly (shape omitted)."
+  ]
+}
