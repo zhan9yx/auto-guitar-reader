@@ -7,7 +7,8 @@ public enum OMREngine {
         let t0 = Date()
         var report = OMRReport()
         report.pageCount = pages.count
-        var score = Score(meta: ScoreMeta(source: ScoreSource(kind: .image)))
+        // Fixed id (callers that keep the score assign their own): repeated runs must be byte-identical.
+        var score = Score(id: UUID(uuidString: "00000000-0000-0000-0000-000000000000")!, meta: ScoreMeta(source: ScoreSource(kind: .image)))
         var lines: [Line] = []
         var headerDone = false
         var carriedTime: TimeSignature?
@@ -290,7 +291,8 @@ enum OMRPage {
             if jr.rowBottom > jr.rowTop { contentBottom = jr.rowBottom }
             if let lb = jr.lyricRows.map(\.bottom).max() { contentBottom = max(contentBottom ?? lb, lb) }
             let anchor = systemAnchor(page: page, staff: built[si].staff, chordTop: chordTop, contentBottom: contentBottom, pageHeight: H)
-            res.lines.append(Line.system(NotationSystem(measures: built[si].measures), anchor: anchor))
+            // deterministic ids: the same page must give byte-identical output
+            res.lines.append(Line.system(NotationSystem(measures: built[si].measures), id: "p\(page)l\(res.lines.count)", anchor: anchor))
         }
         return res
     }

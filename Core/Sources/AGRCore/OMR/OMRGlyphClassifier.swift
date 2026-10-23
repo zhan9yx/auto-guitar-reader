@@ -64,7 +64,8 @@ struct OMRGlyphClassifier {
             let dist = Double(d) / Double(f.v.count * 255) + 0.35 * Double(abs(f.aspect - t.aspect)) / 100.0
             if dist < (perLabel[t.label] ?? .infinity) { perLabel[t.label] = dist }
         }
-        for (l, d) in perLabel {
+        // sorted by (distance, label): dictionary order is per-process random and must not break ties
+        for (l, d) in perLabel.sorted(by: { ($0.value, $0.key) < ($1.value, $1.key) }) {
             if d < best { second = best; best = d; bestLabel = l } else if d < second { second = d }
         }
         if bestLabel.isEmpty { return nil }

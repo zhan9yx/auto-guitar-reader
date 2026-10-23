@@ -63,9 +63,12 @@ struct ChordLibrary {
         for (k, v) in o.namesByShape { for (n, c) in v { namesByShape[k, default: [:]][n, default: 0] += c } }
     }
     func bestShape(for name: String) -> [Int]? {
-        shapesByName[ChordNameNormalizer.key(name)]?.max { $0.value < $1.value }?.key
+        // most frequent reading; ties by the shape itself (dictionary order is random per process)
+        shapesByName[ChordNameNormalizer.key(name)]?.max { a, b in
+            a.value != b.value ? a.value < b.value : b.key.lexicographicallyPrecedes(a.key)
+        }?.key
     }
-    func name(for frets: [Int]) -> String? { namesByShape[frets]?.max { $0.value < $1.value }?.key }
+    func name(for frets: [Int]) -> String? { namesByShape[frets]?.max { ($0.value, $1.key) < ($1.value, $0.key) }?.key }
 }
 
 struct ChordSystemInput {

@@ -34,7 +34,7 @@ struct JianpuClassifier: Sendable {
             let dist = Double(d) / Double(vector.count * 255) + 0.35 * Double(abs(aspect - p.aspect)) / 100.0
             if dist < (per[p.label] ?? .infinity) { per[p.label] = dist }
         }
-        return per.sorted { $0.value < $1.value }.map { ($0.key, $0.value) }
+        return per.sorted { ($0.value, $0.key) < ($1.value, $1.key) }.map { ($0.key, $0.value) }
     }
 
     func classify(_ b: Bitmap, allowed: Set<String>? = nil) -> Result? {
