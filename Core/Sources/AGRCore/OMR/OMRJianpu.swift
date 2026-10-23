@@ -430,7 +430,9 @@ enum OMRJianpuReader {
                     let reachL = prevN.map { Double(e.0) <= $0.x1 + 3 } ?? false
                     let reachR = nextN.map { Double(e.1) >= $0.x0 - 3 } ?? false
                     if dbg { print("   underline cand note x\(Int(nt.cx)) run \(r) ext \(e) digit \(Int(nt.x0))-\(Int(nt.x1)) okGap \(okGap) nested \(nested) snug \(snug) reach \(reachL) \(reachR)") }
-                    if okGap && nested && (exactGap || snug || reachL || reachR) { keep.append(r); keepExt.append(e) } else { break }
+                    // the OCR box of the lyric row says where lyric ink starts: a stroke below that is a character, not a level
+                    let belowLyric = keep.count >= 2 && Double(r.0) > lyricTop + 0.5
+                    if okGap && nested && !belowLyric && (exactGap || snug || reachL || reachR) { keep.append(r); keepExt.append(e) } else { break }
                 }
                 runsPerNote[i] = keep; runExt[i] = keepExt
             }
