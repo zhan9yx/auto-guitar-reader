@@ -11,6 +11,9 @@ public struct OMROptions: Sendable {
 public enum OMRIssueKind: String, Codable, Sendable {
     case beatSumMismatch, lowConfidenceGlyph, unknownChord, lyricAlignment, suspectedWatermark
     case noStaff, barlineMismatch, chordShapeUnread, jianpuUnread, headerMissing, stringAmbiguous
+    /// The engine edited recognised data so that a measure adds up or two readings agree (rest slots rescaled, an
+    /// underline count rewritten, a chord shape replaced). The result may be wrong; the original reading is in `message`.
+    case dataRepaired
 }
 
 /// Problem found by the engine; convertible to the AI-assist `AIIssue` contract
@@ -33,6 +36,11 @@ public struct OMRIssue: Codable, Hashable, Sendable, Identifiable {
         self.id = id; self.kind = kind; self.path = path; self.message = message
         self.context = context; self.ocrSnippets = ocrSnippets; self.imageCrop = imageCrop; self.confidence = confidence
     }
+}
+
+extension OMRIssue {
+    /// Confidence reported for an issue that records a silent repair or substitution ("low": the output was coerced).
+    public static let repairConfidence = 0.3
 }
 
 public struct OMRCrop: Codable, Hashable, Sendable {

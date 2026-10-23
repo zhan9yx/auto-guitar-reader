@@ -147,6 +147,9 @@ enum OMRChordReader {
                 var shape = d.shape
                 if let sym = ChordNameNormalizer.symbol(names[ni].text), shapeFit(sym, shape.frets) < 0.95,
                    let lib = library.bestShape(for: names[ni].text), shapeFit(sym, lib) >= 0.95 {
+                    issues.append(OMRIssue(kind: .dataRepaired, path: "sections[0].lines[{L}].system.measures[0].chords",
+                                           message: "diagram for \(names[ni].text) read \(shape.frets) but the page's repeated diagrams read \(lib); used \(lib)",
+                                           context: "\(systemIndex)", ocrSnippets: [names[ni].text], confidence: OMRIssue.repairConfidence))
                     shape = ChordShape(frets: lib, baseFret: shape.baseFret)      // repeated chord: trust the page's majority reading
                 } else { learned.add(name: names[ni].text, frets: shape.frets) }
                 entries.append((d.cx, names[ni].text, shape, di, min(d.confidence, names[ni].confidence), 0.05))
@@ -175,7 +178,12 @@ enum OMRChordReader {
             let (mi, beat) = place(x: e.x, spans: spans, p0: e.p0)
             var mark = ChordMark(name: e.name, beat: beat, shape: e.shape)
             if let msg = crossCheck(name: e.name, shape: e.shape) {
-                if let fixed = tryFix(name: e.name, shape: e.shape) { mark.shape = fixed }
+                if let fixed = tryFix(name: e.name, shape: e.shape) {
+                    mark.shape = fixed
+                    issues.append(OMRIssue(kind: .dataRepaired, path: "sections[0].lines[{L}].system.measures[\(mi)].chords",
+                                           message: "diagram for \(e.name) did not fit (\(msg)); base fret changed from \(e.shape?.baseFret ?? 0) to \(fixed.baseFret)",
+                                           context: "\(systemIndex)", ocrSnippets: [e.name], confidence: OMRIssue.repairConfidence))
+                }
                 else {
                     issues.append(OMRIssue(kind: .unknownChord, path: "sections[0].lines[{L}].system.measures[\(mi)].chords",
                                            message: msg, context: "\(systemIndex)", ocrSnippets: [e.name], confidence: e.conf))

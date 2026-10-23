@@ -25,6 +25,8 @@ struct MeasureTab {
     var beatSum: Double
     var glyphs: [TabGlyph]
     var timeSig: (beats: Int, unit: Int)? = nil
+    /// Edits made so that the bar adds up (rest slots rescaled); the engine reports each as `.dataRepaired`.
+    var repairs: [String] = []
 }
 
 enum OMRTabAnalyzer {
@@ -363,9 +365,11 @@ enum OMRTabAnalyzer {
             if ProcessInfo.processInfo.environment["OMR_DEBUG"] != nil { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
             let restIdx = slots.indices.filter { slots[$0].ev == nil }
             let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
+            var repairs: [String] = []
             if !restIdx.isEmpty {
                 let remain = beats - evSum
                 if remain > 0 && abs(remain - Double(restIdx.count) * unitScale) > 1e-6 {
+                    repairs.append("\(restIdx.count) rest(s) stretched from \(Double(restIdx.count) * unitScale) to \(remain) beats to fill the bar")
                     for k in restIdx { slots[k].dur = remain / Double(restIdx.count) }
                 }
             }
@@ -405,7 +409,7 @@ enum OMRTabAnalyzer {
                 t += sl.dur
             }
             let mg = others.filter { $0.rect.cx >= rg.0 && $0.rect.cx < rg.1 }
-            out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }))
+            out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }, repairs: repairs))
         }
         return out
     }

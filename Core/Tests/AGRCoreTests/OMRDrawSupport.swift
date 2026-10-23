@@ -77,3 +77,39 @@ struct OMRTabFixture {
         OMRPage.process(page: 0, image: canvas.img, ocr: [], options: OMROptions())
     }
 }
+
+extension OMRCanvas {
+    /// Draws a jianpu digit by rendering the classifier's own prototype (12x16 cells, thresholded) at `h` pixels tall.
+    /// Returns the drawn box (x0, x1 exclusive). Test glyphs are the classifier's centroids, not real print.
+    @discardableResult
+    mutating func digit(_ label: String, x: Int, top: Int, h: Int) -> (x0: Int, x1: Int) {
+        let protos = JianpuClassifier.shared.protos.filter { $0.label == label }.sorted { $0.aspect < $1.aspect }
+        guard let p = protos.isEmpty ? nil : protos[protos.count / 2] else { return (x, x) }
+        let w = max(3, Int((Double(h) * Double(p.aspect) / 100).rounded()))
+        for yy in 0..<h {
+            for xx in 0..<w {
+                let cx = min(OMRGlyphFeatures.fw - 1, xx * OMRGlyphFeatures.fw / w), cy = min(OMRGlyphFeatures.fh - 1, yy * OMRGlyphFeatures.fh / h)
+                if p.v[cy * OMRGlyphFeatures.fw + cx] >= 128 { set(x + xx, top + yy) }
+            }
+        }
+        return (x, x + w)
+    }
+}
+
+/// Tab fixture with a numbered-notation row under the staff.
+struct OMRJianpuFixture {
+    var tab: OMRTabFixture
+    let digitTop: Int
+    let digitH = 22
+    init(width: Int = 520, height: Int = 300) {
+        tab = OMRTabFixture(width: width, height: height)
+        digitTop = tab.bottom + 34
+    }
+    /// A digit at x (left edge). Returns its box.
+    @discardableResult
+    mutating func note(_ label: String, x: Int) -> (x0: Int, x1: Int) { tab.canvas.digit(label, x: x, top: digitTop, h: digitH) }
+    mutating func underline(x0: Int, x1: Int, level: Int = 1) {
+        for l in 0..<level { tab.canvas.hline(x0: x0, x1: x1, y: digitTop + digitH + 4 + 4 * l, t: 2) }
+    }
+    func page() -> PageResult { tab.page() }
+}

@@ -59,6 +59,9 @@ struct BuiltSystem {
     var measures: [NotationMeasure]
     /// Pixel x of each tab event (`TabEvent` itself has no x). Parallel to `measures`.
     var eventX: [[Double]]
+    /// Per measure, from the final tab analysis: beat sum and the edits made to reach it.
+    var beatSums: [Double] = []
+    var repairs: [[String]] = []
 }
 
 enum OMRPage {
@@ -139,13 +142,10 @@ enum OMRPage {
                     if k == .double || k == .final { m.rightBarline = k }
                     if k == .endRepeat || k == .startEndRepeat { m.rightBarline = .endRepeat }
                 }
-                if abs(mt.beatSum - beats) > 1e-6 {
-                    res.issues.append(OMRIssue(kind: .beatSumMismatch, path: "sections[0].lines[{L}].system.measures[\(mi)]",
-                                               message: "tab beats sum \(mt.beatSum) != \(beats)", context: "\(si)"))
-                }
                 measures.append(m)
             }
-            built.append(BuiltSystem(staff: st, bars: bars, measures: measures, eventX: mts.map(\.eventX)))
+            built.append(BuiltSystem(staff: st, bars: bars, measures: measures, eventX: mts.map(\.eventX),
+                                     beatSums: mts.map(\.beatSum), repairs: mts.map(\.repairs)))
         }
 
         var ctx = OMRTextContext()
@@ -193,6 +193,26 @@ enum OMRPage {
                 guard mts.count == built[si].measures.count else { continue }
                 for mi in mts.indices { built[si].measures[mi].tab = mts[mi].events }
                 built[si].eventX = mts.map(\.eventX)
+                built[si].beatSums = mts.map(\.beatSum)
+                built[si].repairs = mts.map(\.repairs)
+            }
+        }
+        if !timeFromClef, !header.found.contains("time") {
+            res.issues.append(OMRIssue(kind: .headerMissing, path: "pages[\(page)]",
+                                       message: "no time signature on the staff or in the header; assumed \(Int(beats))/\(unit)",
+                                       confidence: OMRIssue.repairConfidence))
+        }
+        // Tab validation, from the final reading (after a possible 6/8 re-read).
+        for (si, sys) in built.enumerated() {
+            for mi in sys.measures.indices {
+                if sys.beatSums.indices.contains(mi), abs(sys.beatSums[mi] - beats) > 1e-6 {
+                    res.issues.append(OMRIssue(kind: .beatSumMismatch, path: "sections[0].lines[{L}].system.measures[\(mi)]",
+                                               message: "tab beats sum \(sys.beatSums[mi]) != \(beats)", context: "\(si)"))
+                }
+                for r in sys.repairs.indices.contains(mi) ? sys.repairs[mi] : [] {
+                    res.issues.append(OMRIssue(kind: .dataRepaired, path: "sections[0].lines[{L}].system.measures[\(mi)]",
+                                               message: "tab: \(r)", context: "\(si)", confidence: OMRIssue.repairConfidence))
+                }
             }
         }
 
@@ -220,7 +240,7 @@ enum OMRPage {
             let nextTop = si + 1 < built.count ? built[si + 1].staff.top : nil
             let jr = OMRJianpuReader.read(gray: image, bitmap: bm, staff: built[si].staff, nextStaffTop: nextTop,
                                           bars: built[si].bars, ocr: kept, timeSignature: res.meta.timeSignature,
-                                          lineIndex: res.lines.count)
+                                          lineIndex: res.lines.count, pageIndex: page)
             res.issues.append(contentsOf: jr.issues)
             for (mi, mel) in jr.measures.enumerated() where mi < built[si].measures.count {
                 built[si].measures[mi].melody = mel

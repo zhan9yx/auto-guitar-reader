@@ -42,16 +42,21 @@ enum OMRJianpuReader {
     typealias Result = JianpuReadResult
 
     static func read(gray: GrayImage, bitmap bm: Bitmap, staff: TabStaff, nextStaffTop: Double?, bars: [BarlineStructure],
-                     ocr: [OCRToken], timeSignature: TimeSignature, lineIndex: Int = 0,
+                     ocr: [OCRToken], timeSignature: TimeSignature, lineIndex: Int = 0, pageIndex: Int = 0,
                      classifier: JianpuClassifier = .shared) -> Result {
         var measureCount = max(0, bars.count - 1)
         var res = Result(measures: [[MelodyNote]](repeating: [], count: measureCount), issues: [])
         guard measureCount > 0 else { return res }
         let u = staff.u
         let W = bm.w, H = bm.h
-        func issue(_ kind: OMRIssueKind, _ mi: Int?, _ msg: String, conf: Double = 0) -> OMRIssue {
-            OMRIssue(kind: kind, path: "sections[0].lines[{L}].system.measures[\(mi ?? 0)].melody", message: msg,
-                     context: "\(lineIndex)|jianpu", confidence: conf)
+        func issue(_ kind: OMRIssueKind, _ mi: Int?, _ msg: String, conf: Double = 0, crop: IRect? = nil) -> OMRIssue {
+            var i = OMRIssue(kind: kind, path: "sections[0].lines[{L}].system.measures[\(mi ?? 0)].melody", message: msg,
+                             context: "\(lineIndex)|jianpu", confidence: conf)
+            if let r = crop, W > 0, H > 0 {
+                i.imageCrop = OMRCrop(page: pageIndex, x: Double(r.x0) / Double(W), y: Double(r.y0) / Double(H),
+                                      width: Double(r.w) / Double(W), height: Double(r.h) / Double(H))
+            }
+            return i
         }
 
         // ---- region below the staff
@@ -125,6 +130,8 @@ enum OMRJianpuReader {
         var notes: [JianpuNote] = []
         var used = Set<Int>()
         var barXs: [Double] = []
+        // Glyphs discarded as barline remnants (tall and thin). A thin "1" looks the same, so each is reported.
+        var droppedThin: [IRect] = []
         var parens: [(x: Double, mark: String)] = []
         // barlines of the jianpu row (the left system line may reach up to the staff, so any height is allowed)
         for c in lab0.comps {
@@ -147,7 +154,7 @@ enum OMRJianpuReader {
             guard h >= 0.72 * Hd, h <= 1.4 * Hd, w >= 0.2 * u, c.area >= 12 else { continue }
             // A staff-tall barline is absent from barXs (h > 6u). Cut at the digit baseline it is a
             // four-pixel stem that classifies as "1" and shifts every later beat in the measure.
-            if h / max(w, 1) >= 4.5 { used.insert(c.id); continue }
+            if h / max(w, 1) >= 4.5 { used.insert(c.id); droppedThin.append(r); continue }
             var b = OMRVision.extract(lab, c)
             // merged neighbours (touching digits): the glyph matches no single digit well and is much wider than usual
             let single = classifier.classify(b)
@@ -456,7 +463,11 @@ enum OMRJianpuReader {
                     let inside = tabCenters.filter { t in t > jb[k] + 0.55 * medGap && t < jb[k + 1] - 0.55 * medGap && !jb.contains { abs($0 - t) <= 0.7 * u } }
                     if inside.count == 1 { add.append(inside[0]) }
                 }
-                if !add.isEmpty { jb.append(contentsOf: add); jb.sort() }
+                if !add.isEmpty {
+                    jb.append(contentsOf: add); jb.sort()
+                    res.issues.append(issue(.barlineMismatch, nil, "\(add.count) tab barline(s) added to the jianpu row to split a doubled measure",
+                                            conf: OMRIssue.repairConfidence))
+                }
             }
         }
         // A missed jianpu barline piles later measures into the first one and the beats run past the bar.
@@ -464,7 +475,8 @@ enum OMRJianpuReader {
         let bc: [Double] = (jb.count >= 2 && jb.count == tabCenters.count) ? jb : tabCenters
         res.boundaries = bc
         if jb.count >= 2 && jb.count != tabCenters.count {
-            res.issues.append(issue(.barlineMismatch, nil, "jianpu row has \(jb.count - 1) measures, tab has \(tabCenters.count - 1)", conf: 0.5))
+            res.issues.append(issue(.barlineMismatch, nil, "jianpu row has \(jb.count - 1) measures, tab has \(tabCenters.count - 1); the jianpu barlines were discarded and the tab barlines used",
+                                    conf: OMRIssue.repairConfidence))
         }
         measureCount = max(0, bc.count - 1)
         res.measures = [[MelodyNote]](repeating: [], count: measureCount)
@@ -473,6 +485,12 @@ enum OMRJianpuReader {
             for k in 0..<measureCount where bc[k] - 1.0 <= notes[i].cx && notes[i].cx < bc[k + 1] - 1.0 { m = k }
             // a first note glued to its left barline is still inside the measure
             notes[i].measure = m
+        }
+        for r in droppedThin {
+            var mi = 0
+            for k in 0..<measureCount where bc[k] - 1.0 <= r.cx && r.cx < bc[k + 1] - 1.0 { mi = k }
+            res.issues.append(issue(.lowConfidenceGlyph, mi, "dropped a thin tall glyph in the digit row (height/width \(String(format: "%.1f", Double(r.h) / Double(max(1, r.w)))) >= 4.5); a note \"1\" or a barline remnant",
+                                    conf: OMRIssue.repairConfidence, crop: r))
         }
         let unitScale = Double(timeSignature.unit) / 4.0
         let measureBeats = Double(timeSignature.beats)
@@ -507,6 +525,8 @@ enum OMRJianpuReader {
                 if cand.count == 1 {
                     notes[cand[0]].levels = 1
                     t = place()
+                    res.issues.append(issue(.dataRepaired, mi, "dotted note given an underline to make the bar add up (the bar ran 3/4 beat long); underline not seen in the image",
+                                            conf: OMRIssue.repairConfidence))
                 }
             }
             if !perMeasure[mi].isEmpty, abs(t - measureBeats) > 1e-6 {
