@@ -1,0 +1,35 @@
+{
+ "id": "hold-001",
+ "site": "ccguitar",
+ "style": "strum-pattern tab x (6-line staff, no rhythm stems except beams) + jianpu + chord diagrams, 4/4, single verse, clean vector render",
+ "pageNumber": 1,
+ "watermarks": [],
+ "features": [
+  "strum pattern tab x",
+  "chord diagrams",
+  "jianpu melody",
+  "lyrics (1 verse)",
+  "intro rests",
+  "tie (melody and tab 7-7)",
+  "start repeat",
+  "strum arrow (up, wavy)",
+  "measure numbers (5, 9, 13)",
+  "page footer 第1页",
+  "low-octave dots",
+  "no key/capo/tempo printed"
+ ],
+ "uncertain": [
+  "No key, tempo, capo or artist printed; key null, capo 0, artist empty",
+  "Title 黑色幽默 only; footer text '第1页' is the page number (pageNumber 1)",
+  "Chord diagrams have no x/o markers above strings except Dsus2/E/Esus4 (hollow circles); strings with nothing printed are read as fret 0 (A [0,0,2,2,2,0], A/D [0,0,0,2,2,0], #Fm11 [2,0,2,2,2,0])",
+  "#Cm diagram (baseFret 4) read as 4,4,6,6,5,4 exactly as drawn (dots row1 s6,s5,s1; row2 s2; row3 s4,s3)",
+  "Chord names '#Fm11' and '#Cm' are printed with a sharp sign before the letter; kept verbatim with '#'",
+  "Tab m1/m3 beat 2: the pick x on string 5 and the digit 6 on string 4 share one x position and are stored as one event of 2 notes (x chordTone + fret 6)",
+  "Tab 7-7 slur between equal frets on string 5 stored as technique 'tie' on the destination 7",
+  "Tab m2/m4 ('0' on string 2 and x on strings 4,5) have plain quarter stems; the rest dash at beat 3 generates no event",
+  "m8/m12 beat 2: wavy arrow with up arrowhead (s1-s6) stored as stroke 'up' with all six strings as chordTone; m16 final single stem at beat 3 is a plain quarter (d1) on strings 1,2 (plain x, no arrow) as printed (next measure not on page)",
+  "m16 jianpu '5 3 4' at beat 3 read as 16th, 8th, 16th (double, single, double underline); m16 low 5 (dot below, no underline) d1 tied to the next low 5",
+  "Melody notes bridged by a tie arc carry no lyric (e.g. m7/m11/m12/m16); lyric alignment inferred from x position",
+  "Chord beat for E in m16 placed at beat 3 by x alignment of the name over the last stem"
+ ]
+}

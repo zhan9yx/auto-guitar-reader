@@ -1,0 +1,42 @@
+{
+ "id": "hold-024",
+ "site": "jitashe",
+ "style": "strum-arrow arpeggio-strum tab (up/down arrows with stems) + jianpu 1 lyric verse + chord diagrams, 4/4, key #F, tuned half-step down",
+ "pageNumber": 1,
+ "watermarks": [
+  "吉他社 www.jitashe.net (logo, top right)",
+  "此谱由爱乐谱提供 演唱：田馥甄 (red header line)",
+  "diagonal faint red watermark 爱乐谱 across system 3",
+  "diagonal grey watermark text 爱乐网旗下网站 www.yuesir.com (rotated, over system 3; first characters partly illegible)",
+  "footer: 1/2 (page indicator)",
+  "footer: 爱乐谱 logo with text 爱乐网旗下网站 www.yuesir.com (first two characters blurry)",
+  "measure numbers 5, 8, 12, 16 at left of systems 2-5"
+ ],
+ "features": [
+  "strum arrows",
+  "rolled-chord arrow",
+  "chord diagrams",
+  "tie",
+  "triplet",
+  "grace notes (not transcribed)",
+  "repeat (start only)",
+  "rests",
+  "capo none; tuning down half step",
+  "jianpu",
+  "one lyric verse",
+  "barre chord Bm7 baseFret 2"
+ ],
+ "uncertain": [
+  "jianpu triplets (m5, m11: 1^ 7 6 with '3' bracket) stored as three notes of duration 1/3 beat; format has no tuplet field",
+  "grace notes (small superscript digits with hook) are NOT transcribed: m7 small '3' before final 4; m8 small '3 4' before first 3; m13 small '3' before 4 (beat 3); m15 small '5' before final 6",
+  "tab arrows: string spans measured from arrow stem extents (quarter arrows s1-s5, beamed arrows s1-s4, dotted-eighth arrows s2-s5, rolled arrows: m4 s1-s4 up, m10 s2-s5 up); a few arrow ends are within one string line of ambiguity",
+  "rolled (wavy) arrows in m4 and m10 stored as stroke up, one event each, followed by printed rest dashes (no events); m4 has rests at beats 1-3, m10 at beat 3",
+  "m10 right barline / m11 left barline = start-repeat '|:' ; no matching end-repeat is printed on this page (probably on page 2)",
+  "m18 contains two chords C and G with no barline between beat 1 and 2; measure drawn wide, barlines only at system edges; note stems/beam interpreted as 4/4",
+  "m9 and m15: C diagram is shifted left of its arrow (to avoid overlap with B7); chord beats assigned by arrow position: C at beat 2, B7 at beat 3",
+  "m15 final 6 and m13 final 2 carry ties: m13 2 -> m14 2 (barline tie), m15 6 -> m16 6 (tie across systems); m9 3 -> m10 3",
+  "low-res 256-colour GIF: dot-above octave marks on 1^ read from zoomed crops; B7 diagram printed with open 6th string (frets 0,2,1,2,0,2)",
+  "B7 and Cmaj7 diagrams read as printed; Bm7 baseFret 2 from small number '2' beside diagram",
+  "page is the first of 2 (1/2): the last system ends mid-song (m18 right barline is a plain thin line at the page edge)"
+ ]
+}

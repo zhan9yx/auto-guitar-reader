@@ -1,0 +1,39 @@
+{
+ "id": "hold-020",
+ "site": "jitapai",
+ "style": "弹唱 4/4 key F capo5 (C shapes); systems 1-2 fingerpicking tab with H/P + 4 jianpu rests, systems 3-4 rolled-arrow strums + jianpu + lyrics",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left, 吉他专家, caption 微信)",
+  "QR code (top-left second, caption 微信公众号)",
+  "欢迎关注微信公众号：吉他专家  输入歌名获取吉他谱！",
+  "第五季 吉他专家",
+  "吉他弹唱教学系列",
+  "diagonal/large watermark 吉他专家 Guitar expert (with 吉他派 logo) across systems 3-4",
+  "求谱微信：18673066106 微信公众号：吉他专家 输入歌名获取吉他谱",
+  "page number 1"
+ ],
+ "features": [
+  "fingerpicking x",
+  "hammer-on",
+  "pull-off",
+  "strum arrows",
+  "chord diagrams",
+  "capo",
+  "jianpu",
+  "lyrics",
+  "tuplet",
+  "tie",
+  "rests"
+ ],
+ "uncertain": [
+  "systems 1-2: each beat-0 / beat-2 event has x pick marks on two strings joined by a dashed line (C/Am: strings 3+5, G: strings 3+6) plus fret digit 1 on string 2 at same x; modelled as one event (2 chordTone + fret 1)",
+  "systems 1-2: slur arcs interpreted as H/P per the printed letters: first group 1->3 H on s2; 0->3 H on s1; 0->3->0 H,P; groups 3/4 1-3-1-3 H,P,H",
+  "systems 3-4: wavy up-arrows (rolled chords) modelled as strum events stroke=up spanning strings 1-5 (C, Am) or 1-6 (G), duration 1 per plain stem; printed dash rests produce no event",
+  "system 3 m2 / system 4 m2: arc above tab from first Am arrow to second arrow (sys3) not representable; ignored",
+  "triplets: sys3 m1 and sys4 m1 are quarter-note triplets (3 notes in 2 beats, duration 2/3 each, bracket 3); sys4 m3 last group is an eighth-note triplet (1/3 each); durations stored as exact thirds",
+  "system 4 m3 triplet underline pattern differs from sys3 m3 (no second-level lines) so read as triplet not 16th/8th/16th",
+  "jianpu second-line beam counts at 16th level read at 4x zoom; sys3 m3/sys4 m3 sums to 4 beats",
+  "time signature 4/4 printed in tab clef; no tempo printed; no section labels"
+ ]
+}

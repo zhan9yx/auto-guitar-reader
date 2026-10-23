@@ -1,0 +1,39 @@
+{
+ "id": "hold-017",
+ "site": "jitabang",
+ "style": "strum-arrow tab (6-line staff, up/down arrows with rhythm stems and beams) + jianpu row of X rhythm marks / rests + lyrics + chord diagrams, 4/4, capo 2, black title banner",
+ "pageNumber": 20,
+ "watermarks": [
+  "QR code (top right, with small round logo in the centre)",
+  "large diagonal pale pink/grey watermark text 必弹吉他 across the middle of the page",
+  "black title banner with header text '4/4 | 1=D | 原唱: 许巍 | 演示CAPO=2'",
+  "page number 20 (bottom centre)"
+ ],
+ "features": [
+  "strum arrows",
+  "strum arrows up/down with 16th subdivisions",
+  "wavy (rolled) up arrow",
+  "chord diagrams",
+  "jianpu X rhythm row",
+  "lyrics (1 verse)",
+  "capo",
+  "start repeat",
+  "intro rests",
+  "tab pick x and fret digits in intro",
+  "quarter rest signs (tab m1)",
+  "tie arcs over strums (not stored)",
+  "watermark",
+  "jianpu X marks as degree 0"
+ ],
+ "uncertain": [
+  "Jianpu row prints 'X' rhythm marks (not pitches). Stored as melody notes degree 0 with durations from underlines/dashes and the lyric under each X; real rests ('0') are also degree 0.",
+  "Jianpu m16: X(16th) tied to the next X by an arc; the tied note carries no lyric. m15 X X X after the held X read as 16th, 16th, 8th (double, double, single underline).",
+  "Intro tab m1-m5 is a 6-line staff with x picks and a few digits (m2 '3' on string 1, m3 '3 0 3 2'); stored as chordTone x notes and fret notes; m3 x-chord on strings 1,2,3,5 (string 4 skipped, thin connector line) read as printed.",
+  "Chord D in m1 is placed at beat 3: the diagram's left edge is aligned with the last x of m1 (name text sits near the barline); m14/m22 'Fm' at beat 3.5 by the same left-edge alignment with the 7th arrow, its diagram overhangs the end of the staff.",
+  "Chord names '#Fm' printed with a sharp sign before F, kept verbatim as '#Fm'; its diagram has 4 rows with dots on rows 2 and 4 and no fret number, read as [2,4,4,2,2,2] baseFret 1; Fm [1,3,3,1,1,1].",
+  "Strum arrows: strings spanned inferred from arrow tips (D: strings 1-4, A: 1-5, Em/G/E/#Fm/Fm: 1-6); wavy arrow in m10 and m18 spans strings 1-4 and is stored as stroke up, d1, followed by quarter rests (dashes) that produce no event.",
+  "Small tie arcs above the staff between the last 16th down-stroke of beat 2 and the up-stroke of beat 3 (every strum measure) are not representable in tab events and are omitted.",
+  "Barline at the left of m18 is thick-thin with dots on the right (start repeat); no matching end repeat is printed on this page.",
+  "Header has no separate tempo; key printed '1=D', capo printed 演示CAPO=2; credits holds the printed '原唱: 许巍'."
+ ]
+}

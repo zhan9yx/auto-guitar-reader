@@ -1,0 +1,30 @@
+{
+ "id": "hold-010",
+ "site": "guitarworld",
+ "style": "strum-pattern arpeggio tab (x pick marks) + jianpu 2 lyric verses + chord diagrams, 4/4, original key D capo 2",
+ "pageNumber": 1,
+ "watermarks": [
+  "凡凡.吉他教室 (logo top-left with music-note icon)",
+  "QR code (top right)",
+  "凡凡吉他教室 (text under QR code)",
+  "diagonal watermark 凡凡吉他教室 (large, grey, across page)",
+  "page number 1"
+ ],
+ "features": [
+  "chord diagrams",
+  "arpeggio pick pattern x",
+  "rolled-chord arrow",
+  "tie",
+  "multi-verse",
+  "capo",
+  "rests",
+  "jianpu"
+ ],
+ "uncertain": [
+  "system1 measures 1-4 beat 1: a '1' glyph is printed on string 1 at that position (where later systems have x on string 2); transcribed as fret 1 on string 1",
+  "system1 m4: wavy rolled-chord arrow with arrowhead at top spanning strings 1-5 (not 6) transcribed as up stroke on strings 1-5; followed by a printed rest dash at beat 3 (no event)",
+  "system4 m3: last note (3 above) has a tie arc running past the barline toward the next page/system; transcribed tieToNext=true although the destination is not on this page",
+  "printed text '原调D 变调夹2品' interpreted as capo 2 (key shown 1=C); not stored as credits",
+  "jianpu rhythm derived from underlines plus alignment with tab stems; no beat-sum warnings expected"
+ ]
+}

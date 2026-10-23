@@ -1,0 +1,47 @@
+{
+ "id": "hold-014",
+ "site": "jianpujia (简谱大全 jianpudq.com layout, 小东音乐 / 老王)",
+ "style": "4/4 PM strum-pattern tab (x columns + strum arrows) + jianpu + 3 chord diagrams, 1 lyric verse, capo 1",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left, two QR codes with 扫 between them; one with 淘 logo)",
+  "注：\"一排X\"为\"PM\"拍弦 / 下扫时用\"palm\"技巧敲击面板 / 扫弦均为PM扫弦法 / 详情见视频教学 (dotted legend box top-left)",
+  "drawn mascot cartoon figure (top centre)",
+  "警告：不是为了装13，请你放下吉他！",
+  "老王给你最娱乐的学琴体验! / 寻思啥呢！赶紧搜索视频吧！",
+  "示范优酷搜索：小东音乐 / 腾讯视频：小东音乐 / 淘宝店铺搜索：小东音乐 (dashed box top-right)",
+  "交流群1:48868997（满 / 交流群2:636121759",
+  "header text (not score): capo:1 屌丝：1--3 女神：2--5 (capo/position hints)",
+  "抖音老王吉他测评节目：xdyylw666666(老王抖音号) (*¯‿¯*) (between systems 1 and 2)",
+  "老王快手号：w1274962100(#^.^#) (below system 2 left)",
+  "large diagonal grey calligraphic watermark text 小东音乐 (behind systems)",
+  "boxed page border",
+  "page number 1",
+  "logo piano-key icon + 简谱大全 + jianpudq.com (bottom-right)"
+ ],
+ "features": [
+  "strum arrows",
+  "x pick marks (PM palm-mute legend)",
+  "chord diagrams",
+  "fingered digit (fret 8)",
+  "capo",
+  "slur arcs between x marks",
+  "intro rests",
+  "heavy JPEG",
+  "notation staff none"
+ ],
+ "uncertain": [
+  "PM legend 一排X为PM拍弦: stacked x columns (>=3 adjacent strings, no arrow) encoded as fret 0 + technique mute per string (coordinator decision); single x and x pairs (s2+s6) and arrows stay chordTone",
+  "sys1 m1/m3 and sys1 m5/sys2 m2: tab event with digit '8' on string 2 plus x on string 6 sharing a stem (dotted eighth) read as {s2 fret 8, s6 chordTone}; '8' glyph is small/low-res",
+  "column of 4 x (strings 1-4) has a dot printed above it, dot not stored (staccato/accent?)",
+  "x pairs in each pattern: x on s1+s6 joined by a stem (sys1 m1,m3) read as one event with two chordTone notes (no arrowhead)",
+  "arrow string spans read from shaft length: strum arrows s1-s5 (pattern B), s4-s6 (patterns C/E), first up-arrow of beat 1 in sys1 m1/m3 and beat 0 in sys1 m5/sys2 m2 drawn continuous into the stem so read as s1-s6; the 3rd arrow of the D pattern s1-s5",
+  "slur arcs between x marks across barlines (sys1 m1->m2, m3->m4, m5->sys2 m1, sys2 m2->m3) not stored (no technique)",
+  "title calligraphy read as 《摆摆绅士》 (index lists 摇摆绅士); key not printed -> null; tempo not printed",
+  "chord names printed 'AM' (kept verbatim), A5/G5; G5 diagram 'ooo' hollow circles over strings 3-1 read as frets 0 (A5 has x x x -> -1)",
+  "sys2 m4: text 此处为正常扫弦， stored as mark; tie arc 6->6 over last two sixteenth notes (sys2 m4) stored as tieToNext",
+  "melody durations from underlines: double underline = 0.25 (e.g. sys3 m2 5(.25) 5(.5) 5(.25) 5(.5) ...), final plain 6 in sys2 m4 and sys4 m1 read as d1",
+  "lyric glyph readings: 眸 (sys3 m3), 器 (sys4 m2, printed 器 not 嚣)",
+  "屌丝/女神 hint lines not stored in credits"
+ ]
+}

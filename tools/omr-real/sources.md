@@ -1,6 +1,6 @@
 # Real-dataset sources
 
-The images are NOT in the repo (they are third-party scores, mostly copyrighted by their arrangers/lyricists/composers). They are fetched for private evaluation only with `tools/omr-real/fetch.sh` / `dl_list.sh` (browser User-Agent, >= 2.2 s between requests per host, no login/paywall/captcha bypass). Nothing here is redistributed; do not publish the images.
+The page images are committed under `datasets/real/images` (the project owner confirmed they may be published). They were fetched with `tools/omr-real/fetch.sh` / `dl_list.sh` (browser User-Agent, >= 2.2 s between requests per host, no login/paywall/captcha bypass). Held-out pages: `datasets/holdout/sources.md`.
 
 | site | page URL | terms note | ids |
 |---|---|---|---|

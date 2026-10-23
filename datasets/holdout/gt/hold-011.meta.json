@@ -1,0 +1,42 @@
+{
+ "id": "hold-011",
+ "site": "guitarworld.cc (17吉他 / 17jita.com layout)",
+ "style": "6/8 strum-pattern tab x (arpeggio-like ascending x pattern) + jianpu + chord diagrams, up to 5 lyric verses, capo 2, repeat",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left, WeChat QR with green WeChat logo)",
+  "QR code (top-left, orange Taobao QR with 淘 logo)",
+  "官方QQ：347669577",
+  "交流群1：86523412  群2：96451726",
+  "large pale green guitar-pick logo with text 17吉他 / 17JITA.COM (centre-page watermark behind systems 2-3)",
+  "17吉他网出品，仅供个人交流，学习使用。篡改必究！",
+  "page number 1",
+  "green round guitar logo + 17吉他 / 17JITA.COM (bottom-right footer)",
+  "small QR code with 欢迎投稿 (bottom-right footer)",
+  "header text (not score): 演唱：老狼; 原调：1= D 6/8; 选调：1= C Capo=2; 作词：高晓松; 作曲：高晓松"
+ ],
+ "features": [
+  "strum pattern tab x",
+  "6/8",
+  "capo",
+  "chord diagrams",
+  "multi-verse",
+  "repeat",
+  "tie",
+  "slur",
+  "intro rests",
+  "wavy strum arrows",
+  "rolled arrows up"
+ ],
+ "uncertain": [
+  "intro bracket '(' before first rests (sys1 m1) and ')' after sys2 m2 rests not stored",
+  "sys2 m2: two wavy up-arrows (s1..s6) with stem-dot rhythm marks read as 2 dotted quarters (3 beats each); arc printed above the two arrows is not stored",
+  "sys3 m2: arc between 5 and the following 4 (different pitches) treated as slur -> tieToNext on the 5",
+  "sys3 m3: two chords in one measure, F at beat 0 and Dm at beat 3 (Dm diagram aligned with 4th x); tab here is s4 s3 s2 | s4 s3 s2 (no string-1 x)",
+  "sys3 m5 left barline: endRepeat printed (thin-thick with dots on the left) at end of m4; recorded as m4.right=endRepeat, m5.left=single (verifier: sign not shared, no dots on the right)",
+  "sys3 m5 and sys4: only 3 lyric rows printed (rows 4-5 empty-padded with '')",
+  "chord diagram frets read with baseFret 1 for all diagrams (no fret number printed); G diagram read as 3,2,0,0,0,3",
+  "key stored as printed 选调 C with capo 2; 原调 D ignored",
+  "tempo not printed"
+ ]
+}

@@ -1,0 +1,30 @@
+{
+ "id": "hold-009",
+ "site": "guitarworld",
+ "style": "指弹 fingerstyle tab only (Yiruma), 4/4, no chord names, no stems-only strums; tied notes in parentheses",
+ "pageNumber": 1,
+ "watermarks": [
+  "page number 1/3"
+ ],
+ "features": [
+  "fingerstyle tab",
+  "no chords",
+  "ties (parenthesised notes)",
+  "triplet",
+  "rests",
+  "let ring throughout",
+  "tempo 62",
+  "tab-only"
+ ],
+ "uncertain": [
+  "pickup-style measure 1: half rest + quarter rest + 16th rest then three 16ths; rest glyph at beat 3 read as 16th rest from the 4-stem double beam",
+  "measures 4 and 12 (and mirrored 4/12): last beat is an eighth-note triplet (bracket 3) with chord 7/0/0/0 on strings 1-4, durations stored as 1/3",
+  "parenthesised digits (x) after an arc are stored as technique tie on the destination note; arcs between non-parenthesised notes (m18 3->(3), (0)) also stored as tie",
+  "m7/m15: stacked ties on strings 3 and 4 across beats 2-3; tie arcs for string-4 chain read from arcs below the digits",
+  "m18 beat 2: arc from 0 (string 3, beat 1.5) to (0) at beat 2 read as tie; the other arc 3->(3) on string 2 above it",
+  "m16: eighth flags beneath staff for beats 0 and 1.5 and plain quarter stems at beats 0.5 and 3, read as 8th,quarter,8th,8th,8th,quarter",
+  "standard notation not present; no key signature printed; barlines at line ends drawn heavier but treated as single",
+  "page is 1/3 of the arrangement so ends without a final barline; last barline stored as single",
+  "string assignment from line positions; beat assignment from stems/beams (no chord names printed)"
+ ]
+}
