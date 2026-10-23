@@ -1,0 +1,28 @@
+{
+ "id": "hold-003",
+ "site": "ccguitar",
+ "style": "fingerstyle (指弹) full tab, 4/4, eighth-note arpeggio, Guitar-Pro style export, no chord names or diagrams, no notation staff",
+ "pageNumber": 1,
+ "watermarks": [
+  "page number 1/3 (bottom right)"
+ ],
+ "features": [
+  "fingerstyle",
+  "tab fret digits",
+  "ties",
+  "hammer-on",
+  "repeat (start only)",
+  "volta 1.",
+  "let ring throughout",
+  "Standard tuning",
+  "no chords printed",
+  "no melody row"
+ ],
+ "uncertain": [
+  "Tied notes are drawn as a bare stem with no digit (arc from previous note); stored as events with technique tie and the tied fret: m1-m4 beat 2 (s2 f3); m16 beat 2 (s1 f2, s2 f3); m17 beat 2 (s1 f2, s3 f2, s4 f0).",
+  "m6 beat 0.5 and m20 beat 1: small grace-style digit (2 on s3 in m6, 0 on s4 in m20) before the H hammer-on arc has no stem; not stored as a separate event, only the destination note is stored with hammerOn.",
+  "m18: both beamed eighths carry a dot (dotted eighth 0.75 each, then a flagged eighth at beat 1.5); read from the dots under the beam.",
+  "m4 end: thick-thin start-repeat sign opens m5; no end-repeat sign printed anywhere on the page; volta '1.' bracket over m20 only, with plain single barlines at both ends.",
+  "Beamless quarter stems read as duration 1: m12 beat 2, m17 beat 3, m20 beat 2, m21 beat 0, m22 beat 2, m24 beat 1.5."
+ ]
+}

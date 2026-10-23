@@ -1,0 +1,1124 @@
+{
+ "format": "agr-score",
+ "version": 2,
+ "id": "df775f4e-1032-4d7d-91ab-f578f2d21034",
+ "meta": {
+  "title": "月半小夜曲",
+  "artist": "李克勤",
+  "key": null,
+  "capo": 2,
+  "tempo": 70,
+  "timeSignature": {
+   "beats": 4,
+   "unit": 4
+  },
+  "mode": "strumSing",
+  "source": {
+   "kind": "image",
+   "fileName": "hold-007.png"
+  },
+  "credits": [
+   "演唱：李克勤",
+   "作曲：河合奈保子",
+   "改编：弹吉他的陈sir"
+  ]
+ },
+ "chordDefinitions": {},
+ "strumPatterns": [],
+ "sections": [
+  {
+   "id": "s0",
+   "name": "",
+   "kind": "other",
+   "lines": [
+    {
+     "id": "s0l0",
+     "kind": "system",
+     "segments": [],
+     "anchor": {
+      "page": 0,
+      "y": 0.395,
+      "height": 0.245
+     },
+     "system": {
+      "measures": [
+       {
+        "chords": [],
+        "tab": [
+         {
+          "beat": 2.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 4,
+            "technique": "slideUp"
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": [
+         "let ring throughout"
+        ]
+       },
+       {
+        "chords": [
+         {
+          "name": "Emadd9(no5)",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            0,
+            -1,
+            4,
+            -1,
+            -1,
+            3
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 3
+           },
+           {
+            "string": 6,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 4
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 4
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0,
+            "technique": "tie"
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 3.25,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2,
+            "technique": "pullOff"
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 3
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       },
+       {
+        "chords": [
+         {
+          "name": "Am",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            -1,
+            0,
+            2,
+            2,
+            1,
+            -1
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 5,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1,
+            "technique": "tie"
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       },
+       {
+        "chords": [
+         {
+          "name": "D7",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            -1,
+            -1,
+            0,
+            2,
+            1,
+            2
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2,
+            "technique": "tie"
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 3.25,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0,
+            "technique": "pullOff"
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 3.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "double",
+        "volta": [],
+        "marks": []
+       }
+      ]
+     }
+    },
+    {
+     "id": "s0l1",
+     "kind": "system",
+     "segments": [],
+     "anchor": {
+      "page": 0,
+      "y": 0.7,
+      "height": 0.26
+     },
+     "system": {
+      "measures": [
+       {
+        "chords": [
+         {
+          "name": "Gm",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            3,
+            -1,
+            -1,
+            3,
+            3,
+            -1
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 6,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0,
+            "technique": "tie"
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 3.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       },
+       {
+        "chords": [
+         {
+          "name": "C5",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            -1,
+            3,
+            -1,
+            0,
+            1,
+            -1
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 5,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 5,
+            "fret": 3
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.25,
+          "duration": 0.125,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 1,
+            "technique": "hammerOn"
+           }
+          ]
+         },
+         {
+          "beat": 3.375,
+          "duration": 0.125,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0,
+            "technique": "pullOff"
+           }
+          ]
+         },
+         {
+          "beat": 3.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 4
+           }
+          ]
+         },
+         {
+          "beat": 3.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       },
+       {
+        "chords": [
+         {
+          "name": "Am",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            -1,
+            0,
+            2,
+            2,
+            1,
+            -1
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 5,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 0.5,
+          "duration": 0.5,
+          "notes": [
+           {
+            "string": 4,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.25,
+          "duration": 0.125,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1,
+            "technique": "hammerOn"
+           }
+          ]
+         },
+         {
+          "beat": 1.375,
+          "duration": 0.125,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0,
+            "technique": "pullOff"
+           }
+          ]
+         },
+         {
+          "beat": 1.5,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.75,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1,
+            "technique": "tie"
+           },
+           {
+            "string": 5,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 2.75,
+          "duration": 0.25,
+          "notes": [
+           {
+            "string": 6,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 3.3333333333333335,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.6666666666666665,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       },
+       {
+        "chords": [
+         {
+          "name": "Amadd9(no5)/B",
+          "beat": 0,
+          "shape": {
+           "frets": [
+            -1,
+            2,
+            -1,
+            2,
+            1,
+            -1
+           ],
+           "baseFret": 1
+          }
+         }
+        ],
+        "tab": [
+         {
+          "beat": 0.0,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           },
+           {
+            "string": 5,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 0.3333333333333333,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 1
+           }
+          ]
+         },
+         {
+          "beat": 0.6666666666666666,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.0,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 1.3333333333333333,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 1.6666666666666667,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 2.0,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           },
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 2.3333333333333335,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 2
+           },
+           {
+            "string": 3,
+            "fret": 2
+           }
+          ]
+         },
+         {
+          "beat": 2.6666666666666665,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           },
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.0,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 4
+           },
+           {
+            "string": 4,
+            "fret": 4
+           }
+          ]
+         },
+         {
+          "beat": 3.3333333333333335,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 1,
+            "fret": 0
+           },
+           {
+            "string": 3,
+            "fret": 0
+           }
+          ]
+         },
+         {
+          "beat": 3.6666666666666665,
+          "duration": 0.3333333333333333,
+          "notes": [
+           {
+            "string": 2,
+            "fret": 4
+           },
+           {
+            "string": 4,
+            "fret": 4
+           }
+          ]
+         }
+        ],
+        "melody": [],
+        "leftBarline": "single",
+        "rightBarline": "single",
+        "volta": [],
+        "marks": []
+       }
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "pages": [
+  {
+   "fileName": "hold-007.png",
+   "width": 1200,
+   "height": 832
+  }
+ ]
+}
