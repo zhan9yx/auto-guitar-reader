@@ -283,6 +283,7 @@ enum OMRStaffDetector {
         let u = st.u
         let y0 = Int(st.top.rounded()), y1 = Int(st.bottom.rounded())
         var cols: [Int] = []
+        var weakCols = Set<Int>()
         let g = (gray != nil && gray!.width == bm.w && gray!.height == bm.h) ? gray : nil
         let ys = ((y0 + 2)...(y1 - 2)).filter { $0 >= 0 && $0 < bm.h }
         for x in max(0, st.x0 - 3)..<min(bm.w, st.x1 + 3) {
@@ -323,6 +324,9 @@ enum OMRStaffDetector {
             for y in [y0, y0 + 1, y1 - 1, y1] where y >= 0 && y < bm.h && bm.d[y * bm.w + x] == 0 { edgeGaps += 1 }
             if OMRTrace.flag("OMR_DEBUG_COL"), let t = Int(OMRTrace.value("OMR_DEBUG_COL") ?? ""), abs(t - x) <= 1 { FileHandle.standardError.write(Data("col \(x) n \(n) total \(total) maxGap \(maxGap) edge \(edgeGaps) y \(y0)-\(y1)\n".utf8)) }
             if Double(n) >= 0.98 * Double(total) && maxGap <= 1 && edgeGaps <= 2 { cols.append(x) }
+            // Antialiased hairlines of low-resolution scans lose a few rows. Such a column is accepted only if it is
+            // clearly a full-height line, and (below, per run) it does not continue under the staff like a note stem.
+            else if Double(n) >= 0.88 * Double(total) && maxGap <= 2 && edgeGaps <= 1 { cols.append(x); weakCols.insert(x) }
         }
         // group columns into runs
         var runs: [(Int, Int)] = []
@@ -332,6 +336,7 @@ enum OMRStaffDetector {
         if OMRTrace.flag("OMR_DEBUG_BAR") { FileHandle.standardError.write(Data("cols \(cols.count) runs \(runs) range \(max(0, st.x0 - 3))..<\(min(bm.w, st.x1 + 3)) y \(y0)-\(y1) bands \(st.bands)\n".utf8)) }
         // strum arrows: a vertical shaft with a wider arrow head at one end is not a barline
         runs = runs.filter { r in
+            if (r.0...r.1).allSatisfy({ weakCols.contains($0) }) && tailBelow(bm, run: r, staff: st) > 1 { return false }
             if r.1 - r.0 > 5 { return true }
             let cx = (r.0 + r.1) / 2
             func width(atY y: Int) -> Int {
