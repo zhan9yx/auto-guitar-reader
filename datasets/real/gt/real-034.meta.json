@@ -1,0 +1,33 @@
+{
+ "id": "real-034",
+ "site": "dashu-yinyuewu (大树音乐屋)",
+ "style": "fingerstyle tab (s.guit.) 6/8 arpeggio, chord diagrams above, lyrics under tab only (no jianpu), 20 measures",
+ "pageNumber": 1,
+ "watermarks": [
+  "大树音乐屋 (large diagonal/background watermark)",
+  "BIGTREEMUSIC (faint background text)",
+  "吉他派 logo watermark (middle of page)",
+  "header text: 海量曲谱获取[大树音乐屋]公众号",
+  "footer banner: social icons (WeChat, bilibili, TikTok, Taobao, 小红书) and search box '大树音乐屋'",
+  "page number 1/2",
+  "title banner: 吉他谱"
+ ],
+ "features": [
+  "fingerstyle tab",
+  "6/8",
+  "chord diagrams",
+  "lyrics under tab (stored as marks lyric:)",
+  "let ring throughout",
+  "tempo 83",
+  "Standard tuning",
+  "two chords in one measure (m18)",
+  "notation staff absent"
+ ],
+ "uncertain": [
+  "key: no '1=X' printed; header says only '原选调: ♭B' (kept in credits, key=null per GT_SPEC)",
+  "lyrics have no melody notes so stored as one 'lyric:' mark per measure (characters concatenated in printed order, no timing)",
+  "m18: stacked notes at beat 0 (s6 f6 + s2 f4) and beat 3 (s4 f5 + s2 f6) read as single events joined by a vertical line",
+  "final measure of page has plain single barline (page 1/2, song continues)",
+  "'Standard tuning' and 's.guit.' labels not stored in score"
+ ]
+}

@@ -1,0 +1,50 @@
+{
+ "id": "real-021",
+ "site": "unknown (no site mark visible)",
+ "style": "fingerstyle/strum tab with x picks + digits, jianpu row with lyrics, chord diagrams with finger numbers, 4/4 with 2/4 measures, low-resolution scan (800x1319)",
+ "pageNumber": null,
+ "watermarks": [
+  "no site watermark/logo/QR visible on the page",
+  "performance labels printed in the score: (AGT), (Drum In), N.C., (转#C调), (Strings), Fine"
+ ],
+ "features": [
+  "jianpu row with lyrics",
+  "tab x picks and fret digits",
+  "chord diagrams (finger numbers, fr. labels)",
+  "slides (circled S)",
+  "rolled/arpeggio wavy arrows (stroke up)",
+  "tie/slur arcs",
+  "time signature change 2/4 (measure beats=2)",
+  "repeat end",
+  "volta 2",
+  "coda signs (⊕)",
+  "segno-like sign",
+  "Fine",
+  "N.C.",
+  "accidentals in jianpu (b3, b6)",
+  "octave dots",
+  "alternate-key chord names ignored",
+  "no jianpu X marks present on this page (project rule 'jianpu X marks as degree 0' not exercised)"
+ ],
+ "uncertain": [
+  "no title/header printed on this page; key null (no 1=X), capo 0, tempo default",
+  "chord names in parentheses next to diagrams ((#G),(bBm),(Fm7),(#F)) and the row of parenthesized chords under the lyrics ((F7),(bBm7)...) are alternate-key names and NOT stored",
+  "chord diagrams are low-res; shapes read with finger-number circles; strings with nothing printed stored as 0 per spec (so e.g. Asus4, A, Dadd9, #Fm, A/#G, #Fm7(oo), Fmaj7(2fr) have 0 on unmarked low strings)",
+  "F/A diagram (sys5 m1, 5fr.) unreadable: shape omitted, measure marked shape?",
+  "sys5 #G diagram read as [4,4,4,5,4,4] (barre + one dot) while the sys6 #G reads [4,6,6,5,4,4]",
+  "sys6 bEm7 diagram has no x printed and is read [0,1,1,1,2,1] (barre fret 1 s5-s1 plus finger 2 on s2)",
+  "jianpu octave dots are tiny: sys3 m2 the dot under the '2' in the '1 2' pair of the 2nd group, sys3 m3 first 5 (two dots -> octave -2), sys2 m4 / sys5 m1 / sys6 m1 '7' dots read as octave -1",
+  "sys3 m3: '7' read as 2 beats (7 then dash) by tab alignment although a short underline appears under it",
+  "sys1/sys4 underlines under a few single digits are faint; durations were fixed by beat sums and tab alignment",
+  "slur arcs between different pitches stored as tieToNext=true (spec says tie/slur)",
+  "long arcs over tab x marks (ties between repeated x) not stored",
+  "circled S arcs read as slides: sys2 m4 5->3 slideDown, sys3 m1 2->3 slideUp",
+  "wavy arrows: sys5 m1 first arrow spans s1-s6, second s1-s5; sys6 arrows s1-s5; all stroke up, stored as chordTone arrow events",
+  "sys4 m4 sign near right barline looks like a segno; stored as mark 'Segno'; the two (circle-cross) signs stored as 'Coda' (first may be 'To Coda')",
+  "sys4 m1 volta '2.' bracket spans only that measure; no '1.' bracket printed; sys3 m4 (2/4 measure before it) ends with end-repeat",
+  "measure barline types: double bars read per measure from the scan; final bar of the page (after Fine) drawn as thin double and stored 'double'",
+  "sys6 m1..m2 first tie: the 3 at start of sys6 is tied from the last 3 of sys5 m4",
+  "time signature changes (2/4 measures) are represented with measure.beats=2 only",
+  "sys2 m1 #C7 diagram: barre circle starts on string 5 and no x printed, so string 6 stored 0 (nothing printed) rather than 4"
+ ]
+}

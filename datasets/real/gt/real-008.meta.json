@@ -1,0 +1,38 @@
+{
+ "id": "real-008",
+ "site": "vguitar (唯音悦)",
+ "style": "strum-pattern tab with x picks + strum arrows, chord diagrams, 4/4, 2 lyric rows in places, no jianpu",
+ "pageNumber": 1,
+ "watermarks": [
+  "large 唯音悦 / VGUITAR logo watermark (gray/orange circle graphic across the page)",
+  "唯音悦吉他专营店淘宝: vguitar.taobao.com (header)",
+  "QR code (bottom-left) with text 免费观看教学视频",
+  "QR code (bottom-right) with text 扫码关注微信公众号",
+  "footer: 唯音悦原声吉他体验店所有",
+  "footer note: Ps:本歌所有的Bm与Bm7和弦如果会大横按的话,建议使用大横按指法,和弦图如右图: 2品大横按指法 (with a Bm diagram, not part of a system)",
+  "page number 1"
+ ],
+ "features": [
+  "capo",
+  "repeat",
+  "volta",
+  "strum pattern tab x",
+  "strum arrows",
+  "chord diagrams",
+  "multi-verse lyric rows (as marks)",
+  "rests in tab",
+  "double barlines",
+  "chord change mid-measure"
+ ],
+ "uncertain": [
+  "lyrics have no melody notes: stored as 'lyric:' marks per measure, one mark per printed lyric row (row order), concatenated without timing",
+  "chord diagram without number/nut read as baseFret 1; the printed Bm diagram is [-1,2,-1,4,3,-1] (dots in rows 2,3,4)",
+  "#Fm6 diagram (system 4 m4, system 6 m2): circle above string 4 AND a dot at fret 1 on string 4; read as frets [2,0,1,2,-1,-1] (dot wins)",
+  "chord names stored verbatim '#Fm6' and 'D/#F' (sharp printed before the letter)",
+  "system 1 m5 (volta 2): single x event with three dash rests printed; dashes read as quarter rests",
+  "system 6 m3 is a narrower measure (4 quarter beats in half-width); chord Em9 placed at beat 3 by alignment",
+  "m4 of system 1 / system 2 / system 3 b3.5 '0' sits on string 2 in some measures and string 1 in others, read per measure by line position",
+  "key 1=G with capo 3 (original key bB); not interpreted",
+  "strum arrows: system 5 m5, system 6 m1-m2 span strings 1-6; system 6 m3 (Bm7) arrows measured as spanning strings 1-5 only (ends one string short of bottom line)"
+ ]
+}

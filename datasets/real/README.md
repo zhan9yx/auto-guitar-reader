@@ -4,3 +4,4 @@
 - `gt/real-NNN.agr.json` + `.meta.json`: hand-transcribed, independently verified ground truth for 18 pages (AGR v2). See `gt/VERIFICATION.md`.
 - Grayscale `.pgm` files used by the Linux OMR harness are not committed; regenerate with `tools/omr-real/convert.py`.
 - Dev split: 000 001 002 013 014 015 019 022 025. Held-out test: 028 031 035 038 040 042 043 045 049.
+- Extra DEV pages (added later, verified, see `gt/verify/`): 008 021 034 (034 is printed 6/8). Fingerstyle DEV pages live in `../holdout/gt-dev/`.
