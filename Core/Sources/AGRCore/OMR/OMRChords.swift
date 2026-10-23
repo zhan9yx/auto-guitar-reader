@@ -392,6 +392,20 @@ enum OMRChordReader {
         var lineYs: [Double] = []
         for k in 0...n { lineYs.append(yTop + Double(k) * fAdj) }
 
+        // The six strings are continuous vertical lines over the whole grid height; a row of jianpu digits or
+        // lyrics under an underline satisfies the lattice test above but has no such lines.
+        var continuous = 0.0
+        for i in 0..<6 {
+            var hit = 0, tot = 0
+            for yy in Int(yTop.rounded())...Int(yBot.rounded()) where yy >= 0 && yy < bm.h {
+                tot += 1
+                let xc = Int(xs[i].rounded(.down))
+                if (xc - 1...xc + 1).contains(where: { bm.ink($0, yy) }) { hit += 1 }
+            }
+            continuous += tot > 0 ? Double(hit) / Double(tot) : 0
+        }
+        guard continuous / 6 >= 0.8 else { return nil }
+
         var rel = [Int](repeating: 0, count: 6)
         var clearDot = [Bool](repeating: false, count: 6)
         var conf = 1.0

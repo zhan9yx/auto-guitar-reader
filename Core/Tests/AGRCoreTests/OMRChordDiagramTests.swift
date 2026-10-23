@@ -38,6 +38,15 @@ final class OMRChordDiagramTests: XCTestCase {
         return OMRChordReader.findDiagrams(bm, top: 0, bottom: Double(c.height), u: 14, xMin: 0, xMax: c.width).first
     }
 
+    /// Jianpu digits on an underline have six aligned columns and horizontal rules but no continuous strings.
+    func testDigitRowIsNotADiagram() {
+        var c = OMRCanvas(width: 160, height: 140)
+        for k in 0...3 { c.hline(x0: 40, x1: 91, y: 40 + k * 12, t: 2) }
+        for i in 0..<6 { c.rect(x0: 40 + i * 10 - 3, y0: 46, x1: 40 + i * 10 + 3, y1: 52) }   // glyph blobs between rules
+        let (bm, _, _, _) = OMRVision.binarize(c.img)
+        XCTAssertTrue(OMRChordReader.findDiagrams(bm, top: 0, bottom: Double(c.height), u: 14, xMin: 0, xMax: c.width).isEmpty)
+    }
+
     /// C major, open: x32010.
     func testOpenC() throws {
         var s = Spec()
