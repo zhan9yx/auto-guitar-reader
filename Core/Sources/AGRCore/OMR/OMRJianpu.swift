@@ -212,6 +212,9 @@ enum OMRJianpuReader {
         var dashes: [Double] = []
         var arcs: [(x0: Double, x1: Double)] = []
         let dbg = OMRTrace.flag("AGR_JP_DEBUG")
+        // A tie or slur is drawn right above the digit row (two stacked arcs reach ~2 digit heights); the rhythm
+        // beams of the tab block end well above that and are long thin horizontal strokes too.
+        let arcFloor = rowTop - 2.4 * Hd
         for c in lab.comps where !used.contains(c.id) {
             let r = offsetRect(c.rect)
             let h = Double(r.h), w = Double(r.w)
@@ -224,14 +227,14 @@ enum OMRJianpuReader {
                     underlines.append((Double(r.x0), Double(r.x1), min(3, lv)))
                 } else if r.cy >= rowTop + 0.25 * Hd && r.cy <= rowTop + 0.8 * Hd {
                     dashes.append(r.cx)
-                } else if r.cy < rowTop - 0.02 * Hd && w >= 0.7 * Hd {
+                } else if r.cy < rowTop - 0.02 * Hd && r.cy >= arcFloor && w >= 0.7 * Hd {
                     // a short slur is only a few pixels tall, so it never reaches the arc test below
                     arcs.append((Double(r.x0), Double(r.x1)))
                 }
                 continue
             }
             // slurs / ties above the digits
-            if w >= 0.7 * Hd && h <= 0.9 * Hd && h >= 2 && w / h >= 2.2 && r.cy < rowTop - 0.05 * Hd {
+            if w >= 0.7 * Hd && h <= 0.9 * Hd && h >= 2 && w / h >= 2.2 && r.cy < rowTop - 0.05 * Hd && r.cy >= arcFloor {
                 arcs.append((Double(r.x0), Double(r.x1)))
                 continue
             }
@@ -285,6 +288,7 @@ enum OMRJianpuReader {
         // run is a merged double underline. Split a tall run whose top is that line and whose bottom is a dot,
         // and keep only the compact top when a dot's stem joins the lyric (the lyric stroke is not an underline).
         var runsPerNote = [[(Int, Int)]](repeating: [], count: notes.count)
+        var runExt = [[(Int, Int)]](repeating: [], count: notes.count)   // horizontal extent of each run
         let dotLimit1 = min(rowBottom + 1.35 * u, lyricTop - 1)
         struct DotCand { var mid: Int, top: Int, th: Double, wd: Double, tailed: Bool }
         var dotCands = [[DotCand]](repeating: [], count: notes.count)
@@ -337,7 +341,15 @@ enum OMRJianpuReader {
                             for t in k0...k1 where bm.ink(x, t) { hit = true; break }
                             if hit { union += 1 }
                         }
-                        if union * 5 >= span * 4 && Double(k0) <= n.bottom + 0.9 * u + 2 { runsPerNote[i].append((k0, k1)) }
+                        if union * 5 >= span * 4 && Double(k0) <= n.bottom + 0.9 * u + 2 {
+                            runsPerNote[i].append((k0, k1))
+                            func inkAt(_ x: Int) -> Bool { for t in k0...k1 where bm.ink(x, t) { return true }; return false }
+                            var l = c0, r = c0, gap = 0
+                            while l > 0 && gap <= 1 && c0 - l < 400 { l -= 1; if inkAt(l) { gap = 0 } else { gap += 1 } }
+                            gap = 0
+                            while r < bm.w - 1 && gap <= 1 && r - c0 < 400 { r += 1; if inkAt(r) { gap = 0 } else { gap += 1 } }
+                            runExt[i].append((l + gap, r - gap))
+                        }
                         continue
                     }
                     var maxW = 0, best = k0 - 1, seen = false
@@ -360,6 +372,50 @@ enum OMRJianpuReader {
                     let tailed = k1 > best + max(2, Int((0.25 * u).rounded()))
                     dotCands[i].append(DotCand(mid: (k0 + best) / 2, top: k0, th: th, wd: wdD, tailed: tailed))
                 }
+            }
+        }
+        // ---- keep only runs that form the page's underline stack. Underlines of one page sit at a fixed offset below
+        // the digit baseline and a fixed pitch apart, and each level lies inside the one above (a beam). The first
+        // stroke of a lyric character directly below the row is also a wide thin run at about that distance, but
+        // it is not on the page's offsets and sticks out sideways past the underline above it.
+        func mode(_ a: [Int]) -> (v: Int, n: Int)? {
+            var best: (v: Int, n: Int)?
+            for v in Set(a).sorted() {
+                let n = a.filter { abs($0 - v) <= 1 }.count
+                if best == nil || n > best!.n { best = (v, n) }
+            }
+            return best
+        }
+        let firstOff = runsPerNote.compactMap { $0.first.map { $0.0 - Int(rowBottom.rounded()) } }
+        if let m1 = mode(firstOff), m1.n >= 3 {
+            var gaps: [Int] = []
+            for rs in runsPerNote where rs.count >= 2 && abs(rs[0].0 - Int(rowBottom.rounded()) - m1.v) <= 1 { gaps.append(rs[1].0 - rs[0].1 - 1) }
+            let g1 = mode(gaps)
+            for i in notes.indices {
+                var keep: [(Int, Int)] = [], keepExt: [(Int, Int)] = []
+                for (j, r) in runsPerNote[i].enumerated() {
+                    let e = runExt[i][j]
+                    if keep.isEmpty {
+                        if abs(r.0 - Int(rowBottom.rounded()) - m1.v) <= 1 { keep.append(r); keepExt.append(e) }
+                        continue
+                    }
+                    let prev = keep.last!, pe = keepExt.last!
+                    let okGap = g1.map { $0.n >= 3 ? abs((r.0 - prev.1 - 1) - $0.v) <= 1 : true } ?? true
+                    let exactGap = g1.map { $0.n >= 3 ? (r.0 - prev.1 - 1) == $0.v : true } ?? true
+                    let nested = e.0 >= pe.0 - 2 && e.1 <= pe.1 + 2
+                    // a lower level lies at the page's exact stroke pitch, or is as wide as its digit, or runs on to the
+                    // neighbouring digit (a beam); a lyric stroke is off the pitch, wider than the digit and stops short
+                    // of the next one
+                    let nt = notes[i]
+                    let tol = max(2.0, 0.15 * (nt.x1 - nt.x0))
+                    let snug = Double(e.0) >= nt.x0 - tol && Double(e.1) <= nt.x1 + tol
+                    let prevN = i > 0 ? notes[i - 1] : nil, nextN = i + 1 < notes.count ? notes[i + 1] : nil
+                    let reachL = prevN.map { Double(e.0) <= $0.x1 + 3 } ?? false
+                    let reachR = nextN.map { Double(e.1) >= $0.x0 - 3 } ?? false
+                    if dbg { print("   underline cand note x\(Int(nt.cx)) run \(r) ext \(e) digit \(Int(nt.x0))-\(Int(nt.x1)) okGap \(okGap) nested \(nested) snug \(snug) reach \(reachL) \(reachR)") }
+                    if okGap && nested && (exactGap || snug || reachL || reachR) { keep.append(r); keepExt.append(e) } else { break }
+                }
+                runsPerNote[i] = keep; runExt[i] = keepExt
             }
         }
         let ths = runsPerNote.flatMap { $0.map { Double($0.1 - $0.0 + 1) } }.sorted()
@@ -437,6 +493,7 @@ enum OMRJianpuReader {
             if bi >= 0 { notes[bi].dashes += 1 }
         }
         // slur arcs
+        if dbg { for a in arcs { print("   arc x\(Int(a.x0))-\(Int(a.x1))") } }
         for a in arcs {
             guard let l = nearestNote(a.x0, maxDist: 1.6 * u + 0.5 * medW), let r = nearestNote(a.x1, maxDist: 1.6 * u + 0.5 * medW) else { continue }
             if r > l { for k in l..<r { notes[k].tie = true } }
