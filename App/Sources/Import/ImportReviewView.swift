@@ -212,7 +212,7 @@ struct ImportReviewView: View {
         let chordCount = ScoreStats.chordCount(score)
         if score.sections.isEmpty || ScoreStats.lineCount(score) == 0 {
             items.append("没有识别到任何内容。可以点击“编辑为文本”手动输入，或返回重新选择更清晰的图片。")
-        } else if score.meta.mode == .strumSing, ScoreStats.tabLineCount(score) == 0, chordCount < 4 {
+        } else if !isNotation, score.meta.mode == .strumSing, ScoreStats.tabLineCount(score) == 0, chordCount < 4 {
             items.append("只识别到 \(chordCount) 个和弦，识别结果可能不完整。建议检查预览，必要时点击“编辑为文本”修正。")
         }
         return items

@@ -1,0 +1,1919 @@
+{
+  "format": "agr-score",
+  "version": 2,
+  "id": "026ECB93-D1BD-44D7-ACD4-2D882DA45082",
+  "meta": {
+    "title": "",
+    "artist": "",
+    "key": null,
+    "capo": 0,
+    "tempo": 80,
+    "timeSignature": {
+      "beats": 4,
+      "unit": 4
+    },
+    "mode": "strumSing",
+    "source": {
+      "kind": "image",
+      "fileName": "real-011.png"
+    },
+    "credits": []
+  },
+  "chordDefinitions": {},
+  "strumPatterns": [],
+  "sections": [
+    {
+      "id": "s0",
+      "name": "",
+      "kind": "other",
+      "lines": [
+        {
+          "id": "s0l0",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.02,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "Em",
+                    "beat": 0.0,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Fsus2",
+                    "beat": 0.0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        -1,
+                        3,
+                        0,
+                        1,
+                        -1
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 1.0,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l1",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.156,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l2",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.291,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.5
+                  },
+                  {
+                    "degree": 6,
+                    "duration": 0.25,
+                    "beat": 3.75
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l3",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.427,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "duration": 0.25,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 2.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.5,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l4",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.562,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l5",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.698,
+            "height": 0.144
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "C",
+                    "beat": 0.0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        1,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 0.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 1.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 3,
+                    "duration": 0.25,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.25,
+                    "beat": 3.25
+                  },
+                  {
+                    "degree": 5,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 1,
+                    "duration": 1.0,
+                    "octave": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "octave": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 7,
+                    "duration": 0.5,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 1,
+                    "duration": 0.5,
+                    "octave": 1,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 2,
+                    "duration": 0.5,
+                    "octave": 1,
+                    "beat": 3.5
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.5,
+                    "duration": 0.75,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.75,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.25,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 3.0
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.75,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 3.0
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "single",
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.75,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "fret": 3
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.25,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.25,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.25,
+                    "duration": 0.75,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "duration": 1.0,
+                    "beat": 3.0
+                  }
+                ],
+                "leftBarline": "single",
+                "rightBarline": "final",
+                "volta": [],
+                "marks": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "fileName": "real-011.png",
+      "width": 1210,
+      "height": 1810
+    }
+  ]
+}

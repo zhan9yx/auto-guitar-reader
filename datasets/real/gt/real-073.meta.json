@@ -1,0 +1,35 @@
+{
+  "id": "real-073",
+  "site": "shanshan-guitar",
+  "style": "strum-sing jianpu tab",
+  "pageNumber": 1,
+  "watermarks": [
+    "QR code (top left)",
+    "公众号：山山吉他",
+    "对话框输入歌名获取吉他谱",
+    "QR code (top right, WeChat)",
+    "和山山老师交朋友",
+    "教学、答疑、购琴",
+    "山山吉他",
+    "更多吉他谱尽在“山山吉他”微信公众号",
+    "页码：1",
+    "添加老师微信获取海量高清无水印曲谱"
+  ],
+  "features": [
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "capo",
+    "strum arrows",
+    "fingerstyle x",
+    "pull-off",
+    "tuplet"
+  ],
+  "uncertain": [
+    "s0l0 m4 and s0l3 m2: up-strum arrow string span read as all six strings.",
+    "s0l4: short strum arrows sit on the top of the staff; encoded as strings 1–2. Exact up/down sequence of a few arrowheads is uncertain.",
+    "s0l2 m0 B7 diagram: open low string versus a mute on string 6 is close; encoded [0,2,1,2,0,2].",
+    "s0l1 m0 and s0l2 m1 Bm/D: diagram shows three fret rows, encoded [-1,-1,0,3,2,1].",
+    "s0l3 m1 is two beats (half-width bar, melody sums to 2)."
+  ]
+}

@@ -1,0 +1,25 @@
+{
+ "id": "real-148",
+ "site": "jitabang",
+ "style": "strum-sing",
+ "pageNumber": 20,
+ "watermarks": [
+  "QR code (top right)",
+  "必弹吉他",
+  "20"
+ ],
+ "features": [
+  "jianpu",
+  "lyrics",
+  "chord diagrams",
+  "strum arrows",
+  "capo"
+ ],
+ "uncertain": [
+  "the vocal staff prints X rather than scale degrees; each X is stored as degree 1 and the measure is marked melodyX",
+  "D and Em diagrams lost one string in the grid read; shapes are the matching open voicings xx0232 and 022000",
+  "A, E, F#m and Fm diagrams were not grid-read; names only",
+  "strum-arrow tab is not encoded (empty) except the rhythm is carried by the X melody",
+  "system 4 measure 2 dotted-X plus dash spelling was fit to 4 beats"
+ ]
+}

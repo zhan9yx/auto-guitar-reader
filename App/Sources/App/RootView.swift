@@ -95,7 +95,7 @@ struct RootView: View {
             List(SidebarItem.allCases, selection: $model.sidebarSelection) { item in
                 Label(item.title, systemImage: item.systemImage)
             }
-            .navigationTitle("吉他谱")
+            .navigationTitle("Downbeat")
         } content: {
             switch appModel.sidebarSelection {
             case .community:

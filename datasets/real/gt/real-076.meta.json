@@ -1,0 +1,33 @@
+{
+  "id": "real-076",
+  "site": "山山吉他",
+  "style": "弹唱",
+  "pageNumber": 1,
+  "watermarks": [
+    "QR code (top left)",
+    "扫码关注微信公众号：山山吉他",
+    "输入歌曲关键字即可获取",
+    "高清吉他谱以及演奏教程",
+    "QR code (top right)",
+    "获取吉他谱教学扫码",
+    "加老师微信在线指导",
+    "山山吉他",
+    "更多免费高清曲谱尽在“山山吉他”微信公众号",
+    "免费扒谱 查谱就上“山山吉他”微信公众号"
+  ],
+  "features": [
+    "capo",
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "rhythm stems",
+    "repeat",
+    "fingerpicking x"
+  ],
+  "uncertain": [
+    "s0l2-s0l4 tab: eighth-note × pairs are printed, but several × sit on a stem so the exact string set varies; encoded as on-beat strings 2+3 and off-beat string 4",
+    "s0l3 m1 beat 2 strum may include an extra string; a tab dash after it is not an event",
+    "phrase slurs over several jianpu groups are printed but not stored as tieToNext",
+    "a few lyric syllables are held across a dotted note (empty lyric on the continuation)"
+  ]
+}

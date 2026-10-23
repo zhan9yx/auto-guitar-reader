@@ -1,0 +1,3832 @@
+{
+  "format": "agr-score",
+  "version": 2,
+  "id": "ca59a00e-1453-420c-9c94-8e839020ac11",
+  "meta": {
+    "title": "乌梅子酱",
+    "artist": "李荣浩",
+    "key": "G",
+    "capo": 2,
+    "tempo": 80,
+    "timeSignature": {
+      "beats": 4,
+      "unit": 4
+    },
+    "mode": "strumSing",
+    "source": {
+      "kind": "image",
+      "fileName": "real-080.png"
+    },
+    "credits": [
+      "原调：1=A  4/4拍",
+      "选调：1=G 变调夹2品",
+      "演唱：李荣浩",
+      "制谱：山山吉他"
+    ]
+  },
+  "chordDefinitions": {},
+  "strumPatterns": [],
+  "sections": [
+    {
+      "id": "s0",
+      "name": "",
+      "kind": "other",
+      "lines": [
+        {
+          "id": "s0l0",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.155,
+            "height": 0.175
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  }
+                ],
+                "volta": [],
+                "beats": 2,
+                "leftBarline": "single",
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Cadd9",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        3,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Bm7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 2
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 3
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Am7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        0,
+                        2,
+                        0,
+                        1,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 1
+                      },
+                      {
+                        "string": 5,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 2
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 4
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "fret": 4
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 0
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "fret": 2
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Gmaj7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        3,
+                        -1,
+                        4,
+                        4,
+                        3,
+                        -1
+                      ],
+                      "baseFret": 3
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Cadd9",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        3,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "背"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "靠"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "在"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "树"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "枝"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "tieToNext": true,
+                    "lyrics": [
+                      "上"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "rightBarline": "single",
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l1",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.3,
+            "height": 0.175
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "Bm7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 2
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "蜻"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 4,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "蜓"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "落"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "leftBarline": "single",
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "#Fm7-5",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        -1,
+                        4,
+                        5,
+                        5,
+                        5
+                      ],
+                      "baseFret": 4
+                    }
+                  },
+                  {
+                    "name": "B7",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        4,
+                        2
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 4,
+                    "octave": -1,
+                    "duration": 1,
+                    "lyrics": [
+                      "在"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "露"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "水"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "旁"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "乘"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "凉"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Em",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 2,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "表"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "白"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "后"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Cadd9",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        3,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "的"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "乌"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "梅"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "树"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "下"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "土"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Bm7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 2
+                    }
+                  },
+                  {
+                    "name": "Em",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "壤"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "发"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "了"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "芽"
+                    ],
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "rightBarline": "single",
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l2",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.468,
+            "height": 0.175
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "Am7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        0,
+                        2,
+                        0,
+                        1,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  },
+                  {
+                    "name": "A7",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        0,
+                        2,
+                        0,
+                        2,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "美"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "得"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "不"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "像"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "话"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "leftBarline": "single",
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "D",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        -1,
+                        0,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 2,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Cadd9",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        3,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "fret": 2
+                      },
+                      {
+                        "string": 4,
+                        "fret": 2
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "再",
+                      "留"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "让",
+                      "一"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "我",
+                      "勺"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "想",
+                      "这"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 7,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "一",
+                      "味"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "想",
+                      "道"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "leftBarline": "startRepeat",
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Bm7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 2
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 1,
+                    "lyrics": [
+                      "那",
+                      "暮"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "最",
+                      "暮"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 4,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "腻",
+                      "朝"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "的",
+                      "朝"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "#Fm7-5",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        -1,
+                        4,
+                        5,
+                        5,
+                        5
+                      ],
+                      "baseFret": 4
+                    }
+                  },
+                  {
+                    "name": "B7",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        4,
+                        2
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 4,
+                    "octave": -1,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "情",
+                      "比"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "话",
+                      "例"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "怎",
+                      "刚"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "么",
+                      "刚"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "讲",
+                      "好"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "rightBarline": "single",
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l3",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.64,
+            "height": 0.18
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "Em",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 2,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "慢",
+                      "果"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "火",
+                      "肉"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "熬",
+                      "配"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "leftBarline": "single",
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Cadd9",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        3,
+                        2,
+                        0,
+                        3,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "的",
+                      "焦"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "细",
+                      "糖"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "水",
+                      "的"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "长",
+                      "温"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "流",
+                      "柔"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Bm7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 2
+                    }
+                  },
+                  {
+                    "name": "E",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        1,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 5,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "念",
+                      "再"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "长",
+                      "几"
+                    ],
+                    "beat": 0.5
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "长",
+                      "个"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "久",
+                      "春"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 4,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.25
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "久",
+                      "秋"
+                    ],
+                    "beat": 3.0
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Am7",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        0,
+                        2,
+                        0,
+                        1,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  },
+                  {
+                    "name": "D",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        -1,
+                        0,
+                        2,
+                        3,
+                        2
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "约",
+                      "我"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "好",
+                      "喂"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "到",
+                      "你"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "白",
+                      "一"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "头",
+                      "口"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "G",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        3,
+                        2,
+                        0,
+                        0,
+                        0,
+                        3
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 4,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 4,
+                    "beat": 0.0
+                  }
+                ],
+                "volta": [],
+                "rightBarline": "single",
+                "marks": []
+              }
+            ]
+          }
+        },
+        {
+          "id": "s0l4",
+          "kind": "system",
+          "segments": [],
+          "anchor": {
+            "page": 0,
+            "y": 0.808,
+            "height": 0.175
+          },
+          "system": {
+            "measures": [
+              {
+                "chords": [
+                  {
+                    "name": "G",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        3,
+                        2,
+                        0,
+                        0,
+                        0,
+                        3
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "fret": 4
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 1.0,
+                    "notes": [
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 1,
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "你"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "浅"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "lyrics": [
+                      "浅"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "lyrics": [
+                      "的"
+                    ],
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "微"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "笑"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "leftBarline": "single",
+                "marks": [
+                  "无尾滑音"
+                ]
+              },
+              {
+                "chords": [
+                  {
+                    "name": "G",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        3,
+                        2,
+                        0,
+                        0,
+                        3,
+                        3
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 5,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "就"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 5,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "像"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 5,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "#Fm7-5",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        2,
+                        -1,
+                        2,
+                        2,
+                        1,
+                        -1
+                      ],
+                      "baseFret": 1
+                    }
+                  },
+                  {
+                    "name": "B7",
+                    "beat": 2,
+                    "shape": {
+                      "frets": [
+                        -1,
+                        2,
+                        4,
+                        2,
+                        4,
+                        2
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 5,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 1,
+                    "lyrics": [
+                      "乌"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "梅"
+                    ],
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "子"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.25,
+                    "beat": 2.75
+                  },
+                  {
+                    "degree": 6,
+                    "octave": -1,
+                    "duration": 0.5,
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "酱"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "marks": []
+              },
+              {
+                "chords": [
+                  {
+                    "name": "Em",
+                    "beat": 0,
+                    "shape": {
+                      "frets": [
+                        0,
+                        2,
+                        2,
+                        0,
+                        0,
+                        0
+                      ],
+                      "baseFret": 1
+                    }
+                  }
+                ],
+                "tab": [
+                  {
+                    "beat": 0.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 0.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 1.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 6,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 2.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.0,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  },
+                  {
+                    "beat": 3.5,
+                    "duration": 0.5,
+                    "notes": [
+                      {
+                        "string": 1,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 2,
+                        "chordTone": true
+                      },
+                      {
+                        "string": 3,
+                        "chordTone": true
+                      }
+                    ]
+                  }
+                ],
+                "melody": [
+                  {
+                    "degree": 1,
+                    "octave": 1,
+                    "duration": 1,
+                    "lyrics": [
+                      "唇"
+                    ],
+                    "beat": 0.0
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "膏"
+                    ],
+                    "beat": 1.0
+                  },
+                  {
+                    "degree": 0,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "beat": 1.5
+                  },
+                  {
+                    "degree": 1,
+                    "octave": 1,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "薄"
+                    ],
+                    "beat": 2.0
+                  },
+                  {
+                    "degree": 2,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "荷"
+                    ],
+                    "beat": 2.5
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "lyrics": [
+                      "味"
+                    ],
+                    "beat": 3.0
+                  },
+                  {
+                    "degree": 3,
+                    "octave": 0,
+                    "duration": 0.5,
+                    "tieToNext": true,
+                    "lyrics": [
+                      "道"
+                    ],
+                    "beat": 3.5
+                  }
+                ],
+                "volta": [],
+                "rightBarline": "single",
+                "marks": []
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "pages": [
+    {
+      "fileName": "real-080.png",
+      "width": 1280,
+      "height": 1810
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "id": "real-107",
+  "site": "山山吉他",
+  "style": "fingerstyle jianpu tab",
+  "pageNumber": null,
+  "watermarks": [],
+  "features": [
+    "jianpu",
+    "chord diagrams",
+    "fingerstyle x",
+    "lyrics",
+    "repeat",
+    "tie",
+    "tab fret numbers"
+  ],
+  "uncertain": [
+    "s0l0 measure 4 (G): string-2 3 1 0 0 with a tie between the two 0s and tab dashes after the four eighths; the dashes are not events.",
+    "s0l1 measure 2 and s0l3 measure 2: the held high 1 under the slur is encoded as an eighth tied to a quarter so the bar fills.",
+    "s0l2 measure 4 (G): fret 2 is on string 3 and fret 1 on string 2; the following tab dash is not an event.",
+    "s0l4 measure 3: eight lyric characters 现在正在服下的毒 over seven notes; last note encoded as 的, 毒 sits at the barline before 药."
+  ]
+}

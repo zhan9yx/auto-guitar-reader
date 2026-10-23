@@ -1,0 +1,609 @@
+import Foundation
+
+/// A recognised numbered-notation note (pixel geometry kept for debugging).
+struct JianpuNote {
+    var cx: Double, x0: Double, x1: Double
+    var top: Double, bottom: Double
+    var degree: Int
+    var conf: Double
+    var accidental = 0
+    var above = 0, below = 0
+    var levels = 0
+    var dots = 0
+    var dashes = 0
+    var tie = false
+    var measure = -1
+    var beat = 0.0
+    var duration = 0.0
+}
+
+struct JianpuReadResult {
+    var measures: [[MelodyNote]]
+    var issues: [OMRIssue]
+    var notes: [JianpuNote] = []
+    var rowTop: Double = 0, rowBottom: Double = 0
+    var lyricRows: [LyricRow] = []
+    /// x of the measure boundaries used (measures.count + 1 entries).
+    var boundaries: [Double] = []
+    /// Printed marks per tab measure (`jianpu-paren-open` / `jianpu-paren-close`), indexed like `bars`.
+    var marks: [[String]] = []
+}
+
+/// Numbered-notation (简谱) melody + lyrics reader for one tab system.
+///
+/// Call site (per system, after `OMRStaffDetector.detect` / `barlines`):
+/// ```
+/// let r = OMRJianpuReader.read(gray: image, bitmap: bm, staff: st, nextStaffTop: staves[si+1].top, bars: bars,
+///                              ocr: ocr, timeSignature: meta.timeSignature)
+/// // r.measures[mi] -> NotationMeasure.melody for measure mi (bars[mi]..bars[mi+1]); r.issues -> report
+/// ```
+/// `bitmap` is the deskewed page binarisation (staff lines may still be present), `ocr` the page's (deskew-mapped) OCR tokens.
+enum OMRJianpuReader {
+    typealias Result = JianpuReadResult
+
+    static func read(gray: GrayImage, bitmap bm: Bitmap, staff: TabStaff, nextStaffTop: Double?, bars: [BarlineStructure],
+                     ocr: [OCRToken], timeSignature: TimeSignature, lineIndex: Int = 0,
+                     classifier: JianpuClassifier = .shared) -> Result {
+        var measureCount = max(0, bars.count - 1)
+        var res = Result(measures: [[MelodyNote]](repeating: [], count: measureCount), issues: [])
+        guard measureCount > 0 else { return res }
+        let u = staff.u
+        let W = bm.w, H = bm.h
+        func issue(_ kind: OMRIssueKind, _ mi: Int?, _ msg: String, conf: Double = 0) -> OMRIssue {
+            OMRIssue(kind: kind, path: "sections[0].lines[{L}].system.measures[\(mi ?? 0)].melody", message: msg,
+                     context: "\(lineIndex)|jianpu", confidence: conf)
+        }
+
+        // ---- region below the staff
+        let xa = max(0, Int((min(Double(bars.first!.x0), Double(staff.x0)) - 0.5 * u).rounded(.down)))
+        let xb = min(W, Int((max(Double(bars.last!.x1), Double(staff.x1)) + 1.0 * u).rounded(.up)))
+        let ya = min(H - 1, Int((staff.bottom + 0.5 * u).rounded()))
+        let limit = nextStaffTop.map { $0 - 5.0 * u } ?? Double(H)
+        let yb = min(H, Int(limit.rounded()))
+        guard xb - xa > 8, yb - ya > 8 else { res.issues.append(issue(.jianpuUnread, nil, "no room below staff")); return res }
+        let crop = OMRVision.crop(bm, IRect(x0: xa, y0: ya, x1: xb, y1: yb))
+        let lab0 = OMRVision.label(crop)
+
+        // ---- digit candidates -> digit row
+        struct Cand { var c: Component; var label: String; var dist: Double }
+        var cands: [Cand] = []
+        for c in lab0.comps {
+            let r = c.rect
+            let h = Double(r.h), w = Double(r.w)
+            guard h >= 0.75 * u, h <= 2.9 * u, w >= 0.2 * u, w <= 2.0 * u, c.area >= 12 else { continue }
+            let b = OMRVision.extract(lab0, c)
+            if let k = classifier.classify(b), JianpuClassifier.digitLabels.contains(k.label), k.dist < 0.33 {
+                cands.append(Cand(c: c, label: k.label, dist: k.dist))
+            }
+        }
+        guard !cands.isEmpty else { res.issues.append(issue(.jianpuUnread, nil, "no numbered-notation digits found")); return res }
+        cands.sort { $0.c.rect.cy < $1.c.rect.cy }
+        var clusters: [[Cand]] = []
+        for k in cands {
+            if let l = clusters.last {
+                let mc = l.map { $0.c.rect.cy }.reduce(0, +) / Double(l.count)
+                if k.c.rect.cy - mc <= 0.6 * u { clusters[clusters.count - 1].append(k); continue }
+            }
+            clusters.append([k])
+        }
+        let maxCount = clusters.map(\.count).max() ?? 0
+        let rowThreshold = 0.5 * Double(maxCount)
+        guard let rowCl = clusters.first(where: { Double($0.count) >= rowThreshold }) else { return res }
+        func median(_ a: [Double]) -> Double { let s = a.sorted(); return s.isEmpty ? 0 : s[s.count / 2] }
+        let rowTop = median(rowCl.map { Double($0.c.rect.y0) }) + Double(ya)
+        let rowBottom: Double = { let s = rowCl.map { Double($0.c.rect.y1) }.sorted(); return (s.isEmpty ? 0 : s[Int(Double(s.count - 1) * 0.35)]) + Double(ya) }()
+        let Hd = rowBottom - rowTop
+        let medW = median(rowCl.map { Double($0.c.rect.w) })
+        let refW: Double = { let s = rowCl.map { Double($0.c.rect.w) }.sorted(); return s.isEmpty ? 0 : s[min(s.count - 1, s.count * 3 / 4)] }()
+        res.rowTop = rowTop; res.rowBottom = rowBottom
+
+        // ---- lyrics rows (OCR) -> limit for octave dots below
+        let lyricRows = OMRLyrics.rows(ocr: ocr, width: gray.width, height: gray.height, bm: bm, yFrom: rowBottom,
+                                       yTo: limit, xRange: Double(xa)...Double(xb), digitH: Hd, u: u)
+        res.lyricRows = lyricRows
+        // A dot below the digit must sit above the lyric ink. The old cutoff (35% into the
+        // OCR box) still covered character tops. Scanning only to that line also chopped a
+        // lyric stroke into a dot-sized stub, so the scan runs through the lyric body.
+        let lyricInk = lyricRows.first?.inkTop ?? Double.infinity
+        let lyricFrac = lyricRows.first.map { $0.top + 0.35 * ($0.bottom - $0.top) } ?? Double.infinity
+        let lyricTop = min(lyricInk, lyricFrac)
+        let lyricScan = lyricRows.first?.bottom ?? lyricTop
+        if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil { for lr in lyricRows { print("   lyricRow \(Int(lr.top))-\(Int(lr.bottom)) inkTop \(Int(lr.inkTop)) \(lr.syllables.map { $0.text }.joined())") } }
+
+        // ---- split the region at the digit baseline: upper part (digits, dots above, arcs, dashes, accidentals),
+        // lower part (underlines are scanned per note; octave dots below are components of the lower part)
+        let cutRow = Int(rowBottom.rounded()) + 1 - ya      // rows >= cutRow (crop coords) belong to the lower part
+        var upperBM = crop, lowerBM = crop
+        for y in 0..<crop.h { for x in 0..<crop.w {
+            if y >= cutRow { upperBM.d[y * crop.w + x] = 0 } else { lowerBM.d[y * crop.w + x] = 0 }
+        } }
+        let lab = OMRVision.label(upperBM)
+        let labLow = OMRVision.label(lowerBM)
+
+        // ---- glyphs in the row
+        func offsetRect(_ r: IRect) -> IRect { IRect(x0: r.x0 + xa, y0: r.y0 + ya, x1: r.x1 + xa, y1: r.y1 + ya) }
+        var notes: [JianpuNote] = []
+        var used = Set<Int>()
+        var barXs: [Double] = []
+        var parens: [(x: Double, mark: String)] = []
+        // barlines of the jianpu row (the left system line may reach up to the staff, so any height is allowed)
+        for c in lab0.comps {
+            let r = offsetRect(c.rect)
+            let h = Double(r.h), w = Double(r.w)
+            let overlap = Double(min(r.y1, Int(rowBottom + 0.15 * Hd)) - max(r.y0, Int(rowTop - 0.15 * Hd)))
+            // a deskewed barline is often 3px wide and a pixel short of the digit row; a stem is not this tall
+            let thinW = max(3.5, 0.16 * Hd)
+            let tallEnough = h >= 1.08 * Hd || (w <= thinW && overlap >= 0.85 * Hd)
+            if overlap >= 0.6 * Hd && h / max(w, 0.5) >= 5 && h <= 6 * u && w <= 0.3 * Hd && tallEnough && Double(c.area) >= 0.72 * w * h { barXs.append(r.cx) }
+        }
+        let barSet = barXs
+        for c in lab.comps {
+            let r = offsetRect(c.rect)
+            let h = Double(r.h), w = Double(r.w)
+            if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] == "all", r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   ALL x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area)") }
+            if barSet.contains(where: { abs($0 - r.cx) < 2.5 }) && w <= 0.3 * Hd && h / max(w, 1) >= 4 { used.insert(c.id); continue }
+            // geometry of a note glyph relative to the row
+            guard r.cy >= rowTop - 0.12 * Hd, r.cy <= rowBottom + 0.12 * Hd else { continue }
+            guard h >= 0.72 * Hd, h <= 1.4 * Hd, w >= 0.2 * u, c.area >= 12 else { continue }
+            // A staff-tall barline is absent from barXs (h > 6u). Cut at the digit baseline it is a
+            // four-pixel stem that classifies as "1" and shifts every later beat in the measure.
+            if h / max(w, 1) >= 4.5 { used.insert(c.id); continue }
+            var b = OMRVision.extract(lab, c)
+            // merged neighbours (touching digits): the glyph matches no single digit well and is much wider than usual
+            let single = classifier.classify(b)
+            let goodSingle = single.map { JianpuClassifier.digitLabels.contains($0.label) && $0.dist < 0.2 } ?? false
+            if !goodSingle && refW > 0 && w > 1.5 * refW && w < 5.5 * refW {
+                let parts = max(2, Int((w / refW).rounded()))
+                let cuts = splitColumns(b, parts: parts)
+                var start = 0
+                for cutAt in cuts + [b.w] {
+                    let sub = OMRVision.crop(b, IRect(x0: start, y0: 0, x1: cutAt, y1: b.h))
+                    if sub.w >= 3, let kk = classifier.classify(sub, allowed: JianpuClassifier.digitLabels) {
+                        notes.append(JianpuNote(cx: Double(r.x0 + start + cutAt) / 2, x0: Double(r.x0 + start), x1: Double(r.x0 + cutAt),
+                                                top: Double(r.y0), bottom: Double(r.y1), degree: Int(kk.label)!, conf: 0.4))
+                    }
+                    start = cutAt
+                }
+                used.insert(c.id)
+                res.issues.append(issue(.lowConfidenceGlyph, nil, "split touching digits", conf: 0.4))
+                continue
+            }
+            guard let k = classifier.classify(b) else { continue }
+            if k.label == "(" || k.label == ")" {
+                parens.append((r.cx, k.label == "(" ? "jianpu-paren-open" : "jianpu-paren-close"))
+                used.insert(c.id); continue
+            }
+            if k.label == "#" || k.label == "b" { continue }   // accidentals are handled below
+            var label = k.label
+            var conf = max(0, 1 - k.dist / 0.4)
+            if !JianpuClassifier.digitLabels.contains(label) {
+                // digit-sized glyph in the digit row that is not a digit prototype: force the nearest digit unless it is far off
+                guard let d = classifier.classify(b, allowed: JianpuClassifier.digitLabels), d.dist < 0.42, w / h > 0.25 else { continue }
+                label = d.label; conf = max(0, 1 - d.dist / 0.5) * 0.5
+                res.issues.append(issue(.lowConfidenceGlyph, nil, "digit-like glyph read as \(label)", conf: conf))
+            }
+            used.insert(c.id)
+            notes.append(JianpuNote(cx: r.cx, x0: Double(r.x0), x1: Double(r.x1), top: Double(r.y0), bottom: Double(r.y1),
+                                    degree: Int(label)!, conf: conf))
+        }
+        notes.sort { $0.cx < $1.cx }
+        if ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil { print("   barXs \(barXs.map { Int($0) }.sorted()) Hd \(Hd) medW \(medW)") }
+        guard !notes.isEmpty else { res.issues.append(issue(.jianpuUnread, nil, "no notes")); return res }
+
+        // ---- attach marks
+        let barMin = (bars.map { $0.cx } + barXs)
+        func nearBar(_ x: Double, _ d: Double) -> Bool { barMin.contains { abs($0 - x) <= d } }
+        func nearestNote(_ x: Double, maxDist: Double) -> Int? {
+            var bi = -1, bd = Double.infinity
+            for (i, n) in notes.enumerated() { let d = abs(n.cx - x); if d < bd { bd = d; bi = i } }
+            return bd <= maxDist && bi >= 0 ? bi : nil
+        }
+        let thinLimit: Double = 0.2 * Hd + 1.5
+        let thinMinW: Double = 0.5 * Hd
+        let thick = median(lab.comps.filter { Double($0.rect.h) <= thinLimit && Double($0.rect.w) >= thinMinW }.map { Double($0.rect.h) })
+        var underlines: [(x0: Double, x1: Double, levels: Int)] = []
+        var dashes: [Double] = []
+        var arcs: [(x0: Double, x1: Double)] = []
+        let dbg = ProcessInfo.processInfo.environment["AGR_JP_DEBUG"] != nil
+        for c in lab.comps where !used.contains(c.id) {
+            let r = offsetRect(c.rect)
+            let h = Double(r.h), w = Double(r.w)
+            if dbg, r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   comp x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area) row \(Int(rowTop))-\(Int(rowBottom)) Hd \(Hd) lyricTop \(lyricTop)") }
+            if c.area < 2 { continue }
+            // thin horizontal strokes: underline (below digits), dash (mid height), or a flat tie above
+            if h <= max(3.5, 0.22 * Hd) && w >= 0.4 * Hd && w / h >= 2.5 {
+                if r.cy >= rowBottom - 0.05 * Hd && r.cy <= rowBottom + 1.1 * u + 0.3 * Hd {
+                    let lv = thick > 0 && h > 1.9 * thick ? Int((h / thick).rounded()) : 1
+                    underlines.append((Double(r.x0), Double(r.x1), min(3, lv)))
+                } else if r.cy >= rowTop + 0.25 * Hd && r.cy <= rowTop + 0.8 * Hd {
+                    dashes.append(r.cx)
+                } else if r.cy < rowTop - 0.02 * Hd && w >= 0.7 * Hd {
+                    // a short slur is only a few pixels tall, so it never reaches the arc test below
+                    arcs.append((Double(r.x0), Double(r.x1)))
+                }
+                continue
+            }
+            // slurs / ties above the digits
+            if w >= 0.7 * Hd && h <= 0.9 * Hd && h >= 2 && w / h >= 2.2 && r.cy < rowTop - 0.05 * Hd {
+                arcs.append((Double(r.x0), Double(r.x1)))
+                continue
+            }
+            // small blobs: octave dots, augmentation dots
+            if w >= 0.1 * Hd, h >= 0.1 * Hd, w <= 0.55 * Hd, h <= 0.55 * Hd, w / h >= 0.5, w / h <= 2.0,
+               Double(c.area) >= 0.45 * w * h {
+                var claimed = false
+                if r.cy < rowTop - 0.02 * Hd {
+                    guard r.cy >= rowTop - 1.5 * u - 0.3 * Hd else { continue }
+                    if let i = nearestNote(r.cx, maxDist: max(0.45 * Hd, 0.6 * (notes[0].x1 - notes[0].x0) + 2)),
+                       abs(notes[i].cx - r.cx) <= 0.5 * (notes[i].x1 - notes[i].x0) + 2.5 { notes[i].above += 1; claimed = true }
+                } else if r.cy >= rowTop + 0.2 * Hd && r.cy <= rowBottom + 0.7 * Hd {
+                    // augmentation dot sits ~0.55*u past the em-box, not the ink. A narrow "1" leaves a wider gap.
+                    var bi = -1, bd = Double.infinity
+                    for (i, n) in notes.enumerated() where r.cx > n.x1 - 1.0 {
+                        let d = r.cx - n.x1
+                        if d < bd { bd = d; bi = i }
+                    }
+                    if bi >= 0 {
+                        let n = notes[bi]
+                        let nextLeft = bi + 1 < notes.count ? notes[bi + 1].x0 : Double.infinity
+                        let glyphW = n.x1 - n.x0
+                        let half = max(glyphW, medW) / 2
+                        let expect = n.cx + half + 0.52 * u
+                        let inGlyphY = r.cy >= n.top + 0.12 * Hd && r.cy <= n.bottom + 2
+                        let nearEdge = bd <= min(0.80 * u, 0.55 * Hd + 3)
+                        let nearExpect = abs(r.cx - expect) <= 0.42 * u && bd <= min(1.15 * u, 0.75 * Hd)
+                        if inGlyphY, nearEdge || nearExpect, nextLeft - r.cx > bd + 0.2 * u,
+                           !nearBar(r.cx, 0.9 * u) || bd < 0.45 * u { notes[bi].dots += 1; claimed = true }
+                    }
+                }
+                if claimed { continue }
+            }
+            // accidentals: left of a digit (may overlap the digit's left edge)
+            if h >= 0.3 * Hd, h <= 1.0 * Hd, w >= 0.15 * Hd, w <= 0.9 * Hd, r.cy >= rowTop - 0.2 * Hd, r.cy <= rowBottom + 0.2 * Hd {
+                var bi = -1, bd = Double.infinity
+                for (i, n) in notes.enumerated() where r.cx < n.cx && Double(r.x0) >= n.x0 - 1.3 * u {
+                    let d = n.x0 - Double(r.cx)
+                    if d < bd { bd = d; bi = i }
+                }
+                if bi >= 0, bd <= 0.9 * u {
+                    let b = OMRVision.extract(lab, c)
+                    if let k = classifier.classify(b, allowed: ["#", "b", "o", "(", ")", "0", "1", "2", "3", "4", "5", "6", "7"]), k.dist < 0.4 {
+                        if k.label == "#" { notes[bi].accidental = 1 } else if k.label == "b" { notes[bi].accidental = -1 }
+                    }
+                }
+            }
+        }
+        if dbg { for n in notes { print("   note x\(Int(n.cx)) y\(Int(n.top))-\(Int(n.bottom)) deg \(n.degree) above \(n.above) below \(n.below) dots \(n.dots)") } }
+        // Underlines and octave dots below each digit. A run that spans the digit is an underline; a thicker
+        // run is a merged double underline. Split a tall run whose top is that line and whose bottom is a dot,
+        // and keep only the compact top when a dot's stem joins the lyric (the lyric stroke is not an underline).
+        var runsPerNote = [[(Int, Int)]](repeating: [], count: notes.count)
+        let dotLimit1 = min(rowBottom + 1.35 * u, lyricTop - 1)
+        struct DotCand { var mid: Int, top: Int, th: Double, wd: Double, tailed: Bool }
+        var dotCands = [[DotCand]](repeating: [], count: notes.count)
+        for i in notes.indices {
+            let n = notes[i]
+            let c0 = Int(n.cx.rounded())
+            let xs0 = Int(n.x0.rounded(.up)) + 1, xs1 = Int(n.x1.rounded(.down)) - 1
+            guard xs1 > xs0 else { continue }
+            let span = xs1 - xs0 + 1
+            let yStart = max(Int(rowBottom.rounded()) + 1, Int(n.bottom.rounded()) + 1)
+            let yEnd = min(H - 1, Int(min(n.bottom + 2.15 * u, lyricScan)))
+            guard yEnd >= yStart else { continue }
+            func centerInk(_ y: Int) -> Bool { bm.ink(c0 - 1, y) || bm.ink(c0, y) || bm.ink(c0 + 1, y) }
+            func rowCover(_ y: Int) -> Int {
+                var c = 0
+                for x in xs0...xs1 where bm.ink(x, y) { c += 1 }
+                return c
+            }
+            func rowWidth(_ y: Int) -> Int {
+                var c = c0
+                if !bm.ink(c, y) {
+                    if bm.ink(c0 - 1, y) { c = c0 - 1 }
+                    else if bm.ink(c0 + 1, y) { c = c0 + 1 }
+                    else { return 0 }
+                }
+                var l = c, r = c
+                while bm.ink(l - 1, y) && c0 - l < 40 { l -= 1 }
+                while bm.ink(r + 1, y) && r - c0 < 40 { r += 1 }
+                return r - l + 1
+            }
+            // 0.72, not lower: on a narrow digit a below-dot covers half the span and must stay a dot
+            func lineLike(_ y: Int) -> Bool { rowCover(y) * 25 >= span * 18 }
+            var y = yStart
+            while y <= yEnd {
+                if !centerInk(y) { y += 1; continue }
+                let st = y
+                while y <= yEnd && centerInk(y) { y += 1 }
+                let en = y - 1
+                var yy = st
+                while yy <= en {
+                    let wide = lineLike(yy)
+                    let k0 = yy
+                    yy += 1
+                    while yy <= en && lineLike(yy) == wide { yy += 1 }
+                    let k1 = yy - 1
+                    if wide {
+                        var union = 0
+                        for x in xs0...xs1 {
+                            var hit = false
+                            for t in k0...k1 where bm.ink(x, t) { hit = true; break }
+                            if hit { union += 1 }
+                        }
+                        if union * 5 >= span * 4 && Double(k0) <= n.bottom + 0.9 * u + 2 { runsPerNote[i].append((k0, k1)) }
+                        continue
+                    }
+                    var maxW = 0, best = k0 - 1, seen = false
+                    var t = k0
+                    while t <= k1 {
+                        let w = rowWidth(t)
+                        if w > maxW { maxW = w }
+                        if maxW >= 3 && w >= max(2, (maxW + 1) / 2) { seen = true; best = t }
+                        else if seen && w < max(2, (maxW + 1) / 2) { break }
+                        t += 1
+                    }
+                    if !seen || best < k0 { continue }
+                    let th = Double(best - k0 + 1)
+                    var wd = 0
+                    var s = k0
+                    while s <= best { wd = max(wd, rowWidth(s)); s += 1 }
+                    let wdD = Double(wd)
+                    if th < 3 || wdD < 3 || th > 0.55 * Hd || th < 0.15 * Hd { continue }
+                    if wdD < 0.6 * th || wdD > max(1.8 * th, th + 4) { continue }
+                    let tailed = k1 > best + max(2, Int((0.25 * u).rounded()))
+                    dotCands[i].append(DotCand(mid: (k0 + best) / 2, top: k0, th: th, wd: wdD, tailed: tailed))
+                }
+            }
+        }
+        let ths = runsPerNote.flatMap { $0.map { Double($0.1 - $0.0 + 1) } }.sorted()
+        let t1 = ths.isEmpty ? 2.0 : ths[ths.count / 4]
+        let gUL = max(1.0, t1)
+        // Thickness alone calls a blurred single line two underlines (the thin quartile is 1px,
+        // so a 2–3px halo rounds up). Two strokes that touch stay darker at each core and lighter
+        // in the gap; a blurred stroke is darkest in the middle.
+        func levelsOfRun(_ r: (Int, Int), cx: Int) -> Int {
+            let h = Double(r.1 - r.0 + 1)
+            let byThick = max(1, Int(((h + gUL) / (t1 + gUL)).rounded()))
+            if byThick < 2 || r.1 - r.0 < 2 { return 1 }
+            var gs: [Int] = []
+            gs.reserveCapacity(r.1 - r.0 + 1)
+            for y in r.0...r.1 {
+                var s = 0, n = 0
+                for dx in -1...1 {
+                    let x = cx + dx
+                    if x >= 0, y >= 0, x < gray.width, y < gray.height { s += Int(gray[x, y]); n += 1 }
+                }
+                gs.append(n == 0 ? 255 : s / n)
+            }
+            var rise = 0
+            for i in 1..<(gs.count - 1) where gs[i] >= gs[i - 1] && gs[i] >= gs[i + 1] {
+                let above = gs[..<i].min() ?? 255
+                let below = gs[(i + 1)..<gs.count].min() ?? 255
+                rise = max(rise, min(gs[i] - above, gs[i] - below))
+            }
+            return rise >= 32 ? byThick : 1
+        }
+        var dotsBelow = [Int](repeating: 0, count: notes.count)
+        for i in notes.indices {
+            let cx = Int(notes[i].cx.rounded())
+            var lv = 0
+            for r in runsPerNote[i] { lv += levelsOfRun(r, cx: cx) }
+            notes[i].levels = min(lv, 3)
+            // a second underline lowers the dot; do not extend the window for a single underline (that marks lyric ink)
+            let extra = notes[i].levels >= 2 ? 0.8 * u : 0
+            // The lowered dot's centre sits on the lyric ink line. One pixel past the old cap is
+            // still that disk when it begins above the lyric; a glyph top does not.
+            let lyricCap = notes[i].levels >= 2 ? lyricTop : lyricTop - 1
+            let lim = min(max(dotLimit1, notes[i].bottom + 1.35 * u) + extra, lyricCap)
+            let tailTop = notes[i].bottom + (notes[i].levels >= 2 ? 1.75 * u : 1.30 * u)
+            var lastMid = 0
+            var firstTh = 0.0, firstWd = 0.0
+            func dotNotGlyph(_ d: DotCand, mid: Double) -> Bool {
+                notes[i].levels < 2 || mid <= lyricTop - 1 || (!d.tailed && Double(d.top) <= lyricTop - 2)
+            }
+            for d in dotCands[i] {
+                let mid = Double(d.mid)
+                let placed = mid <= lim && (!d.tailed || Double(d.top) <= tailTop) && dotNotGlyph(d, mid: mid)
+                if dotsBelow[i] == 0 {
+                    if placed { dotsBelow[i] = 1; lastMid = d.mid; firstTh = d.th; firstWd = d.wd }
+                    continue
+                }
+                // octave -2: a second disk the same size, not the lyric the first dot's stem runs into
+                let gapOk = mid - Double(lastMid) >= 0.35 * u && mid - Double(lastMid) <= 0.85 * u
+                if !d.tailed && gapOk && d.th >= 0.75 * firstTh && d.wd >= 0.75 * firstWd && mid <= lim && dotNotGlyph(d, mid: mid) {
+                    dotsBelow[i] = 2
+                    break
+                }
+            }
+            notes[i].below += dotsBelow[i]
+        }
+        if dbg { for i in notes.indices { print("   scan note x\(Int(notes[i].cx)) deg \(notes[i].degree) x0 \(Int(notes[i].x0)) x1 \(Int(notes[i].x1)) runs \(runsPerNote[i]) dotsBelow \(dotsBelow[i]) levels \(notes[i].levels) bottom \(Int(notes[i].bottom))") } }
+        // dashes extend the note on their left
+        for dx in dashes {
+            var bi = -1
+            for (i, n) in notes.enumerated() where n.cx < dx { bi = i }
+            if bi >= 0 { notes[bi].dashes += 1 }
+        }
+        // slur arcs
+        for a in arcs {
+            guard let l = nearestNote(a.x0, maxDist: 1.6 * u + 0.5 * medW), let r = nearestNote(a.x1, maxDist: 1.6 * u + 0.5 * medW) else { continue }
+            if r > l { for k in l..<r { notes[k].tie = true } }
+            else if l == r, a.x1 > notes[l].cx + 0.5 * u { notes[l].tie = true }
+        }
+
+        // ---- measures + beats
+        // Measure boundaries: the jianpu row's own barlines (clustered); tab barlines are only a fallback because
+        // strum arrows / stems can look like barlines in the tab.
+        var jb: [Double] = []
+        for x in barXs.sorted() {
+            if let l = jb.last, x - l <= 1.0 * u { jb[jb.count - 1] = (l + x) / 2 } else { jb.append(x) }
+        }
+        let tabCenters = bars.map { $0.cx }
+        let edgeL = min(tabCenters.first!, Double(staff.x0)), edgeR = max(tabCenters.last!, Double(staff.x1) - 1)
+        jb = jb.filter { $0 >= edgeL - 1.5 * u && $0 <= edgeR + 1.5 * u }
+        if !jb.isEmpty {
+            if abs(jb.first! - edgeL) > 1.5 * u { jb.insert(edgeL, at: 0) }
+            if abs(jb.last! - edgeR) > 1.5 * u { jb.append(edgeR) }
+        }
+        // one missed jianpu barline doubles a gap; take the single tab bar that splits that gap
+        if jb.count >= 3 {
+            var gaps: [Double] = []
+            for k in 1..<jb.count { gaps.append(jb[k] - jb[k - 1]) }
+            let medGap = median(gaps)
+            if medGap > 8 {
+                var add: [Double] = []
+                for k in 0..<(jb.count - 1) where jb[k + 1] - jb[k] >= medGap * 1.7 {
+                    let inside = tabCenters.filter { t in t > jb[k] + 0.55 * medGap && t < jb[k + 1] - 0.55 * medGap && !jb.contains { abs($0 - t) <= 0.7 * u } }
+                    if inside.count == 1 { add.append(inside[0]) }
+                }
+                if !add.isEmpty { jb.append(contentsOf: add); jb.sort() }
+            }
+        }
+        // A missed jianpu barline piles later measures into the first one and the beats run past the bar.
+        // The tab barlines already agree with the staff, so use those when the counts differ.
+        let bc: [Double] = (jb.count >= 2 && jb.count == tabCenters.count) ? jb : tabCenters
+        res.boundaries = bc
+        if jb.count >= 2 && jb.count != tabCenters.count {
+            res.issues.append(issue(.barlineMismatch, nil, "jianpu row has \(jb.count - 1) measures, tab has \(tabCenters.count - 1)", conf: 0.5))
+        }
+        measureCount = max(0, bc.count - 1)
+        res.measures = [[MelodyNote]](repeating: [], count: measureCount)
+        for i in notes.indices {
+            var m = -1
+            for k in 0..<measureCount where bc[k] - 1.0 <= notes[i].cx && notes[i].cx < bc[k + 1] - 1.0 { m = k }
+            // a first note glued to its left barline is still inside the measure
+            notes[i].measure = m
+        }
+        let unitScale = Double(timeSignature.unit) / 4.0
+        let measureBeats = Double(timeSignature.beats)
+        var perMeasure = [[Int]](repeating: [], count: measureCount)
+        for (i, n) in notes.enumerated() where n.measure >= 0 { perMeasure[n.measure].append(i) }
+        func quarters(_ n: JianpuNote) -> Double {
+            var q = 1.0 / Double(1 << n.levels)
+            if n.dots == 1 { q *= 1.5 } else if n.dots >= 2 { q *= 1.75 }
+            q += Double(n.dashes)
+            return q
+        }
+        for mi in 0..<measureCount {
+            func place() -> Double {
+                var t = 0.0
+                for i in perMeasure[mi] {
+                    let q = quarters(notes[i])
+                    notes[i].beat = t
+                    notes[i].duration = q * unitScale
+                    t += notes[i].duration
+                }
+                return t
+            }
+            var t = place()
+            // A dotted eighth is printed here as a dot with no underline, so it reads as a dotted
+            // quarter and the bar runs 3/4 long. Shorten that one note when the next is a sixteenth.
+            if abs(t - measureBeats - 0.75 * unitScale) < 1e-6 {
+                let idxs = perMeasure[mi]
+                var cand: [Int] = []
+                for (k, i) in idxs.enumerated() where notes[i].dots == 1 && notes[i].levels == 0 && notes[i].dashes == 0 {
+                    if k + 1 < idxs.count && notes[idxs[k + 1]].levels >= 2 { cand.append(i) }
+                }
+                if cand.count == 1 {
+                    notes[cand[0]].levels = 1
+                    t = place()
+                }
+            }
+            if !perMeasure[mi].isEmpty, abs(t - measureBeats) > 1e-6 {
+                res.issues.append(issue(.beatSumMismatch, mi, "melody beats sum \(t) != \(measureBeats)", conf: 0.5))
+            }
+        }
+
+        // ---- lyrics
+        let slots = notes.filter { $0.measure >= 0 }.map { OMRLyrics.NoteSlot(x: $0.cx, isRest: $0.degree == 0) }
+        let pitchEst: Double = {
+            let xs = notes.map(\.cx)
+            guard xs.count > 1 else { return 2 * Hd }
+            var d: [Double] = []
+            for i in 1..<xs.count { d.append(xs[i] - xs[i - 1]) }
+            return max(median(d), 0.8 * Hd)
+        }()
+        let al = OMRLyrics.align(rows: lyricRows, notes: slots, pitch: pitchEst)
+        if al.conflicts > 0 {
+            res.issues.append(issue(.lyricAlignment, nil, "\(al.conflicts) lyric syllable(s) could not be aligned cleanly", conf: 0.5))
+        }
+        var slotIdx = 0
+        for mi in 0..<measureCount {
+            for i in perMeasure[mi] {
+                let n = notes[i]
+                var lyr: [String] = []
+                for v in 0..<lyricRows.count { lyr.append(al.lyrics[v][slotIdx]) }
+                res.measures[mi].append(MelodyNote(beat: n.beat, duration: n.duration, degree: n.degree, accidental: n.degree == 0 ? 0 : n.accidental,
+                                                   octave: n.degree == 0 ? 0 : n.above - n.below, tieToNext: n.tie, lyrics: lyr))
+                slotIdx += 1
+            }
+        }
+        var markLists = [[String]](repeating: [], count: max(0, bars.count - 1))
+        if bars.count >= 2 {
+            for p in parens {
+                var mi = 0
+                for k in 0..<(bars.count - 1) where p.x >= Double(bars[k].x0) - 0.4 * u { mi = k }
+                if mi < markLists.count, !markLists[mi].contains(p.mark) { markLists[mi].append(p.mark) }
+            }
+        }
+        res.marks = markLists
+        res.notes = notes
+        return res
+    }
+
+    /// Column indices (inside the glyph bitmap) at which a merged glyph is split into `parts` pieces.
+    static func splitColumns(_ b: Bitmap, parts: Int) -> [Int] {
+        var colInk = [Int](repeating: 0, count: b.w)
+        for y in 0..<b.h { for x in 0..<b.w where b.d[y * b.w + x] != 0 { colInk[x] += 1 } }
+        var cuts: [Int] = []
+        for p in 1..<parts {
+            let center = b.w * p / parts
+            let lo = max(1, center - b.w / (3 * parts)), hi = min(b.w - 1, center + b.w / (3 * parts))
+            var best = center, bv = Int.max
+            if lo <= hi { for x in lo...hi where colInk[x] < bv { bv = colInk[x]; best = x } }
+            cuts.append(best)
+        }
+        return cuts
+    }
+}
+
+// MARK: - Page-level entry point (debug command, tests)
+
+/// Public convenience wrapper that runs deskew, staff detection and the jianpu reader on a whole page.
+public enum OMRJianpuPage {
+    public struct SystemResult {
+        public var measures: [[MelodyNote]]
+        public var issues: [OMRIssue]
+        public var staffTop: Double
+        public var boundaries: [Double] = []
+        public var rowTop: Double = 0, rowBottom: Double = 0
+        public var tabBars: [Double] = []
+    }
+
+    public static func read(image: GrayImage, ocr: [OCRToken], timeSignature: TimeSignature) -> [SystemResult] {
+        var image = image
+        var ocr = ocr
+        var (bm, _, bg, _) = OMRVision.binarize(image)
+        let slope = OMRDeskew.estimateSlope(bm)
+        if slope != 0 {
+            image = OMRDeskew.rotate(image, slope: slope, fill: UInt8(max(0, min(255, bg))))
+            ocr = ocr.map { t in
+                var t = t
+                let W = Double(image.width), H = Double(image.height)
+                let c = OMRDeskew.forward(x: (t.x + t.width / 2) * W, y: (t.y + t.height / 2) * H, slope: slope, width: image.width, height: image.height)
+                t.x = c.0 / W - t.width / 2; t.y = c.1 / H - t.height / 2
+                return t
+            }
+            bm = OMRVision.binarize(image).bm
+        }
+        let staves = OMRStaffDetector.detect(bm)
+        var out: [SystemResult] = []
+        for (i, st) in staves.enumerated() {
+            let bars = OMRStaffDetector.barlines(bm, staff: st)
+            let r = OMRJianpuReader.read(gray: image, bitmap: bm, staff: st, nextStaffTop: i + 1 < staves.count ? staves[i + 1].top : nil,
+                                         bars: bars, ocr: ocr, timeSignature: timeSignature, lineIndex: i)
+            out.append(SystemResult(measures: r.measures, issues: r.issues, staffTop: st.top, boundaries: r.boundaries, rowTop: r.rowTop, rowBottom: r.rowBottom, tabBars: bars.map { $0.cx }))
+        }
+        return out
+    }
+}

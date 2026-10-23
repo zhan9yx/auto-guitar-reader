@@ -1,0 +1,30 @@
+{
+  "id": "real-105",
+  "site": "ccguitar",
+  "style": "strum-sing jianpu tab",
+  "pageNumber": 1,
+  "watermarks": [
+    "1"
+  ],
+  "features": [
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "multi-verse",
+    "repeat",
+    "capo",
+    "hammer-on",
+    "chord-tone x",
+    "strum arrow",
+    "fingerstyle frets",
+    "low octave"
+  ],
+  "uncertain": [
+    "s0l0 is one system: the close y-ranges 280-344 and 358-419 are chord diagrams plus one 6-line staff (330-398), not two systems.",
+    "s0l0 m2 beat 2.0: a sixteenth in the Am run was not read; the following string-2 0-1-3-0-1-0 line is encoded.",
+    "s0l0 m4: up-arrow at beat 2 read as spanning strings 1-6.",
+    "s0l0 Em, Asus4 and A diagram dots are the standard voicings matching the printed names; Fmaj7/G/Am were read from the grids.",
+    "s0l3 m3: slur arcs over the last phrase were not given tieToNext; rhythm of 656·17677 is the beam reading that fills the bar.",
+    "s0l2 m1: the final 2 is a quarter (the short mark under it is not a second underline) and the 0 is a quarter rest."
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "id": "real-034",
+  "site": "jitabang",
+  "style": "strum-sing jianpu tab",
+  "pageNumber": 1,
+  "watermarks": [
+    "欢迎关注微信公众号：吉他专家 输入歌名获取吉他谱！",
+    "第五季 吉他专家",
+    "吉他弹唱教学系列",
+    "微信公众号：吉他专家",
+    "微信：18570507137",
+    "QR code (top left)",
+    "QR code (top left, second)",
+    "求谱微信：18673066106",
+    "微信公众号：吉他专家 输入歌名获取吉他谱",
+    "Guitar expert (diagonal watermark)",
+    "1"
+  ],
+  "features": [
+    "strum arrows",
+    "chord diagrams",
+    "jianpu",
+    "lyrics",
+    "capo",
+    "repeat",
+    "power chords",
+    "octave dots"
+  ],
+  "uncertain": [
+    "s0l0: only three tab/jianpu barlines; the printed rests are 4, then 8, then 12 quarters, so those measures are 4, 8 and 12 beats. The strum cycle (bass up s4, down s5, then up s1 / down s3 three times) repeats once per 4 beats.",
+    "s0l1m0 is the same 8-beat strum on G, two printed G diagrams, eight quarter rests, no internal barline.",
+    "High-string arrows are encoded on string 1 (up) and string 3 (down) only; the shaft may also graze the string between them.",
+    "F5 diagram read as [1,3,-1,-1,-1,-1] while the tab dyad is string4 fret 3 plus string5 fret 3; a fret-3 dot on string 4 may have been missed.",
+    "G5 tab dyad encoded as fret 5 on strings 4 and 5 from the later systems; the diagram itself is [3,5,-1,-1,-1,-1] at baseFret 3.",
+    "Vocal cells 0 3 5 4 3, 2 1 6 6 -, and 0 1 5 1 3: the underline covers the middle two notes; outer notes are quarters (the final 6 of pattern B also takes the following dash).",
+    "7 1 2 2 1 (不到风雨) uses that same quarter/eighth mix; the underline may cover three of the 1 2 2 group.",
+    "s0l4 chord order F5 C5 G5 then Am F follows the tab numbers and the two closing strum bars; the Am/F diagrams match system 1."
+  ]
+}

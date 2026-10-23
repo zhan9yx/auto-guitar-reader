@@ -1,6 +1,12 @@
 # Real-dataset sources
 
-The images are NOT in the repo (they are third-party scores, mostly copyrighted by their arrangers/lyricists/composers). They are fetched for private evaluation only with `tools/omr-real/fetch.sh` / `dl_list.sh` (browser User-Agent, >= 2.2 s between requests per host, no login/paywall/captcha bypass). Nothing here is redistributed; do not publish the images.
+The repository includes a snapshot of 159 real-score images, 109 existing GT JSON files and their metadata under `datasets/real/`. Current collection records are in `datasets/real/images/catalog.json` and `datasets/real/incoming/**/manifest.json`. Download caches and temporary crops remain local. The scores retain their original authors' rights.
+
+Images were collected with `tools/omr-real/fetch.sh` / `dl_list.sh` (browser User-Agent, >= 2.2 s between requests per host, no login/paywall/captcha bypass).
+
+## Original collection (historical)
+
+The table below records the initial collection of about 50 images. Its IDs may differ from the current expanded catalog; use the current collection records for image provenance. Image-to-GT correspondence has not been verified for the uploaded snapshot.
 
 | site | page URL | terms note | ids |
 |---|---|---|---|
