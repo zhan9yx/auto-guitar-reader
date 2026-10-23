@@ -166,7 +166,9 @@ public enum OMRWatermark {
         let bw = token.width * W
         if h > 4 * c.staffSpacing, expectedAspect >= 3, bw / max(1, h) < 0.55 * expectedAspect, bw / max(1, h) > 0.5 { return .hugeBox }
         // rotated watermark text produces huge boxes
-        if h > 9 * c.staffSpacing && token.width * W > 5 * c.staffSpacing { return .hugeBox }
+        // (a big but horizontal title is as wide as its characters are tall: width/height ≈ character count; rotated text
+        //  has a near-square box whatever its length)
+        if h > 9 * c.staffSpacing && token.width * W > 5 * c.staffSpacing && !(expectedAspect >= 1 && bw / max(1, h) >= 0.75 * expectedAspect) { return .hugeBox }
         // page header repeated from page 2 on: "title - artist" in a thin strip at the very top
         if !inSystem, c.pageIndex > 0, cy < 0.09 * H, (c.firstSystemTop.map { $0 - cy > 6 * c.staffSpacing } ?? true), !Rx.test(#"[=:：]"#, t),
            let g = Rx.firstMatch(#"^(.{1,30}?)\s?[-–—]\s?(.{1,30})$"#, in: t), (g[1] ?? "").filter({ $0.isLetter }).count >= 2, (g[2] ?? "").filter({ $0.isLetter }).count >= 2 { return .pageHeader }
