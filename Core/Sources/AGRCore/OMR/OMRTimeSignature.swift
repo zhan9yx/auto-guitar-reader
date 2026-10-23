@@ -103,3 +103,39 @@ enum OMRTimeSignatureReader {
         return best.map { $0.sig }
     }
 }
+
+extension OMRTimeSignatureReader {
+    struct BarEvidence { var events: [TabEvent]; var x: [Double]; var x0: Double; var x1: Double }
+
+    /// Time signature implied by the stems when nothing is printed (or readable). `bars` are the tab events of each measure
+    /// read as 4/4 (durations in quarter notes). Only bars that are full in x as well count: no rest events, no gap between
+    /// events wider than the previous duration, and the last event's duration reaches the right barline (a missing event
+    /// would otherwise make a 4/4 bar look like 3 beats). Nil keeps the 4/4 default.
+    /// 3 quarters of mostly eighths -> 6/8 (eighths in threes); 3 quarters otherwise -> 3/4; 2 quarters -> 2/4.
+    static func inferFromStems(bars: [BarEvidence]) -> (beats: Int, unit: Int)? {
+        var sums: [Double] = []
+        var sixEighths = 0
+        for bar in bars where bar.events.count >= 3 && bar.events.allSatisfy({ !$0.notes.isEmpty }) && bar.x.count == bar.events.count {
+            let ev = bar.events
+            var ratios: [Double] = []
+            for i in 0..<(ev.count - 1) where ev[i].duration > 0 { ratios.append((bar.x[i + 1] - bar.x[i]) / ev[i].duration) }
+            let scale = ratios.sorted()[ratios.count / 2]
+            guard scale > 0 else { continue }
+            let g = ev.map(\.duration).min()!
+            var full = true
+            for i in 1..<ev.count where (bar.x[i] - bar.x[i - 1]) / scale - ev[i - 1].duration >= 0.7 * g { full = false }
+            // beats of empty space between the last event's end and the barline; the first event sits ~1 beat-width in
+            let trailing = (bar.x1 - bar.x.last!) / scale - ev.last!.duration
+            if trailing >= 0.7 { full = false }
+            if !full { continue }
+            let s = ev.reduce(0) { $0 + $1.duration }
+            sums.append(s)
+            if ev.count == 6 && ev.allSatisfy({ abs($0.duration - 0.5) < 1e-6 }) { sixEighths += 1 }
+        }
+        if OMRTrace.flag("OMR_DEBUG_TS") { FileHandle.standardError.write(Data("infer sums \(sums) sixEighths \(sixEighths) of \(bars.count) bars\n".utf8)) }
+        // Only 6/8 is inferred: bars of exactly six beamed eighths. Other lengths (3/4, 2/4) are indistinguishable from a 4/4
+        // bar whose last beat is an unprinted rest, which is common in strumming tabs.
+        guard sums.count >= 3, Double(sixEighths) >= 0.6 * Double(sums.count) else { return nil }
+        return (6, 8)
+    }
+}

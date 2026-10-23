@@ -223,6 +223,14 @@ enum OMRPage {
         res.issues.append(contentsOf: header.issues)
         for s in header.nonScoreText where !res.removedText.contains(s) { res.removedText.append(s) }
 
+        // Nothing printed or readable: the stems of the first reading (as 4/4) may still show another bar length.
+        var inferredSig: TimeSignature?
+        if !timeFromClef, !header.found.contains("time"),
+           let t = OMRTimeSignatureReader.inferFromStems(bars: built.flatMap { sys in sys.measures.indices.compactMap { mi in
+               sys.eventX.indices.contains(mi) && sys.bars.indices.contains(mi + 1) ? OMRTimeSignatureReader.BarEvidence(events: sys.measures[mi].tab, x: sys.eventX[mi], x0: sys.bars[mi].xAfter, x1: sys.bars[mi + 1].xBefore) : nil } }), t.beats != 4 || t.unit != 4 {
+            inferredSig = TimeSignature(beats: t.beats, unit: t.unit)
+            res.meta.timeSignature = inferredSig!
+        }
         // The clef digits are sometimes missed, and the header then supplies 6/8 after the tab
         // was read in 4/4. Durations are in the time signature's beat, so re-read the tab.
         let sig = res.meta.timeSignature
@@ -241,7 +249,8 @@ enum OMRPage {
         }
         if !timeFromClef, !header.found.contains("time") {
             res.issues.append(OMRIssue(kind: .headerMissing, path: "pages[\(page)]",
-                                       message: "no time signature on the staff or in the header; assumed \(Int(beats))/\(unit)",
+                                       message: inferredSig != nil ? "no time signature on the staff or in the header; inferred \(Int(beats))/\(unit) from the stem durations"
+                                           : "no time signature on the staff or in the header; assumed \(Int(beats))/\(unit)",
                                        confidence: OMRIssue.repairConfidence))
         }
         // Tab validation, from the final reading (after a possible 6/8 re-read).

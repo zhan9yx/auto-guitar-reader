@@ -59,4 +59,45 @@ final class OMRTimeSignatureTests: XCTestCase {
         XCTAssertEqual(slots.prefix(4).map(\.dur), [0.25, 0.25, 0.25, 0.25])
         XCTAssertTrue(rep.isEmpty)
     }
+
+    private func bar(_ durs: [Double], gapAfter: Int? = nil) -> OMRTimeSignatureReader.BarEvidence {
+        var x = 100.0
+        var xs: [Double] = []
+        var evs: [TabEvent] = []
+        var t = 0.0
+        for (i, d) in durs.enumerated() {
+            xs.append(x); evs.append(TabEvent(beat: t, duration: d, notes: [TabNote.chordTone(string: 3)]))
+            x += d * 100 + (i == gapAfter ? 100 : 0); t += d
+        }
+        return OMRTimeSignatureReader.BarEvidence(events: evs, x: xs, x0: 70, x1: xs.last! + durs.last! * 100 + 20)
+    }
+
+    func testSixEighthBarsInferSixEight() {
+        let bars = (0..<4).map { _ in bar(Array(repeating: 0.5, count: 6)) }
+        XCTAssertEqual(OMRTimeSignatureReader.inferFromStems(bars: bars)?.beats, 6)
+        XCTAssertEqual(OMRTimeSignatureReader.inferFromStems(bars: bars)?.unit, 8)
+    }
+
+    /// Four eighths and a quarter with a silent last beat is 4/4 with an unprinted rest, not 3/4.
+    func testShortBarsAreNotReinterpreted() {
+        let bars = (0..<4).map { _ in bar([0.5, 0.5, 0.5, 0.5, 1]) }
+        XCTAssertNil(OMRTimeSignatureReader.inferFromStems(bars: bars))
+    }
+
+    /// A one-beat gap between quarters is an unprinted rest: the later event moves one beat later.
+    func testPositionPlacesEventsAfterUnprintedRest() {
+        var slots = [slot(100, 1, beams: 0), slot(200, 1, beams: 0), slot(300, 1, beams: 0), slot(500, 1, beams: 0)]
+        var rep: [String] = []
+        OMRTabAnalyzer.placeByPosition(&slots, beats: 5, repairs: &rep)
+        XCTAssertEqual(slots.map(\.lead), [0, 0, 0, 1])
+        XCTAssertEqual(rep.count, 1)
+    }
+
+    /// If honouring the positions would overflow the bar, the duration sum is kept.
+    func testPositionIgnoredWhenBarWouldOverflow() {
+        var slots = [slot(100, 1, beams: 0), slot(200, 1, beams: 0), slot(300, 1, beams: 0), slot(500, 1, beams: 0)]
+        var rep: [String] = []
+        OMRTabAnalyzer.placeByPosition(&slots, beats: 4, repairs: &rep)
+        XCTAssertEqual(slots.map(\.lead), [0, 0, 0, 0])
+    }
 }
