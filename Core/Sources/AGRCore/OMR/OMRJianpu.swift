@@ -221,6 +221,9 @@ enum OMRJianpuReader {
             if dbg, r.cy > rowTop - 2 * u, r.cy < rowBottom + 2 * u { print("   comp x\(r.x0)-\(r.x1) y\(r.y0)-\(r.y1) area \(c.area) row \(Int(rowTop))-\(Int(rowBottom)) Hd \(Hd) lyricTop \(lyricTop)") }
             if c.area < 2 { continue }
             // thin horizontal strokes: underline (below digits), dash (mid height), or a flat tie above
+            // a printed dash (增时线) is bolder than an underline and sits at mid height
+            let dashZone = r.cy >= rowTop + 0.25 * Hd && r.cy <= rowTop + 0.8 * Hd
+            if dashZone && h <= 0.34 * Hd && h > max(3.5, 0.22 * Hd) && w >= 0.6 * Hd && w / h >= 2.5 { dashes.append(r.cx); continue }
             if h <= max(3.5, 0.22 * Hd) && w >= 0.4 * Hd && w / h >= 2.5 {
                 if r.cy >= rowBottom - 0.05 * Hd && r.cy <= rowBottom + 1.1 * u + 0.3 * Hd {
                     let lv = thick > 0 && h > 1.9 * thick ? Int((h / thick).rounded()) : 1
@@ -262,7 +265,9 @@ enum OMRJianpuReader {
                         let inGlyphY = r.cy >= n.top + 0.12 * Hd && r.cy <= n.bottom + 2
                         let nearEdge = bd <= min(0.80 * u, 0.55 * Hd + 3)
                         let nearExpect = abs(r.cx - expect) <= 0.42 * u && bd <= min(1.15 * u, 0.75 * Hd)
-                        if inGlyphY, nearEdge || nearExpect, nextLeft - r.cx > bd + 0.2 * u,
+                        // sparse monospaced fonts print the dot a full character cell after a narrow digit
+                        let nearCell = bd <= 2.2 * max(glyphW, medW) && r.cy >= n.top + 0.3 * Hd
+                        if inGlyphY, nearEdge || nearExpect || nearCell, nextLeft - r.cx > bd + 0.2 * u,
                            !nearBar(r.cx, 0.9 * u) || bd < 0.45 * u { notes[bi].dots += 1; claimed = true }
                     }
                 }
@@ -342,13 +347,19 @@ enum OMRJianpuReader {
                             if hit { union += 1 }
                         }
                         if union * 5 >= span * 4 && Double(k0) <= n.bottom + 0.9 * u + 2 {
-                            runsPerNote[i].append((k0, k1))
                             func inkAt(_ x: Int) -> Bool { for t in k0...k1 where bm.ink(x, t) { return true }; return false }
-                            var l = c0, r = c0, gap = 0
-                            while l > 0 && gap <= 1 && c0 - l < 400 { l -= 1; if inkAt(l) { gap = 0 } else { gap += 1 } }
-                            gap = 0
-                            while r < bm.w - 1 && gap <= 1 && r - c0 < 400 { r += 1; if inkAt(r) { gap = 0 } else { gap += 1 } }
-                            runExt[i].append((l + gap, r - gap))
+                            var l = c0, r = c0, gl = 0, gr = 0
+                            while l > 0 && gl <= 1 && c0 - l < 400 { l -= 1; if inkAt(l) { gl = 0 } else { gl += 1 } }
+                            while r < bm.w - 1 && gr <= 1 && r - c0 < 400 { r += 1; if inkAt(r) { gr = 0 } else { gr += 1 } }
+                            // a below-dot on a narrow digit can cover most of its width; a line is far wider than tall
+                            let hh = k1 - k0 + 1
+                            let extW = (r - gr) - (l + gl) + 1
+                            if hh >= 3 && extW < 2 * hh + 1 && Double(hh) <= 0.55 * Hd {
+                                dotCands[i].append(DotCand(mid: (k0 + k1) / 2, top: k0, th: Double(hh), wd: Double(extW), tailed: false))
+                                continue
+                            }
+                            runsPerNote[i].append((k0, k1))
+                            runExt[i].append((l + gl, r - gr))
                         }
                         continue
                     }
