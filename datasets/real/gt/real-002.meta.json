@@ -1,0 +1,24 @@
+{
+ "id": "real-002",
+ "site": "vguitar",
+ "style": "strum arrows + x picks, 4/4 jianpu + lyrics",
+ "pageNumber": 1,
+ "watermarks": [
+  "唯音悦官方淘宝店http:\\\\vguitar.taobao.com",
+  "唯音悦原声吉他体验店所有",
+  "大幅 watermark 唯音悦 VGUITAR logo (grey/orange, diagonal guitar logo)",
+  "QR code (bottom right) with 唯音悦 logo"
+ ],
+ "features": [
+  "strum arrows",
+  "pick x",
+  "capo",
+  "jianpu ties",
+  "lyrics single verse",
+  "chord diagrams"
+ ],
+ "uncertain": [
+  "system 1 measures 2,4,6: up-arrow string span (s1-s3 vs s1-s4) read from shaft end",
+  "system 4 measure 1: arrow span s1-s2 read from shaft end; tab slur arcs over 0-0 (sys1 m4,m6) not encoded"
+ ]
+}

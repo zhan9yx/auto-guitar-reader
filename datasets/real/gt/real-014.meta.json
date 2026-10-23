@@ -1,0 +1,29 @@
+{
+ "id": "real-014",
+ "site": "jitabang",
+ "style": "x-pattern strum tab + jianpu + lyrics (high-note school beginner)",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left)",
+  "微信平台",
+  "淘宝网 Taobao.com",
+  "店铺 高音教 搜索 (taobao banner, bottom-left)",
+  "large translucent circular 高音教 logo watermark (center)",
+  "1 (page number)"
+ ],
+ "features": [
+  "16th x strum pattern",
+  "jianpu melody",
+  "lyrics",
+  "ties/slurs",
+  "arpeggiated up arrow (D, system 3)",
+  "quarter rest in tab"
+ ],
+ "uncertain": [
+  "jianpu rhythm subdivisions (8th/16th groupings) inferred from beam lines plus note spacing, esp. 3-note beats (s1m3 beat2, s2m2 beat2, s3m1, s4m3 beat1, s5 groups)",
+  "slur arcs between different pitches (e.g. s2m2 6->5, s4m2 6->6 octave, s3m3 6->6) recorded as tieToNext",
+  "lyric dot \"·\" glyphs interpreted as octave dots under 6 (s1m3, s3m3, s4m2, s4m3, s5m2)",
+  "s3m3 arpeggio arrow string span (s1-s5) estimated; trailing dash treated as beat-3 rest",
+  "tab m1 of system 1 only shows a rest dash (no events)"
+ ]
+}

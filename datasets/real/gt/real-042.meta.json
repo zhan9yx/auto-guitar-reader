@@ -1,0 +1,38 @@
+{
+ "id": "real-042",
+ "site": "unknown (Chinese amateur tab; 燎原乐队培训 watermark)",
+ "style": "fingerstyle 6/8 arpeggio tab + jianpu melody + 2-verse lyrics, no chord diagrams",
+ "pageNumber": null,
+ "watermarks": [
+  "燎原乐队培训 (large grey diagonal watermark, several places)",
+  "decorative floral flourish ornament top right"
+ ],
+ "features": [
+  "fingerpicking x",
+  "capo",
+  "6/8",
+  "hammer-on/pull-off/slide circles",
+  "triplet",
+  "arpeggio arrow",
+  "multi-verse",
+  "repeat",
+  "volta",
+  "segno",
+  "D.S.",
+  "Fine",
+  "tie"
+ ],
+ "uncertain": [
+  "all measures: timeSignature 6/8 encoded as beats=6 unit=8 with every measure beats=3 (quarter-note beat units, per GT_SPEC)",
+  "s2 m5 (成都 2nd row start): stray underlined '1' lyric glyph between notes merged into note1 lyric as '止1'; verse 2 extra char '是' merged as '忆是'",
+  "s4 m4->m5: jianpu dash at start of s4 m5 continues the held 1 of m4 across barline; encoded as a tied continuation note (degree 1, dur 1) in m5",
+  "s6 m7 G label beat position (between 2nd and 3rd tab notes) set to 0.25",
+  "s6 m5 long arc over 5 and dash not encoded (only 5.->5 tie); s6 m6->m7 5 tie encoded; s6 m7 -> s7 m1 incoming tie arc encoded",
+  "s7 m2: 'D.S.' printed in place of the first jianpu rest; encoded as three rests + mark D.S.",
+  "s7 m1: tab 3 duration/quarter rest sign positions (3 d=1, rest, 0 d=.5)",
+  "s8 m5: arpeggio arrow string span assumed s1-s4",
+  "s8 m4: sixteenth group 0.25 each assumed from double beam",
+  "volta numbering: s8 shows only I and III brackets",
+  "fullwidth exclamation/ellipsis forms in lyrics (哦！....)"
+ ]
+}

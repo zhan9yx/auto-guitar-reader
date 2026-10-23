@@ -1,0 +1,36 @@
+{
+ "id": "real-049",
+ "site": "jitabang",
+ "style": "laoyao fingerpicking x/digit tab + jianpu (from system 2) + chord diagrams, 4/4, capo 1",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left) with 扫码关注微信平台 观看示范演奏及教学",
+  "round logo top-right (cartoon guitarist, GUITAR 老姚吉他教室)",
+  "老姚吉他制谱",
+  "diagonal repeated LAOYAOGUITAR 老姚吉他 watermarks",
+  "large grey guitar-cat logo watermark in page centre",
+  "pink circle logo watermark (一音...版 OH YEAH LAOYAOGUITAR 老姚吉他)",
+  "page number 1"
+ ],
+ "features": [
+  "fingerpicking x",
+  "chord diagrams",
+  "capo",
+  "tie",
+  "hammer-on",
+  "slide",
+  "jianpu",
+  "single lyric verse",
+  "tab-only first system",
+  "chord names without diagram",
+  "stems with dotted duration"
+ ],
+ "uncertain": [
+  "key: header prints 原调:1=#C转D and 选调:1=C转#C; stored key C",
+  "chord diagrams have no x/o markers above nut; unprinted strings stored as fret 0 (open), so C stored [0,3,2,0,1,0], F [0,0,3,2,1,1], Am [0,0,2,2,1,0]",
+  "system4 m3/m4: a small unreadable glyph under the x on string 2 before 'H 3' (looks like a clipped digit below the x, string 3 region); the x before the hammer-on and that glyph are not encoded, only fret 3 hammerOn at beat 1",
+  "system1 m3 rest dash drawn between strings 3-4 treated as one beat rest",
+  "system1 m3 5/3 slide on string 2 encoded as 16th 5 then 16th 3 slideDown",
+  "jianpu tie arcs read from top arcs; slurs between different pitches not represented"
+ ]
+}
