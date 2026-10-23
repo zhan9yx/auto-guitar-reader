@@ -162,7 +162,10 @@ enum OMRPage {
         }
         var built: [BuiltSystem] = []
         for (si, st) in staves.enumerated() {
-            let bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image, contrast: contrast), bm: bm, bmLine: bmLine, staff: st)
+            var bars = recoverBarlines(OMRStaffDetector.barlines(bmLine, dark: bm, clean: clean, staff: st, gray: image, contrast: contrast), bm: bm, bmLine: bmLine, staff: st)
+            bars = OMRJianpuReader.chooseBars(tab: bars, gray: image, bitmap: bm, bmLine: bmLine, staff: st,
+                                                nextStaffTop: si + 1 < staves.count ? staves[si + 1].top : nil, ocr: ocr,
+                                                timeSignature: res.meta.timeSignature, contrast: contrast)
             if OMRTrace.flag("AGR_OMR_TRACE") {
                 FileHandle.standardError.write(Data(" staff y \(Int(st.top)) bars \(bars.count) x \(st.x0)-\(st.x1)\n".utf8))
             }
