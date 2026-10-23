@@ -359,9 +359,10 @@ enum OMRChordReader {
         for k in 0...n { lineYs.append(yTop + Double(k) * fAdj) }
 
         var rel = [Int](repeating: 0, count: 6)
+        var clearDot = [Bool](repeating: false, count: 6)
         var conf = 1.0
         for i in 0..<6 {
-            var hits: [(row: Int, wide: Bool)] = []
+            var hits: [(row: Int, clear: Bool)] = []
             let base = stringWidth(bm, x: xs[i], lineYs: lineYs, sp: sp)
             for j in 0..<n {
                 let yc = (lineYs[j] + lineYs[j + 1]) / 2
@@ -371,23 +372,23 @@ enum OMRChordReader {
                     for yy in Int(yc.rounded()) - 2...Int(yc.rounded()) + 2 { d += " \(rowSpan(bm, x: xs[i], y: yy, sp: sp))" }
                     FileHandle.standardError.write(Data("  dot s\(i) row\(j + 1) y \(yc) base \(base) spans\(d)\n".utf8))
                 }
-                if sc >= 0.9 {
-                    let wide = (Int(yc.rounded()) - 1...Int(yc.rounded()) + 1).contains { rowSpan(bm, x: xs[i], y: $0, sp: sp) >= 0.55 * sp }
-                    hits.append((j + 1, wide))
-                } else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
+                if sc >= 0.9 { hits.append((j + 1, isClearDot(bm, x: xs[i], y: yc, sp: sp, base: base))) }
+                else if sc >= 0.3 && sc < 0.9 { conf = min(conf, 0.5) }
             }
-            // A barre is the wide mark nearest the nut. A finger dot is narrow; keep the nut-side one
-            // only when it is that bar, otherwise the furthest dot (a finger below a thin false mark).
-            if let barre = hits.first(where: { $0.wide }) { rel[i] = barre.row }
-            else if let last = hits.last { rel[i] = last.row }
+            // The sounding fret is the mark furthest from the nut: a finger sits on top of a barre
+            // (F = [1,3,3,2,1,1]; Bm at base fret 2 = [-1,2,4,4,3,2]).
+            if let last = hits.last { rel[i] = last.row; clearDot[i] = last.clear }
         }
         let topEdge = min(yTop, Double(runs.first!.a)) - 1
         let markerBox = (a: topEdge - 1.45 * sp, b: topEdge - 1.5)
         for i in 0..<6 {
             let mk = markerKind(bm, gray: gray, x: xs[i], yA: markerBox.a, yB: markerBox.b, sp: sp)
-            // An O or X that bled into the first frets is the marker, not a finger.
-            if mk == .muted, rel[i] <= 2 { rel[i] = -1 }
-            else if mk == .open, rel[i] <= 2 { rel[i] = 0 }
+            // An O or X can bleed a few pixels into the first frets. That smear is the marker, not a finger;
+            // a mark that is a full dot inside the grid stays (a string is not both marked and fingered, but
+            // a false marker from text above must not erase a real fret).
+            if mk == .muted, rel[i] > 0, rel[i] <= 2, !clearDot[i] { rel[i] = -1 }
+            else if mk == .open, rel[i] > 0, rel[i] <= 2, !clearDot[i] { rel[i] = 0 }
+            else if mk == .muted, rel[i] == 0 { rel[i] = -1 }
         }
         let grid = IRect(x0: Int(xs[0] - 0.3 * sp), y0: Int(yTop), x1: Int(xs[5] + 0.3 * sp) + 1, y1: Int(yBot) + 1)
         var d = OMRChordDiagram(rect: IRect(x0: grid.x0, y0: Int(markerBox.a), x1: grid.x1, y1: grid.y1),
@@ -430,9 +431,25 @@ enum OMRChordReader {
         return max(1, spans[spans.count / 3])
     }
 
+    /// Ink span that counts as "wider than the plain string line".
+    static func dotNeed(sp: Double, base: Double) -> Double { max(2.5, base + max(1.5, 0.22 * sp)) }
+
+    /// A dot that is tall as well as wide: a run of at least `max(3, 0.45 sp)` rows around `y` all wider than the string.
+    /// A marker smear that bled over the nut is only a pixel or two tall.
+    static func isClearDot(_ bm: Bitmap, x: Double, y: Double, sp: Double, base: Double) -> Bool {
+        let need = dotNeed(sp: sp, base: base)
+        let yc = Int(y.rounded())
+        let reach = max(3, Int((0.45 * sp).rounded()))
+        var run = 0, best = 0
+        for yy in (yc - reach)...(yc + reach) {
+            if rowSpan(bm, x: x, y: yy, sp: sp) >= need { run += 1; best = max(best, run) } else { run = 0 }
+        }
+        return best >= reach
+    }
+
     /// 1 when a filled dot is centred near (x, y): ink span clearly wider than the string line in >= 2 of 3 rows.
     static func dotScore(_ bm: Bitmap, x: Double, y: Double, sp: Double, f: Double, base: Double) -> Double {
-        let need = max(2.5, base + max(1.5, 0.22 * sp))
+        let need = dotNeed(sp: sp, base: base)
         var best = 0.0
         let y0 = Int(y.rounded(.down))
         for c in (y0 - 1)...(y0 + 1) {
