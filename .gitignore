@@ -12,7 +12,8 @@ server/.venv/
 server/.pip-cache/
 server/tmp/
 .scratch/
-datasets/
+datasets/*
+!datasets/real/
 tools/omr-synth/.venv/
 tools/omr-synth/fonts/
 tools/omr-synth/out/

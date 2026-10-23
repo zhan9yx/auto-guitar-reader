@@ -1,0 +1,30 @@
+{
+ "id": "real-001",
+ "site": "jitabang",
+ "style": "fingerpicking x + strum arrows tab, jianpu, chord diagrams, tempo 100, 4/4, 1 verse",
+ "pageNumber": 1,
+ "watermarks": [
+  "page number 1"
+ ],
+ "features": [
+  "fingerpicking x",
+  "strum arrows",
+  "rolled arrows (wavy)",
+  "slide",
+  "tie",
+  "chord diagrams",
+  "tempo",
+  "jianpu accidental",
+  "sixteenth jianpu notes",
+  "intro rests"
+ ],
+ "uncertain": [
+  "s0l0 m4 beat 3: stacked 1 S 2 then 0 on strings 5-6 encoded as 16th f1, 16th f2 slideUp, 8th f0 (beam shows only 8th pair)",
+  "s0l1 m2, s0l2 m5: wavy down arrow assumed to span strings 1-5; grace note 4 before 5 (slide) not stored",
+  "s0l3 m4 and s0l2 m1: wavy up arrow assumed strings 1-5; s0l5 m3/m4/m5 first arrow assumed strings 2-5",
+  "small grace notes in jianpu (2 before 3 in s0l2 m4, s0l3 m5, s0l5 m3; 2 before 3 at s0l2 m4 end) not stored",
+  "s0l5 m5 to m6 arc ends at second note of m6 (not stored as tie); s0l5 m1 slur/tie arcs between 3 and 7 and incoming tie from s0l4 stored as tieToNext",
+  "double arcs across barlines (s0l1 m3-m4, s0l3 m1-m2, s0l4 m2-m3, s0l4 m4-m5) stored as single tieToNext",
+  "lyric glyph 尬 in s0l1 m1 (could be 尴)"
+ ]
+}

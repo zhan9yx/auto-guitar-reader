@@ -1,0 +1,25 @@
+{
+ "id": "real-015",
+ "site": "jitabang",
+ "style": "fingerstyle tab with rests + jianpu + lyrics, chord diagrams",
+ "pageNumber": null,
+ "watermarks": [],
+ "features": [
+  "capo",
+  "fingerpicking digits",
+  "hammer-on",
+  "rolled-chord up arrows",
+  "ties/slurs",
+  "jianpu grace notes (not encoded)",
+  "chord diagrams",
+  "double barline at start"
+ ],
+ "uncertain": [
+  "jianpu grace notes (small digits with hook before main note) not encoded (no model slot)",
+  "S1 C diagram prints a hollow circle above string 6 (recorded fret 0)",
+  "arrow string spans estimated from arrow head/tail y (s2m3 s2-s6, s3m1 s3-s5, s3m3 s4-s6, s4m3 s2-s6, s5m3 s1-s5)",
+  "s5m4 F measure: first strum x marks read as strings 1,2,4 (connector line s2-s4), later strums strings 1,2 and 3",
+  "slur arcs between different pitches recorded as tieToNext; tab same-fret ties encoded as technique tie",
+  "dash rests in tab produce no events (rest length not encoded)"
+ ]
+}

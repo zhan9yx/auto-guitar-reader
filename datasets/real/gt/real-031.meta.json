@@ -1,0 +1,34 @@
+{
+ "id": "real-031",
+ "site": "jitabang",
+ "style": "strum fingerpicking x tab (quarter/eighth x patterns) + jianpu + 2 chord diagram rows, 4/4, single verse",
+ "pageNumber": 1,
+ "watermarks": [
+  "第四季 吉他专家",
+  "吉他弹唱教学系列",
+  "微信公众号：吉他专家",
+  "微信：18692197214",
+  "QQ：2942957558",
+  "转载请注明出处篡改必究",
+  "page number 1",
+  "faint dotted marks near top-center (scan noise)",
+  "clipped black bar fragments at top-left corner (cropped text residue)"
+ ],
+ "features": [
+  "fingerpicking x",
+  "chord diagrams",
+  "multi-system",
+  "hammer-on",
+  "repeat",
+  "tie",
+  "lyrics",
+  "low-octave jianpu",
+  "intro rests"
+ ],
+ "uncertain": [
+  "sys1 m1 beat0 x on strings 1,2,3,5 (read as printed stack, string 4 line has connector only)",
+  "sys1 m2 beat0 (strings 1,3,4)",
+  "sys4 m2 jianpu 3(.. ) tie arcs 3->3->2 treated as tieToNext on both 3s",
+  "sys2/3 m2 slur 1->6 treated as tieToNext"
+ ]
+}

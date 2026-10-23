@@ -1,0 +1,35 @@
+{
+ "id": "real-045",
+ "site": "jitabang",
+ "style": "fingerpicking x-pattern tab (pick marks) + jianpu + chord diagrams, 4/4, capo 4, 1 lyric verse (wu vocalise then Chinese)",
+ "pageNumber": 1,
+ "watermarks": [
+  "QR code (top-left, two codes with 微 信 / 微信公众号 captions)",
+  "欢迎关注微信公众号：吉他专家 输入歌名即可获取吉他谱！",
+  "第五季 吉他专家",
+  "吉他弹唱教学系列",
+  "big grey diagonal-ish logo watermark 吉他专家 Guitar expert behind staves",
+  "求谱微信：18673066106 微信公众号：吉他专家 输入歌名获取吉他谱",
+  "page number 1"
+ ],
+ "features": [
+  "fingerpicking x",
+  "chord diagrams",
+  "capo",
+  "tie",
+  "slide",
+  "16th arpeggio ends",
+  "jianpu",
+  "single lyric verse",
+  "intro rests",
+  "cross-system ties"
+ ],
+ "uncertain": [
+  "tab '2 S 3' slide encoded as two 16th events (fret 2 then fret 3 slideUp) on beat 0 / beat 2 slot",
+  "last two 16ths '0 3'/'3 0' encoded as sequential 16th events (stems separate) not simultaneous",
+  "system5 m4 / sys3: slur arcs 3->2->1 encoded as tieToNext on 3 (end of sys5 m3) and on 2; final 6 of page has arc running off page edge, tieToNext set",
+  "tab tie arc (beat 1.5->2) encoded as technique tie on destination x",
+  "chord diagram shapes for later systems checked visually identical to system 1",
+  "sys2 m3 '0.' then '3' with double underline: 0 dotted-eighth 0.75 + 3 sixteenth 0.25"
+ ]
+}
