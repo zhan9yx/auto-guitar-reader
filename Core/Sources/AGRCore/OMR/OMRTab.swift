@@ -374,6 +374,7 @@ enum OMRTabAnalyzer {
             if OMRTrace.flag("OMR_DEBUG") { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
             var repairs: [String] = []
             repairBeamCounts(&slots, beats: beats, unitScale: unitScale, repairs: &repairs)
+            placeByPosition(&slots, beats: beats, repairs: &repairs)
             let restIdx = slots.indices.filter { slots[$0].ev == nil }
             let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
             if !restIdx.isEmpty {
@@ -388,6 +389,7 @@ enum OMRTabAnalyzer {
             var xs: [Double] = []
             var low: [Int] = []
             for sl in slots {
+                t += sl.lead
                 if let e = sl.ev {
                     var notes: [TabNote] = []
                     var stroke: Stroke? = nil
@@ -425,7 +427,36 @@ enum OMRTabAnalyzer {
     }
 
     struct Ev { var x: Double; var items: [Item]; var stem: Stem? }
-    struct Slot { var x: Double; var dur: Double; var ev: Ev? }
+    /// `lead`: beats of silence (an unprinted rest) before this slot, inferred from its x position.
+    struct Slot { var x: Double; var dur: Double; var ev: Ev?; var lead = 0.0 }
+
+    /// Event onsets from x positions. Printed spacing follows time, so a gap between two events much wider than the first
+    /// event's duration is an unprinted rest. The pixels-per-beat scale is the median of gap / duration over the bar; the
+    /// extra beats are rounded to the finest duration present. Only applied when the shifted bar still fits (otherwise the
+    /// duration sum is kept) and each insertion is reported.
+    static func placeByPosition(_ slots: inout [Slot], beats: Double, repairs: inout [String]) {
+        guard slots.count >= 3, slots.allSatisfy({ $0.ev != nil }) else { return }
+        var ratios: [Double] = []
+        for i in 0..<(slots.count - 1) where slots[i].dur > 0 { ratios.append((slots[i + 1].x - slots[i].x) / slots[i].dur) }
+        let sorted = ratios.sorted()
+        let scale = sorted[sorted.count / 2]
+        guard scale > 0, let g = slots.map(\.dur).min(), g > 0 else { return }
+        var leads = [Double](repeating: 0, count: slots.count)
+        var end = 0.0
+        for i in 0..<slots.count {
+            if i > 0 {
+                let extra = (slots[i].x - slots[i - 1].x) / scale - slots[i - 1].dur
+                let k = (extra / g).rounded()
+                if k >= 1, extra >= 0.7 * g { leads[i] = k * g }
+            }
+            end += leads[i] + slots[i].dur
+        }
+        guard leads.contains(where: { $0 > 0 }), end <= beats + 1e-6 else { return }
+        for i in leads.indices where leads[i] > 0 {
+            slots[i].lead = leads[i]
+            repairs.append("unprinted rest of \(leads[i]) beats inferred before the event at x=\(Int(slots[i].x)) from its position")
+        }
+    }
 
     /// A stem with two or more beams (or a dot) is the least reliable duration reading: a tie arc or a slur hung under the
     /// beam lies right beside the stem end and reads as extra beams. When a bar without rests does not add up, the smallest
