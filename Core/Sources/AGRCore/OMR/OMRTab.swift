@@ -338,15 +338,16 @@ enum OMRTabAnalyzer {
             let mRests = rests.filter { $0.cx >= rg.0 && $0.cx < rg.1 }
             var timeSig: (Int, Int)? = nil
             if mi == 0, stems.count >= 3, let fs = ms.first?.x {
+                // stacked numbers (bold ones touch each other) between the clef and the first stem
+                timeSig = OMRTimeSignatureReader.read(clean: clean, staff: st, limitX: fs - 0.5 * u, classifier: classifier)
                 var up = [Int](), lo = [Int]()
                 for it in mItems where it.x < fs - 0.5 * u {
                     if case .digit(let d) = it.kind, it.rect.h > Int(0.95 * u) { if it.rect.cy < st.top + 2.5 * u { up.append(d) } else { lo.append(d) } }
                 }
-                if up.count == 1 && lo.count == 1 { timeSig = (up[0], lo[0]) }
+                if timeSig == nil, up.count == 1 && lo.count == 1 { timeSig = (up[0], lo[0]) }
                 mItems = mItems.filter { $0.x >= fs - 0.5 * u }
             }
             // cluster to events
-            struct Ev { var x: Double; var items: [Item]; var stem: Stem? }
             var evs: [Ev] = []
             for g in mItems.sorted(by: { $0.x < $1.x }) {
                 var bestStem: Stem? = nil
@@ -359,7 +360,6 @@ enum OMRTabAnalyzer {
                 } else { evs.append(Ev(x: g.x, items: [g], stem: nil)) }
             }
             evs.sort { $0.x < $1.x }
-            struct Slot { var x: Double; var dur: Double; var ev: Ev? }
             var slots: [Slot] = []
             for e in evs {
                 var dur: Double
@@ -372,9 +372,10 @@ enum OMRTabAnalyzer {
             for r in mRests { slots.append(Slot(x: r.cx, dur: unitScale, ev: nil)) }
             slots.sort { $0.x < $1.x }
             if OMRTrace.flag("OMR_DEBUG") { FileHandle.standardError.write(Data("m\(mi) stems \(ms.map { "\(Int($0.x)):b\($0.beams)" }) slots \(slots.map { "\(Int($0.x)):\($0.dur)\($0.ev == nil ? "R" : "")" })\n".utf8)) }
+            var repairs: [String] = []
+            repairBeamCounts(&slots, beats: beats, unitScale: unitScale, repairs: &repairs)
             let restIdx = slots.indices.filter { slots[$0].ev == nil }
             let evSum = slots.filter { $0.ev != nil }.reduce(0) { $0 + $1.dur }
-            var repairs: [String] = []
             if !restIdx.isEmpty {
                 let remain = beats - evSum
                 if remain > 0 && abs(remain - Double(restIdx.count) * unitScale) > 1e-6 {
@@ -421,6 +422,45 @@ enum OMRTabAnalyzer {
             out.append(MeasureTab(x0: rg.0, x1: rg.1, events: events, eventX: xs, lowConfidence: low, beatSum: t, glyphs: mg, timeSig: timeSig.map { (beats: $0.0, unit: $0.1) }, repairs: repairs))
         }
         return out
+    }
+
+    struct Ev { var x: Double; var items: [Item]; var stem: Stem? }
+    struct Slot { var x: Double; var dur: Double; var ev: Ev? }
+
+    /// A stem with two or more beams (or a dot) is the least reliable duration reading: a tie arc or a slur hung under the
+    /// beam lies right beside the stem end and reads as extra beams. When a bar without rests does not add up, the smallest
+    /// set of such stems that makes it add up when read as plain eighths (one beam, undotted) is corrected and reported.
+    /// Ties between equally small sets prefer stems at the bar edges (where ties cross the barline), then the left-most.
+    static func repairBeamCounts(_ slots: inout [Slot], beats: Double, unitScale: Double, repairs: inout [String]) {
+        guard !slots.isEmpty, slots.allSatisfy({ $0.ev != nil }) else { return }
+        let eighth = 0.5 * unitScale
+        let sum = slots.reduce(0) { $0 + $1.dur }
+        guard abs(sum - beats) > 1e-6 else { return }
+        let cand = slots.indices.filter { i in
+            guard let s = slots[i].ev?.stem else { return false }
+            return (s.beams >= 2 || s.dotted) && abs(slots[i].dur - eighth) > 1e-9
+        }
+        guard !cand.isEmpty, cand.count <= 14 else { return }
+        var best: [Int]?
+        func edgeCost(_ c: [Int]) -> Int { c.filter { $0 != 0 && $0 != slots.count - 1 }.count }
+        func better(_ a: [Int], _ b: [Int]) -> Bool {
+            if a.count != b.count { return a.count < b.count }
+            if edgeCost(a) != edgeCost(b) { return edgeCost(a) < edgeCost(b) }
+            return a.lexicographicallyPrecedes(b)
+        }
+        func search(_ start: Int, _ chosen: [Int], _ delta: Double, _ size: Int) {
+            if chosen.count == size {
+                if abs(sum + delta - beats) < 1e-6, best == nil || better(chosen, best!) { best = chosen }
+                return
+            }
+            for k in start..<cand.count { search(k + 1, chosen + [cand[k]], delta + eighth - slots[cand[k]].dur, size) }
+        }
+        for size in 1...min(3, cand.count) { search(0, [], 0, size); if best != nil { break } }
+        guard let fix = best else { return }
+        for i in fix {
+            repairs.append("stem at x=\(Int(slots[i].x)) read as \(slots[i].dur) beats, set to \(eighth) so the bar adds up to \(beats)")
+            slots[i].dur = eighth
+        }
     }
 
     /// Two digits on the same string in the same event cluster (x gap < 0.9u) form one two-digit fret.
