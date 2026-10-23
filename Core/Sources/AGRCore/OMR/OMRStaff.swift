@@ -29,6 +29,8 @@ enum OMRStaffDetector {
     /// Finds six-line staves. Returns staves sorted top to bottom.
     static func detect(_ bm: Bitmap) -> [TabStaff] {
         let w = bm.w, h = bm.h
+        // The absolute pixel limits below (line thickness, plausible string spacing) are for a page about 1000 px wide.
+        let pageScale = Double(w) / 1000
         let minRun = max(24, w / 30)
         var rowSum = [Int](repeating: 0, count: h)
         var rowMin = [Int](repeating: Int.max, count: h)
@@ -82,7 +84,7 @@ enum OMRStaffDetector {
                     e += 1
                 }
                 let thick = last - y + 1
-                if thick <= 8 {
+                if thick <= Int((8 * max(1, pageScale)).rounded()) {
                     lines.append(L(y: wy / wsum, t: thick, x0: x0, x1: x1, ya: y, yb: last))
                 } else {
                     // A gray watermark keeps the gaps between strings above `thr`, so one staff
@@ -95,10 +97,10 @@ enum OMRStaffDetector {
             } else { y += 1 }
         }
         if OMRTrace.flag("OMR_DEBUG_STAFF") { FileHandle.standardError.write(Data("lines \(lines.map { String(format: "%.1f/%d", $0.y, $0.t) }) thr \(thr) maxSum \(maxSum) minRun \(minRun)\n".utf8)) }
-        // String spacing is the common small gap (typically 8–40 px). An equally spaced chain
+        // String spacing is the common small gap (typically 8–40 px on a 1000 px wide page, scaled with the width). An equally spaced chain
         // several times that gap is text and staff lines mixed together, not a tab staff.
         let gaps = (0..<max(0, lines.count - 1)).map { lines[$0 + 1].y - lines[$0].y }
-        let smallGaps = gaps.filter { $0 >= 8 && $0 <= 40 }
+        let smallGaps = gaps.filter { $0 >= max(4, 8 * pageScale) && $0 <= 40 * pageScale }
         var pitch: Double?
         if smallGaps.count >= 4 {
             var bestN = 0
