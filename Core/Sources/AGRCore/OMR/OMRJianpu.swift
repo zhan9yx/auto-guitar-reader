@@ -27,6 +27,8 @@ struct JianpuReadResult {
     var boundaries: [Double] = []
     /// Printed marks per tab measure (`jianpu-paren-open` / `jianpu-paren-close`), indexed like `bars`.
     var marks: [[String]] = []
+    /// Barlines of the jianpu row (x), only filled by a `barsOnly` probe.
+    var rowBars: [Double] = []
 }
 
 /// Numbered-notation (简谱) melody + lyrics reader for one tab system.
@@ -43,7 +45,7 @@ enum OMRJianpuReader {
 
     static func read(gray: GrayImage, bitmap bm: Bitmap, staff: TabStaff, nextStaffTop: Double?, bars: [BarlineStructure],
                      ocr: [OCRToken], timeSignature: TimeSignature, lineIndex: Int = 0, pageIndex: Int = 0,
-                     contrast: Double? = nil, classifier: JianpuClassifier = .shared) -> Result {
+                     contrast: Double? = nil, classifier: JianpuClassifier = .shared, barsOnly: Bool = false) -> Result {
         var measureCount = max(0, bars.count - 1)
         var res = Result(measures: [[MelodyNote]](repeating: [], count: measureCount), issues: [])
         guard measureCount > 0 else { return res }
@@ -141,7 +143,11 @@ enum OMRJianpuReader {
             // a deskewed barline is often 3px wide and a pixel short of the digit row; a stem is not this tall
             let thinW = max(3.5, 0.16 * Hd)
             let tallEnough = h >= 1.08 * Hd || (w <= thinW && overlap >= 0.85 * Hd)
-            if overlap >= 0.6 * Hd && h / max(w, 0.5) >= 5 && h <= 6 * u && w <= 0.3 * Hd && tallEnough && Double(c.area) >= 0.72 * w * h { barXs.append(r.cx) }
+            if overlap >= 0.6 * Hd && h / max(w, 0.5) >= 5 && h <= 6 * u && w <= 0.3 * Hd && tallEnough && Double(c.area) >= min(0.72 * w * h, 0.85 * h) { barXs.append(r.cx) }
+        }
+        if barsOnly {
+            res.rowBars = clusterRowBars(barXs, tabCenters: bars.map { $0.cx }, staff: staff, u: u)
+            return res
         }
         let barSet = barXs
         for c in lab.comps {
@@ -514,17 +520,8 @@ enum OMRJianpuReader {
         // ---- measures + beats
         // Measure boundaries: the jianpu row's own barlines (clustered); tab barlines are only a fallback because
         // strum arrows / stems can look like barlines in the tab.
-        var jb: [Double] = []
-        for x in barXs.sorted() {
-            if let l = jb.last, x - l <= 1.0 * u { jb[jb.count - 1] = (l + x) / 2 } else { jb.append(x) }
-        }
         let tabCenters = bars.map { $0.cx }
-        let edgeL = min(tabCenters.first!, Double(staff.x0)), edgeR = max(tabCenters.last!, Double(staff.x1) - 1)
-        jb = jb.filter { $0 >= edgeL - 1.5 * u && $0 <= edgeR + 1.5 * u }
-        if !jb.isEmpty {
-            if abs(jb.first! - edgeL) > 1.5 * u { jb.insert(edgeL, at: 0) }
-            if abs(jb.last! - edgeR) > 1.5 * u { jb.append(edgeR) }
-        }
+        var jb = clusterRowBars(barXs, tabCenters: tabCenters, staff: staff, u: u)
         // one missed jianpu barline doubles a gap; take the single tab bar that splits that gap
         if jb.count >= 3 {
             var gaps: [Double] = []
@@ -642,6 +639,85 @@ enum OMRJianpuReader {
         res.marks = markLists
         res.notes = notes
         return res
+    }
+
+
+    /// Clusters the jianpu row's barline candidates and snaps the ends to the staff edges.
+    static func clusterRowBars(_ barXs: [Double], tabCenters: [Double], staff: TabStaff, u: Double) -> [Double] {
+        var jb: [Double] = []
+        for x in barXs.sorted() {
+            if let l = jb.last, x - l <= 1.0 * u { jb[jb.count - 1] = (l + x) / 2 } else { jb.append(x) }
+        }
+        let edgeL = min(tabCenters.first!, Double(staff.x0)), edgeR = max(tabCenters.last!, Double(staff.x1) - 1)
+        jb = jb.filter { $0 >= edgeL - 1.5 * u && $0 <= edgeR + 1.5 * u }
+        if !jb.isEmpty {
+            if abs(jb.first! - edgeL) > 1.5 * u { jb.insert(edgeL, at: 0) }
+            if abs(jb.last! - edgeR) > 1.5 * u { jb.append(edgeR) }
+        }
+        return jb
+    }
+
+    /// The jianpu row is printed in the same measure columns as the tab, and the tab reader errs both ways: it
+    /// misses a barline next to a strum shaft and it takes a shaft for a barline. When the jianpu row's barlines
+    /// differ from the tab's, three barline sets are tried (tab, tab plus the row's extras, the row's own) and the
+    /// one under which most measures of the melody add up to the time signature wins; ties keep the tab.
+    /// A barline taken from the row must also be a near-full-height stroke across the tab staff.
+    static func chooseBars(tab: [BarlineStructure], gray: GrayImage, bitmap: Bitmap, bmLine: Bitmap, staff: TabStaff, nextStaffTop: Double?,
+                           ocr: [OCRToken], timeSignature: TimeSignature, contrast: Double?) -> [BarlineStructure] {
+        guard tab.count >= 2 else { return tab }
+        let probe = read(gray: gray, bitmap: bitmap, staff: staff, nextStaffTop: nextStaffTop, bars: tab, ocr: ocr,
+                         timeSignature: timeSignature, contrast: contrast, barsOnly: true)
+        let u = staff.u
+        let lo = tab.first!.cx + 2 * u, hi = tab.last!.cx - 2 * u
+        let y0 = Int(staff.top.rounded()) + 2, y1 = Int(staff.bottom.rounded()) - 2
+        guard y1 > y0 else { return tab }
+        func fullHeight(_ x: Double) -> Bool {
+            for c in Int(x.rounded()) - 2...Int(x.rounded()) + 2 where c >= 0 && c < bmLine.w {
+                var n = 0, gap = 0, maxGap = 0
+                for y in y0...y1 where y >= 0 && y < bmLine.h {
+                    if bmLine.d[y * bmLine.w + c] != 0 { n += 1; maxGap = max(maxGap, gap); gap = 0 } else { gap += 1 }
+                }
+                maxGap = max(maxGap, gap)
+                if Double(n) >= 0.9 * Double(y1 - y0 + 1) && maxGap <= 2 { return true }
+            }
+            return false
+        }
+        let interiorTab = tab.filter { $0.cx >= lo && $0.cx <= hi }
+        var extras: [BarlineStructure] = []        // row barlines the tab lacks
+        var rowMatched: [BarlineStructure] = []    // tab barlines the row confirms
+        for x in probe.rowBars where x > lo && x < hi {
+            if let t = interiorTab.first(where: { abs($0.cx - x) <= 1.2 * u }) { rowMatched.append(t); continue }
+            guard fullHeight(x) else { continue }
+            let xi = Int(x.rounded())
+            extras.append(BarlineStructure(x0: xi - 1, x1: xi + 1, kind: .single, xAfter: Double(xi + 1), xBefore: Double(xi - 1)))
+        }
+        let tabOnly = interiorTab.filter { t in !rowMatched.contains { abs($0.cx - t.cx) < 0.5 } }
+        if extras.isEmpty && tabOnly.isEmpty { return tab }
+        func build(_ interior: [BarlineStructure]) -> [BarlineStructure] {
+            ([tab.first!] + interior.sorted { $0.cx < $1.cx } + [tab.last!])
+        }
+        let cands: [(String, [BarlineStructure])] = [
+            ("tab", tab),
+            ("tab+row", build(interiorTab + extras)),
+            ("row", build(rowMatched + extras)),
+        ]
+        func fullMeasures(_ bars: [BarlineStructure]) -> Int {
+            let r = read(gray: gray, bitmap: bitmap, staff: staff, nextStaffTop: nextStaffTop, bars: bars, ocr: ocr,
+                         timeSignature: timeSignature, contrast: contrast)
+            var n = 0
+            for m in r.measures where !m.isEmpty {
+                if abs(m.reduce(0) { $0 + $1.duration } - Double(timeSignature.beats)) < 1e-6 { n += 1 }
+            }
+            return n
+        }
+        var best = 0, bestScore = -1
+        for (i, c) in cands.enumerated() {
+            if i > 0 && c.1.count == cands[0].1.count && c.1.map({ $0.x0 }) == cands[0].1.map({ $0.x0 }) { continue }
+            let sc = fullMeasures(c.1)
+            if OMRTrace.flag("AGR_JP_DEBUG") { print("   chooseBars \(c.0) bars \(c.1.map { Int($0.cx) }) full \(sc)") }
+            if sc > bestScore { best = i; bestScore = sc }
+        }
+        return cands[best].1
     }
 
     /// Column indices (inside the glyph bitmap) at which a merged glyph is split into `parts` pieces.
