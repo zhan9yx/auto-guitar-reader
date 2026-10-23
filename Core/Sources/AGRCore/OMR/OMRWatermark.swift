@@ -2,8 +2,10 @@ import Foundation
 
 // MARK: - Watermark / non-score content
 //
-// (a) text: `OMRWatermark.isNonScoreText` classifies OCR tokens (URLs, 微信/公众号/扫码/淘宝/QQ/版权 phrases, page numbers,
-//     text outside the system / header band, text repeated on other pages, huge diagonal watermark boxes).
+// (a) text: `OMRWatermark.isNonScoreText` classifies OCR tokens. Strong signals (URLs, QR overlap, phone / QQ numbers,
+//     huge diagonal boxes) apply everywhere. Weak ones (微信/公众号/扫码/淘宝/版权 phrases, page numbers, text repeated on other
+//     pages, text outside the music) only apply to tokens OUTSIDE every system band: inside a system's vertical band
+//     (chord names, jianpu, lyric rows) a phrase substring is far more likely a lyric than an ad.
 // (b) pixels: `OMRWatermark.clean` removes pale / semi-transparent / wide-stroke overlays and QR codes from the image
 //     while keeping the thin black notation (see OMRWatermarkPixels.swift).
 
@@ -51,11 +53,21 @@ public struct OMRTextContext: Sendable {
     public var lastSystemBottom: Double?
     /// Normalised texts (see `OMRWatermark.key`) that occur on other pages as well.
     public var repeatedElsewhere: Set<String> = []
+    /// Vertical extent (pixels) of every system: from the top of its chord-name band down through its lyric rows.
+    /// A token centred in one of these is music or lyrics and can only be removed by a strong signal.
+    public var systemBands: [ClosedRange<Double>] = []
+    /// QR-code boxes found on the page (pixels).
+    public var qrRects: [OMRPixelBox] = []
     public init() {}
 }
 
+public struct OMRPixelBox: Sendable, Equatable {
+    public var x0: Double, y0: Double, x1: Double, y1: Double
+    public init(x0: Double, y0: Double, x1: Double, y1: Double) { self.x0 = x0; self.y0 = y0; self.x1 = x1; self.y1 = y1 }
+}
+
 public enum OMRNonScoreReason: String, Sendable {
-    case url, phrase, phoneNumber, pageNumber, outsideSystems, repeated, hugeBox, pageHeader
+    case url, phrase, phoneNumber, pageNumber, outsideSystems, repeated, hugeBox, pageHeader, qrCode
 }
 
 public enum OMRWatermark {
@@ -68,7 +80,37 @@ public enum OMRWatermark {
         "输入歌名", "回复歌名", "教学视频", "加入我们", "在线交流", "哔哩", "优酷", "抖音", "微博", "网易云", "订购", "答疑",
         "吉他专家", "谱集", "音乐是一种生活方式", "是一种生活方式", "专业教师", "老师在线", "视频教学", "视频课程", "扫码关注", "原创制谱", "学习交流", "仅供学习", "商业用途", "请支持", "下载", "关注我",
     ]
-    static let latinPhrases = ["wechat", "weixin", "taobao", "tmall", "bilibili", "youtube", "tiktok", "scan", "follow", "copyright", "©", "all rights"]
+    /// Matched as whole words only ("scan" must not hit "scandal"). Bare "scan" / "follow" are ordinary English
+    /// (titles, lyrics), so only their call-to-action forms are listed.
+    static let latinPhrases = ["wechat", "weixin", "taobao", "tmall", "bilibili", "youtube", "tiktok", "scan qr", "scan to", "scan the", "scan me",
+                               "follow us", "follow our", "copyright", "©", "all rights"]
+
+    /// True when `phrase` occurs in `text` with no ASCII letter or digit directly before or after it.
+    static func containsWord(_ text: String, _ phrase: String) -> Bool {
+        var from = text.startIndex
+        while let r = text.range(of: phrase, range: from..<text.endIndex) {
+            let before = r.lowerBound == text.startIndex ? nil : text[text.index(before: r.lowerBound)]
+            let after = r.upperBound == text.endIndex ? nil : text[r.upperBound]
+            func word(_ c: Character?) -> Bool { c.map { $0.isASCII && ($0.isLetter || $0.isNumber) } ?? false }
+            if !word(before) && !word(after) { return true }
+            from = r.upperBound
+        }
+        return false
+    }
+
+    /// Vertical band of each system, top to bottom: the chord-name band above the staff (10.5u, the chord reader's reach)
+    /// down to the next system's chord band, and for the last system 12u below the staff (jianpu + lyric rows, the same
+    /// extent `lastSystemBottom` uses) plus the 3.5u margin the `outsideSystems` rule leaves. Bands do not overlap.
+    static func systemBands(staves: [TabStaff]) -> [ClosedRange<Double>] {
+        var out: [ClosedRange<Double>] = []
+        for (i, st) in staves.enumerated() {
+            let top = i == 0 ? st.top - 10.5 * st.u : out[i - 1].upperBound
+            var bottom = st.bottom + 15.5 * st.u
+            if i + 1 < staves.count { bottom = max(st.bottom, staves[i + 1].top - 10.5 * staves[i + 1].u) }
+            out.append(min(top, st.top)...max(bottom, st.bottom))
+        }
+        return out
+    }
 
     /// Normalised comparison key for repeated-text detection.
     public static func key(_ s: String) -> String {
@@ -92,19 +134,27 @@ public enum OMRWatermark {
         let cy = (token.y + token.height / 2) * H, cx = (token.x + token.width / 2) * W
         let h = token.height * H
         _ = cx
+        // Inside a system's band (chord names, jianpu, lyrics) only strong signals may remove a token.
+        let inSystem = c.systemBands.contains { $0.contains(cy) }
 
+        // ---- strong signals: valid anywhere
         if Rx.test(urlRx, t) { return .url }
+        let tx0 = token.x * W, tx1 = (token.x + token.width) * W, ty0 = token.y * H, ty1 = (token.y + token.height) * H
+        if c.qrRects.contains(where: { max($0.x0, tx0) < min($0.x1, tx1) && max($0.y0, ty0) < min($0.y1, ty1) }) { return .qrCode }
         let compact = t.filter { !$0.isWhitespace && $0 != "-" }
         // phone / QQ numbers (jianpu rows are digit strings too, but only use 0...7)
         if Rx.test(#"^1[3-9]\d{9}$"#, compact) && compact.contains(where: { $0 == "8" || $0 == "9" }) { return .phoneNumber }
         if Rx.test(#"(?i)(微信|wx|qq|电话|tel|手机)\s*[:：]?\s*\d{5,}"#, t) { return .phoneNumber }
-        for p in phrases where t.contains(p) { return .phrase }
-        for p in latinPhrases where tl.contains(p) { return .phrase }
         if Rx.test(#"(?i)^\s*(qq|q\.q\.)\s*[:：]?\s*\d{5,}"#, t) { return .phoneNumber }
+        // ---- weak signals: header, footer and margins only
+        if !inSystem {
+            for p in phrases where t.contains(p) { return .phrase }
+            for p in latinPhrases where containsWord(tl, p) { return .phrase }
+        }
 
         // page numbers: bare numbers in the outer margins, "第1页", "Page 1", "1/2", "- 1 -"
         let pageRx = #"(?i)^\s*(?:第\s*\d{1,3}\s*页|page\s*\d{1,3}|p\.?\s*\d{1,3}|页码\s*[:：]?\s*\d{1,3}|[-–—~]?\s*\d{1,3}\s*[-–—~]?|\d{1,3}\s*/\s*\d{1,3}|\d{1,3}\s*of\s*\d{1,3})\s*$"#
-        if Rx.test(pageRx, t) {
+        if !inSystem, Rx.test(pageRx, t) {
             let nearBottom = cy > 0.9 * H
             let nearTop = cy < 0.035 * H
             if nearBottom || nearTop { return .pageNumber }
@@ -118,11 +168,11 @@ public enum OMRWatermark {
         // rotated watermark text produces huge boxes
         if h > 9 * c.staffSpacing && token.width * W > 5 * c.staffSpacing { return .hugeBox }
         // page header repeated from page 2 on: "title - artist" in a thin strip at the very top
-        if c.pageIndex > 0, cy < 0.09 * H, (c.firstSystemTop.map { $0 - cy > 6 * c.staffSpacing } ?? true), !Rx.test(#"[=:：]"#, t),
+        if !inSystem, c.pageIndex > 0, cy < 0.09 * H, (c.firstSystemTop.map { $0 - cy > 6 * c.staffSpacing } ?? true), !Rx.test(#"[=:：]"#, t),
            let g = Rx.firstMatch(#"^(.{1,30}?)\s?[-–—]\s?(.{1,30})$"#, in: t), (g[1] ?? "").filter({ $0.isLetter }).count >= 2, (g[2] ?? "").filter({ $0.isLetter }).count >= 2 { return .pageHeader }
         // outside the music: below the last system (footers, banners)
-        if let b = c.lastSystemBottom, cy > max(b + 3.5 * c.staffSpacing, 0.86 * H), !looksLikeChordOrDigits(raw) { return .outsideSystems }
-        if c.repeatedElsewhere.contains(key(raw)), !looksLikeChordOrDigits(raw), raw.count >= 3 { return .repeated }
+        if !inSystem, let b = c.lastSystemBottom, cy > max(b + 3.5 * c.staffSpacing, 0.86 * H), !looksLikeChordOrDigits(raw) { return .outsideSystems }
+        if !inSystem, c.repeatedElsewhere.contains(key(raw)), !looksLikeChordOrDigits(raw), raw.count >= 3 { return .repeated }
         return nil
     }
 

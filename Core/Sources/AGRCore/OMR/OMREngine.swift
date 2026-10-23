@@ -81,6 +81,9 @@ enum OMRPage {
             bm = OMRDeskew.rotate(bm, slope: slope)
             bmLine = OMRDeskew.rotate(bmLine, slope: slope)
         }
+        // QR codes are solid-ish blobs; find them before the blob pass erases them.
+        let qrRects = options.removeWatermarkText && !ocr.isEmpty
+            ? OMRWatermark.detectQR(bm).map { OMRPixelBox(x0: Double($0.x0), y0: Double($0.y0), x1: Double($0.x1), y1: Double($0.y1)) } : []
         OMRVision.removeSolidBlobs(&bm)
         OMRVision.removeSolidBlobs(&bmLine)
         let staves = OMRStaffDetector.detect(bmLine)
@@ -152,6 +155,8 @@ enum OMRPage {
         ctx.staffSpacing = staves[0].u
         ctx.firstSystemTop = staves[0].top
         ctx.lastSystemBottom = staves.last.map { $0.bottom + 12 * $0.u }
+        ctx.systemBands = OMRWatermark.systemBands(staves: staves)
+        ctx.qrRects = qrRects
         var kept: [OCRToken] = []
         if options.removeWatermarkText {
             for t in ocr {
