@@ -65,4 +65,32 @@ final class OMRHeaderTests: XCTestCase {
         XCTAssertEqual(r.meta.title, "七里香")
         XCTAssertEqual(r.meta.credits, ["编配：木头吉他屋"])
     }
+
+    func testTuningLineIsNotTheArtist() {
+        let r = read([tok("才二十三", 0.44, 0.03, 0.12, 0.03), tok("Standard tuning", 0.44, 0.07, 0.12, 0.018)])
+        XCTAssertEqual(r.meta.title, "才二十三")
+        XCTAssertNil(r.meta.artist)
+    }
+
+    func testSeriesBannerIsNotATitle() {
+        let r = read([tok("吉他弹唱教学系列", 0.4, 0.01, 0.2, 0.011)])
+        XCTAssertEqual(r.meta.title, "")
+    }
+
+    func testSourceNoteIsCreditNotArtist() {
+        let r = read([tok("轨迹", 0.45, 0.03, 0.1, 0.04), tok("（“寻找周杰伦”电影主题曲）", 0.4, 0.09, 0.2, 0.017),
+                      tok("演唱：周杰伦", 0.1, 0.14, 0.14, 0.017)])
+        XCTAssertEqual(r.meta.title, "轨迹")
+        XCTAssertEqual(r.meta.artist, "周杰伦")
+        XCTAssertTrue(r.meta.credits.contains("（“寻找周杰伦”电影主题曲）"))
+    }
+
+    func testLargeHorizontalTitleSurvivesWatermarkFilter() {
+        // 2 big characters: box width / height ≈ 2 (horizontal text), not a rotated watermark
+        var c = OMRTextContext(); c.pageWidth = 1000; c.pageHeight = 1400; c.staffSpacing = 8
+        let big = tok("轨迹", 0.55, 0.055, 0.2, 0.067)
+        XCTAssertNil(OMRWatermark.isNonScoreText(big, context: c))
+        let rotated = tok("轨迹", 0.3, 0.2, 0.09, 0.067)
+        XCTAssertEqual(OMRWatermark.isNonScoreText(rotated, context: c), .hugeBox)
+    }
 }

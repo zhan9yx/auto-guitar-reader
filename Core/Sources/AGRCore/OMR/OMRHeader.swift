@@ -52,6 +52,7 @@ public enum OMRHeaderReader {
         var priorityKey = -1
         var titleCandidates: [Int] = []
         var creditRows: [Int] = []
+        var sourceRows: [Int] = []
         var metaRows = Set<Int>()
         var timeFromText: (Int, Int)?
         var capoShapeKey: String?
@@ -114,7 +115,8 @@ public enum OMRHeaderReader {
             // printed header lines too (GT credits); a bare "1=G" / "♩=76" / "4/4" is not.
             let proseMeta = Rx.test(#"(?i)(变调夹|原调|选调|capo)"#, T) && !Rx.test(#"^(?i)(capo[:：=]?\d{0,2}|变调夹[:：=]?\d{0,2}品?)$"#, T)
             let sourceNote = Rx.test(#"(电影|电视剧|动画|主题曲|插曲|片尾曲|片头曲|主题歌|改编自)"#, T) && T.count <= 30
-            if Rx.test("(?i)" + creditRx, r.folded) || Rx.test("(?i)" + creditRx, Trow) || Rx.test(#"(词曲|编\s*配|制\s*谱)\s*$"#, T) || proseMeta || sourceNote { creditRows.append(i); isMeta = true }
+            if Rx.test("(?i)" + creditRx, r.folded) || Rx.test("(?i)" + creditRx, Trow) || Rx.test(#"(词曲|编\s*配|制\s*谱)\s*$"#, T) || proseMeta { creditRows.append(i); isMeta = true }
+            if !isMeta, sourceNote { sourceRows.append(i) }
             if isMeta { metaRows.insert(i) }
             else if !SectionHeaderParser.isSectionLabel(r.folded), !looksLikeChordRow(r.tokens), OMRChordReader.cleanName(T) == nil || T.count > 6 { titleCandidates.append(i) }
         }
@@ -171,8 +173,10 @@ public enum OMRHeaderReader {
             let tall = region.filter { rs[$0].h >= 0.85 * hmax }
             return tall.min(by: { (rs[$0].cy, $0) < (rs[$1].cy, $1) }) ?? best
         }
+        var titleRow: Int?, artistRow: Int?
         if let ti = pickTitle() {
             let r = rs[ti]
+            titleRow = ti
             var title = cleanTitle(r.text)
             var artist: String?
             for sep in [" - ", " – ", " — ", "—"] {
@@ -185,7 +189,7 @@ public enum OMRHeaderReader {
             if let a = artist { res.meta.artist = a; res.found.insert("artist") }
             else if let ai = region.filter({ rs[$0].cy > r.cy && rs[$0].cy - r.cy < 4.0 * r.h && rs[$0].h <= 0.95 * r.h }).min(by: { rs[$0].cy < rs[$1].cy }) {
                 let a = cleanTitle(rs[ai].text)
-                if a.count <= 40 { res.meta.artist = a; res.found.insert("artist") }
+                if a.count <= 40, !looksLikeNonArtist(a) { res.meta.artist = a; res.found.insert("artist"); artistRow = ai }
             }
         }
         // labelled artist overrides a line picked up under the title (演唱 / 原唱 / 歌手)
@@ -195,6 +199,11 @@ public enum OMRHeaderReader {
                 if let j = continuation[i] { v = spacedNames(v + " " + rs[j].text.agrTrimmed) }
                 if !v.isEmpty { res.meta.artist = v; res.found.insert("artist"); break }
             }
+        }
+        // "《…》电影主题曲"-style source notes are credits unless they are the title / artist line themselves
+        for i in sourceRows where i != titleRow && !(i == artistRow && res.meta.artist == cleanTitle(rs[i].text)) && region.contains(i) {
+            let t = rs[i].text.agrTrimmed
+            if !res.meta.credits.contains(t) { res.meta.credits.append(t) }
         }
         for i in creditRows {
             var t = rs[i].text.agrTrimmed
@@ -275,6 +284,11 @@ public enum OMRHeaderReader {
             if looksLikeChordRow([t]) { return false }
             return true
         }
+    }
+
+    /// Lines under a title that describe the tab, not the singer ("Standard tuning", "古典吉他", "吉他谱").
+    static func looksLikeNonArtist(_ s: String) -> Bool {
+        Rx.test(#"(?i)(tuning|capo|drop\s?[a-g]|吉他|指弹|指法|教学|教程|简谱|六线|版$|调弦|调$|\d+\s*bpm)"#, ChordNameNormalizer.foldWidth(s))
     }
 
     /// Restores the spaces OCR drops inside Latin name lists: "CareyMulligan/StarkSands" -> "Carey Mulligan / Stark Sands".
