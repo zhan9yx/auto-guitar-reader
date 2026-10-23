@@ -94,8 +94,6 @@ public enum OMRWatermark {
         _ = cx
 
         if Rx.test(urlRx, t) { return .url }
-        // Site logos sit in a thin strip above the title. Titles in this set start lower.
-        if cy < 0.034 * H, token.width > 0.10 { return .outsideSystems }
         let compact = t.filter { !$0.isWhitespace && $0 != "-" }
         // phone / QQ numbers (jianpu rows are digit strings too, but only use 0...7)
         if Rx.test(#"^1[3-9]\d{9}$"#, compact) && compact.contains(where: { $0 == "8" || $0 == "9" }) { return .phoneNumber }
